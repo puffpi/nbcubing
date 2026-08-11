@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宁波 WCA 魔方数据库</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --primary-hover: #3a0ca3;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2b2d42;
+            --text-muted: #8d99ae;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px; 
+            max-width: 900px; 
+            margin: auto; 
+            line-height: 1.6;
+        }
+
+        h1, h2 { text-align: center; color: var(--text-main); }
+        
+        /* 页面容器基础设置 */
+        .page-container { display: none; animation: fadeIn 0.4s ease; }
+        .page-container.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .btn:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(67, 97, 238, 0.3); }
+        .btn-outline { background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+        .btn-outline:hover { background-color: var(--primary-color); color: white; }
+
+        .home-menu { display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 40px auto; }
+        .home-menu .btn { padding: 20px; font-size: 18px; }
+        .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        
+        select { 
+            padding: 10px 16px; 
+            font-size: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #dee2e6; 
+            background-color: #f8f9fa;
+            cursor: pointer;
+            outline: none;
+            transition: var(--transition);
+        }
+        select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+        th, td { padding: 14px 16px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+        th { background-color: #f8f9fa; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; }
+        th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
+        tr:hover td { background-color: #f8fcfd; }
+        tr:last-child td { border-bottom: none; }
+        
+        .highlight-score { font-weight: 700; color: #e63946; font-size: 1.1em; }
+        .record-holder { font-weight: bold; color: var(--primary-color); }
+        
+        #global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="global-loading">
+        <div class="spinner"></div>
+        <div>正在从 WCA 数据库拉取并计算宁波魔友成绩，请稍候...</div>
+    </div>
+
+    <!-- 修复了这里：去掉了导致页面空白的 style="display: none;" -->
+    <div id="home-page" class="page-container card">
+        <h1>宁波 WCA 魔方数据库</h1>
+        <p style="text-align: center; color: #8d99ae;">选择你想要查看的功能</p>
+        <div class="home-menu">
+            <button class="btn" onclick="navigateTo('ranking-page')">📊 宁波魔方成绩排行榜</button>
+            <button class="btn" onclick="navigateTo('records-page'); generateRecords();">👑 宁波 WCA 纪录榜</button>
+        </div>
+    </div>
+
+    <div id="ranking-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="navigateTo('home-page')">← 返回主页</button>
+            <h2>成绩排行榜</h2>
+            <div style="width: 100px;"></div> 
+        </div>
+
+        <div class="card">
+            <div class="controls">
+                <label>选择项目：
+                    <select id="event-select" onchange="updateRanking()">
+                        <option value="333" selected>三阶 (3x3x3)</option>
+                        <option value="222">二阶 (2x2x2)</option>
+                        <option value="444">四阶 (4x4x4)</option>
+                        <option value="555">五阶 (5x5x5)</option>
+                        <option value="666">六阶 (6x6x6)</option>
+                        <option value="777">七阶 (7x7x7)</option>
+                        <option value="333bf">三盲 (3x3x3 Blindfolded)</option>
+                        <option value="333fm">最少步 (3x3x3 Fewest Moves)</option>
+                        <option value="333oh">单手 (3x3x3 One-Handed)</option>
+                        <option value="clock">魔表 (Clock)</option>
+                        <option value="minx">五魔方 (Megaminx)</option>
+                        <option value="pyram">金字塔 (Pyraminx)</option>
+                        <option value="skewb">斜转 (Skewb)</option>
+                        <option value="sq1">SQ1 (Square-1)</option>
+                        <option value="444bf">四盲 (4x4x4 Blindfolded)</option>
+                        <option value="555bf">五盲 (5x5x5 Blindfolded)</option>
+                        <option value="333mbf">多盲 (3x3x3 Multi-Blind)</option>
+                    </select>
+                </label>
+
+                <label>选择类型：
+                    <select id="type-select" onchange="updateRanking()">
+                        <option value="single">单次 (Single)</option>
+                        <option value="average">平均 (Average)</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>姓名</th>
+                            <th>成绩</th>
+                            <th>国家排名 (NR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="records-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="navigateTo('home-page')">← 返回主页</button>
+            <h2>👑 WCA 宁波纪录</h2>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>类型</th>
+                            <th>纪录保持者</th>
+                            <th>成绩</th>
+                            <th>国家排名 (NR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 你已经更新好的 32 人名单
+        const rosterIds = [
+            '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02', 
+            '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08', 
+            '2026QIAN04', '2025HUAN11', '2025JIAN23', '2025WANB01', 
+            '2018ZHAX04', '2018SUNK01', '2024WANG52', '2025QING03', 
+            '2023CHEJ12', '2023CHEN30', '2018ZHAJ16', '2016HEZH01', 
+            '2018WANZ50', '2011HUAN10', '2018SHAO02', '2017DONG13', 
+            '2015CAIT01', '2017YANY06', '2021HUAN17', '2015ZHUJ05', 
+            '2018ZHUH05', '2017ZHUY03', '2014CHEN33', '2018WANH29'
+        ];
+
+        const eventDict = [
+            { id: '333', name: '三阶' }, { id: '222', name: '二阶' }, 
+            { id: '444', name: '四阶' }, { id: '555', name: '五阶' }, 
+            { id: '666', name: '六阶' }, { id: '777', name: '七阶' }, 
+            { id: '333bf', name: '三盲' }, { id: '333fm', name: '最少步' }, 
+            { id: '333oh', name: '单手' }, { id: 'clock', name: '魔表' }, 
+            { id: 'minx', name: '五魔方' }, { id: 'pyram', name: '金字塔' }, 
+            { id: 'skewb', name: '斜转' }, { id: 'sq1', name: 'SQ1' }, 
+            { id: '444bf', name: '四盲' }, { id: '555bf', name: '五盲' }, 
+            { id: '333mbf', name: '多盲' }
+        ];
+
+        let allCubersData = [];
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page-container').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        async function fetchAllData() {
+            try {
+                // 升级点：给数据请求加上了安全网，即便某个ID写错了也不会卡死网页
+                const promises = rosterIds.map(id => 
+                    fetch(`https://www.worldcubeassociation.org/api/v0/persons/${id}`)
+                        .then(res => {
+                            if (!res.ok) return null; // 如果查询不到这个人，直接返回空，不让程序崩溃
+                            return res.json();
+                        })
+                        .catch(err => null) // 防止断网等意外情况
+                );
+                
+                allCubersData = await Promise.all(promises);
+                
+                document.getElementById('global-loading').style.display = 'none';
+                navigateTo('home-page');
+                updateRanking();
+            } catch (error) {
+                document.getElementById('global-loading').innerHTML = '<span style="color:red;">数据加载失败，请检查网络！</span>';
+            }
+        }
+
+        function formatWcaResult(rawScore, eventId, type) {
+            if (eventId === '333fm') {
+                if (type === 'single') return rawScore + ' 步';
+                if (type === 'average') return (rawScore / 100).toFixed(2) + ' 步';
+            }
+            if (eventId === '333mbf') {
+                const missed = rawScore % 100;
+                const timeSeconds = Math.floor((rawScore % 10000000) / 100);
+                const difference = 99 - Math.floor(rawScore / 10000000);
+                const solved = difference + missed;
+                const attempted = solved + missed;
+                const hours = Math.floor(timeSeconds / 3600);
+                const mins = Math.floor((timeSeconds % 3600) / 60);
+                const secs = timeSeconds % 60;
+                const padMins = mins.toString().padStart(2, '0');
+                const padSecs = secs.toString().padStart(2, '0');
+                let timeStr = hours > 0 ? `${hours}:${padMins}:${padSecs}` : `${mins}:${padSecs}`;
+                return `${solved}/${attempted} &nbsp;&nbsp;(${timeStr})`;
+            }
+
+            const totalSeconds = Math.floor(rawScore / 100);
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            const cents = rawScore % 100;
+            const padSecs = secs.toString().padStart(2, '0');
+            const padCents = cents.toString().padStart(2, '0');
+            
+            if (mins > 0) return `${mins}:${padSecs}.${padCents}`;
+            return `${totalSeconds}.${padCents}`;
+        }
+
+        function updateRanking() {
+            const currentEvent = document.getElementById('event-select').value;
+            const currentType = document.getElementById('type-select').value;
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = ''; 
+
+            let validResults = [];
+            allCubersData.forEach(cuber => {
+                // 升级点：安全拦截。如果获取到的数据无效，直接跳过计算这个人
+                if (!cuber || !cuber.personal_records) return; 
+
+                const records = cuber.personal_records;
+                if (records[currentEvent] && records[currentEvent][currentType]) {
+                    validResults.push({
+                        name: cuber.person.name,
+                        bestRaw: records[currentEvent][currentType].best, 
+                        nr: records[currentEvent][currentType].country_rank 
+                    });
+                }
+            });
+
+            if (validResults.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">暂无该项目的成绩数据</td></tr>';
+                return;
+            }
+
+            validResults.sort((a, b) => a.bestRaw - b.bestRaw);
+
+            validResults.forEach((result, index) => {
+                let displayTime = formatWcaResult(result.bestRaw, currentEvent, currentType); 
+                let rankDisplay = index + 1;
+                if(rankDisplay === 1) rankDisplay = '🥇 1';
+                if(rankDisplay === 2) rankDisplay = '🥈 2';
+                if(rankDisplay === 3) rankDisplay = '🥉 3';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${rankDisplay}</td>
+                    <td>${result.name}</td>
+                    <td class="highlight-score">${displayTime}</td>
+                    <td>NR ${result.nr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function generateRecords() {
+            const tbody = document.getElementById('records-tbody');
+            tbody.innerHTML = '';
+
+            const types = [{id: 'single', label: '单次'}, {id: 'average', label: '平均'}];
+
+            eventDict.forEach(ev => {
+                types.forEach(type => {
+                    let bestRecord = null;
+
+                    allCubersData.forEach(cuber => {
+                        // 升级点：安全拦截
+                        if (!cuber || !cuber.personal_records) return; 
+
+                        const records = cuber.personal_records;
+                        if (records[ev.id] && records[ev.id][type.id]) {
+                            const score = records[ev.id][type.id].best;
+                            if (!bestRecord || score < bestRecord.rawScore) {
+                                bestRecord = {
+                                    name: cuber.person.name,
+                                    rawScore: score,
+                                    nr: records[ev.id][type.id].country_rank
+                                };
+                            }
+                        }
+                    });
+
+                    if (bestRecord) {
+                        let displayTime = formatWcaResult(bestRecord.rawScore, ev.id, type.id);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${ev.name}</td>
+                            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">${type.label}</span></td>
+                            <td class="record-holder">${bestRecord.name}</td>
+                            <td class="highlight-score">${displayTime}</td>
+                            <td>NR ${bestRecord.nr}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                });
+            });
+        }
+
+        fetchAllData();
+
+    </script>
+</body>
+</html>
