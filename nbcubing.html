@@ -21,14 +21,13 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             padding: 20px; 
-            max-width: 900px; 
+            max-width: 1100px; 
             margin: auto; 
             line-height: 1.6;
         }
 
         h1, h2 { text-align: center; color: var(--text-main); }
         
-        /* 页面容器基础设置 */
         .page-container { display: none; animation: fadeIn 0.4s ease; }
         .page-container.active { display: block; }
 
@@ -78,17 +77,44 @@
         }
         select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
 
-        .table-responsive { overflow-x: auto; }
+        .table-responsive { overflow-x: auto; padding-bottom: 5px; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
-        th, td { padding: 14px 16px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+        th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; }
         th { background-color: #f8f9fa; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; }
         th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
-        tr:hover td { background-color: #f8fcfd; }
+        
+        tbody tr {
+            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease;
+        }
+        
+        /* 修复悬浮抖动问题：将 scale 放大改为 translateY 向上微浮动，不改变行宽度 */
+        tbody tr:hover { 
+            background-color: #f8fcfd;
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+            position: relative; 
+            z-index: 10;
+        }
         tr:last-child td { border-bottom: none; }
         
-        .highlight-score { font-weight: 700; color: #e63946; font-size: 1.1em; }
+        .highlight-score { font-weight: 700; color: #2563eb; font-size: 1.1em; }
         .record-holder { font-weight: bold; color: var(--primary-color); }
         
+        .rank-top100 { 
+            color: #059669; 
+            font-weight: 800;
+        }
+
+        .clickable-name {
+            cursor: pointer;
+            color: var(--primary-color);
+            transition: var(--transition);
+        }
+        .clickable-name:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
         #global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -101,7 +127,6 @@
         <div>正在从 WCA 数据库拉取并计算宁波魔友成绩，请稍候...</div>
     </div>
 
-    <!-- 修复了这里：去掉了导致页面空白的 style="display: none;" -->
     <div id="home-page" class="page-container card">
         <h1>宁波 WCA 魔方数据库</h1>
         <p style="text-align: center; color: #8d99ae;">选择你想要查看的功能</p>
@@ -158,6 +183,8 @@
                             <th>姓名</th>
                             <th>成绩</th>
                             <th>国家排名 (NR)</th>
+                            <th>洲排名 (CR)</th>
+                            <th>世界排名 (WR)</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -170,7 +197,7 @@
     <div id="records-page" class="page-container">
         <div class="header-controls">
             <button class="btn btn-outline" onclick="navigateTo('home-page')">← 返回主页</button>
-            <h2>👑 WCA 宁波纪录</h2>
+            <h2>WCA 宁波纪录</h2>
             <div style="width: 100px;"></div>
         </div>
 
@@ -184,6 +211,10 @@
                             <th>纪录保持者</th>
                             <th>成绩</th>
                             <th>国家排名 (NR)</th>
+                            <th>洲排名 (CR)</th>
+                            <th>世界排名 (WR)</th>
+                            <th>比赛</th>
+                            <th>日期</th>
                         </tr>
                     </thead>
                     <tbody id="records-tbody">
@@ -193,17 +224,75 @@
         </div>
     </div>
 
+    <div id="person-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 id="person-title-name" style="margin-bottom: 0;">选手姓名</h2>
+                <div id="person-title-wcaid" style="color: var(--text-muted); font-size: 16px; margin-top: 4px; font-weight: 500;">WCA ID</div>
+            </div>
+            <div style="width: 130px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>类型</th>
+                            <th>成绩</th>
+                            <th>国家排名 (NR)</th>
+                            <th>洲排名 (CR)</th>
+                            <th>世界排名 (WR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="person-tbody">
+                        <!-- 个人成绩将通过 JS 动态插入 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // 你已经更新好的 32 人名单
         const rosterIds = [
-            '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02', 
-            '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08', 
-            '2026QIAN04', '2025HUAN11', '2025JIAN23', '2025WANB01', 
-            '2018ZHAX04', '2018SUNK01', '2024WANG52', '2025QING03', 
-            '2023CHEJ12', '2023CHEN30', '2018ZHAJ16', '2016HEZH01', 
-            '2018WANZ50', '2011HUAN10', '2018SHAO02', '2017DONG13', 
-            '2015CAIT01', '2017YANY06', '2021HUAN17', '2015ZHUJ05', 
-            '2018ZHUH05', '2017ZHUY03', '2014CHEN33', '2018WANH29'
+            '2024GUOC01', // 郭畅
+            '2024FENG08', // 冯海栋
+            '2023WANY03', // 王宇航
+            '2018WANH02', // 王浩 (🐴浩)
+            '2016WUJI01', // 吴嘉顺
+            '2018HUAN49', // 黄海陶鲲
+            '2019ZHOU88', // 周稼宁
+            '2025CHEJ08', // 陈家淯
+            '2026QIAN04', // (无特定昵称)
+            '2025HUAN11', // 黄创辉
+            '2025JIAN23', // 蒋凯
+            '2025WANB01', // 王炳杰
+            '2018ZHAX04', // 章学威
+            '2018SUNK01', // 孙凯霖
+            '2024WANG52', // 王炎杰
+            '2025QING03', // 卿顺
+            '2023CHEJ12', // 陈家悦
+            '2023CHEN30', // 陈震
+            '2018ZHAJ16', // 张嘉阳
+            '2016HEZH01', // 何章元
+            '2018WANZ50', // 王子兴
+            '2011HUAN10', // 黄斌
+            '2018SHAO02', // 邵振洋
+            '2017DONG13', // 董毋小
+            '2015CAIT01', // 蔡天威
+            '2017YANY06', // 严勇杰
+            '2021HUAN17', // 黄国鹏
+            '2015ZHUJ05', // 朱嘉辉
+            '2018ZHUH05', // 朱泓同
+            '2017ZHUY03', // 朱云奇
+            '2014CHEN33', // 陈昊
+            '2018WANH29', // 王海宁
+            '2021WENZ02', // 闻哲宸
+            '2026DING03', // 丁艺
+            '2017PANL01', // 潘理杰
+            '2014LITI01', // 李田立
         ];
 
         const eventDict = [
@@ -219,24 +308,148 @@
         ];
 
         let allCubersData = [];
+        
+        let historyStack = [];
 
-        function navigateTo(pageId) {
+        function navigateTo(pageId, isForward = false) {
+            const currentPage = document.querySelector('.page-container.active');
+            
+            if (isForward && currentPage) {
+                historyStack.push({ id: currentPage.id, scrollY: window.scrollY });
+            } else if (!isForward) {
+                historyStack = [];
+            }
+
             document.querySelectorAll('.page-container').forEach(page => {
                 page.classList.remove('active');
             });
             document.getElementById(pageId).classList.add('active');
+
+            if (isForward || !isForward) {
+                window.scrollTo(0, 0);
+            }
+        }
+
+        function goBack() {
+            if (historyStack.length > 0) {
+                const prevState = historyStack.pop(); 
+                
+                document.querySelectorAll('.page-container').forEach(page => {
+                    page.classList.remove('active');
+                });
+                document.getElementById(prevState.id).classList.add('active');
+                
+                setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
+            } else {
+                navigateTo('home-page');
+            }
+        }
+
+        function showPerson(wcaId) {
+            const cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
+            if (!cuber) return;
+
+            document.getElementById('person-title-name').innerText = cuber.person.name;
+            document.getElementById('person-title-wcaid').innerText = `(${wcaId})`;
+            
+            const tbody = document.getElementById('person-tbody');
+            tbody.innerHTML = '';
+
+            const records = cuber.personal_records;
+            const iso2 = cuber.person.country_iso2;
+            const crPrefix = getContinentRankPrefix(iso2);
+
+            eventDict.forEach(ev => {
+                if (records[ev.id]) {
+                    const single = records[ev.id].single;
+                    const average = records[ev.id].average;
+
+                    if (single || average) {
+                        let isFirstRow = true; 
+
+                        if (single) {
+                            let singleTime = formatWcaResult(single.best, ev.id, 'single');
+                            let singleNR = formatRank(single.country_rank, 'NR');
+                            let singleCR = formatRank(single.continent_rank, crPrefix);
+                            let singleWR = formatRank(single.world_rank, 'WR');
+
+                            const trSingle = document.createElement('tr');
+                            trSingle.innerHTML = `
+                                <td style="font-weight:bold;">${isFirstRow ? ev.name : ''}</td>
+                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">单次</span></td>
+                                <td class="highlight-score">${singleTime}</td>
+                                <td>${singleNR}</td>
+                                <td>${singleCR}</td>
+                                <td>${singleWR}</td>
+                            `;
+                            tbody.appendChild(trSingle);
+                            isFirstRow = false;
+                        }
+
+                        if (average) {
+                            let avgTime = formatWcaResult(average.best, ev.id, 'average');
+                            let avgNR = formatRank(average.country_rank, 'NR');
+                            let avgCR = formatRank(average.continent_rank, crPrefix);
+                            let avgWR = formatRank(average.world_rank, 'WR');
+
+                            const trAvg = document.createElement('tr');
+                            trAvg.innerHTML = `
+                                <td style="font-weight:bold;">${isFirstRow ? ev.name : ''}</td>
+                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">平均</span></td>
+                                <td class="highlight-score">${avgTime}</td>
+                                <td>${avgNR}</td>
+                                <td>${avgCR}</td>
+                                <td>${avgWR}</td>
+                            `;
+                            tbody.appendChild(trAvg);
+                            isFirstRow = false;
+                        }
+                    }
+                }
+            });
+
+            navigateTo('person-page', true);
+        }
+
+        function getContinentRankPrefix(iso2) {
+            if (!iso2) return 'CR';
+            
+            const asianCountries = ['CN', 'JP', 'KR', 'TW', 'HK', 'MO', 'IN', 'ID', 'PH', 'MY', 'SG', 'VN', 'TH', 'KZ', 'UZ'];
+            const europeanCountries = ['GB', 'FR', 'DE', 'IT', 'ES', 'PL', 'NL', 'SE', 'NO', 'FI', 'DK', 'RU', 'UA', 'CH'];
+            const northAmericanCountries = ['US', 'CA', 'MX'];
+            const southAmericanCountries = ['BR', 'AR', 'CL', 'CO', 'PE'];
+            const oceaniaCountries = ['AU', 'NZ'];
+            const africanCountries = ['ZA', 'EG', 'MA', 'NG'];
+
+            if (asianCountries.includes(iso2)) return 'AsR';
+            if (europeanCountries.includes(iso2)) return 'ER';
+            if (northAmericanCountries.includes(iso2)) return 'NAR';
+            if (southAmericanCountries.includes(iso2)) return 'SAR';
+            if (oceaniaCountries.includes(iso2)) return 'OcR';
+            if (africanCountries.includes(iso2)) return 'AfR';
+            
+            return 'CR';
+        }
+
+        function formatRank(rankValue, prefix) {
+            if (!rankValue) return '-';
+            const displayStr = `${prefix} ${rankValue}`;
+            
+            if (rankValue <= 100) {
+                return `<span class="rank-top100">${displayStr}</span>`;
+            }
+            return displayStr;
         }
 
         async function fetchAllData() {
             try {
-                // 升级点：给数据请求加上了安全网，即便某个ID写错了也不会卡死网页
                 const promises = rosterIds.map(id => 
                     fetch(`https://www.worldcubeassociation.org/api/v0/persons/${id}`)
                         .then(res => {
-                            if (!res.ok) return null; // 如果查询不到这个人，直接返回空，不让程序崩溃
+                            if (!res.ok) return null; 
                             return res.json();
                         })
-                        .catch(err => null) // 防止断网等意外情况
+                        .catch(err => null) 
                 );
                 
                 allCubersData = await Promise.all(promises);
@@ -288,21 +501,24 @@
 
             let validResults = [];
             allCubersData.forEach(cuber => {
-                // 升级点：安全拦截。如果获取到的数据无效，直接跳过计算这个人
                 if (!cuber || !cuber.personal_records) return; 
 
                 const records = cuber.personal_records;
                 if (records[currentEvent] && records[currentEvent][currentType]) {
                     validResults.push({
                         name: cuber.person.name,
+                        wcaId: cuber.person.wca_id,
+                        iso2: cuber.person.country_iso2,
                         bestRaw: records[currentEvent][currentType].best, 
-                        nr: records[currentEvent][currentType].country_rank 
+                        nr: records[currentEvent][currentType].country_rank,
+                        cr: records[currentEvent][currentType].continent_rank,
+                        wr: records[currentEvent][currentType].world_rank
                     });
                 }
             });
 
             if (validResults.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4">暂无该项目的成绩数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6">暂无该项目的成绩数据</td></tr>';
                 return;
             }
 
@@ -315,12 +531,16 @@
                 if(rankDisplay === 2) rankDisplay = '🥈 2';
                 if(rankDisplay === 3) rankDisplay = '🥉 3';
 
+                let crPrefix = getContinentRankPrefix(result.iso2);
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${rankDisplay}</td>
-                    <td>${result.name}</td>
+                    <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${result.name}</td>
                     <td class="highlight-score">${displayTime}</td>
-                    <td>NR ${result.nr}</td>
+                    <td>${formatRank(result.nr, 'NR')}</td>
+                    <td>${formatRank(result.cr, crPrefix)}</td>
+                    <td>${formatRank(result.wr, 'WR')}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -337,7 +557,6 @@
                     let bestRecord = null;
 
                     allCubersData.forEach(cuber => {
-                        // 升级点：安全拦截
                         if (!cuber || !cuber.personal_records) return; 
 
                         const records = cuber.personal_records;
@@ -346,8 +565,12 @@
                             if (!bestRecord || score < bestRecord.rawScore) {
                                 bestRecord = {
                                     name: cuber.person.name,
+                                    wcaId: cuber.person.wca_id,
+                                    iso2: cuber.person.country_iso2, 
                                     rawScore: score,
-                                    nr: records[ev.id][type.id].country_rank
+                                    nr: records[ev.id][type.id].country_rank,
+                                    cr: records[ev.id][type.id].continent_rank,
+                                    wr: records[ev.id][type.id].world_rank
                                 };
                             }
                         }
@@ -355,18 +578,54 @@
 
                     if (bestRecord) {
                         let displayTime = formatWcaResult(bestRecord.rawScore, ev.id, type.id);
+                        let crPrefix = getContinentRankPrefix(bestRecord.iso2);
+                        
+                        let displayEventName = (type.id === 'single') ? ev.name : '';
+
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${ev.name}</td>
+                            <td>${displayEventName}</td>
                             <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">${type.label}</span></td>
-                            <td class="record-holder">${bestRecord.name}</td>
+                            <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${bestRecord.name}</td>
                             <td class="highlight-score">${displayTime}</td>
-                            <td>NR ${bestRecord.nr}</td>
+                            <td>${formatRank(bestRecord.nr, 'NR')}</td>
+                            <td>${formatRank(bestRecord.cr, crPrefix)}</td>
+                            <td>${formatRank(bestRecord.wr, 'WR')}</td>
+                            <td style="color:#adb5bd; font-size:0.9em;">-</td>
+                            <td style="color:#adb5bd; font-size:0.9em;">-</td>
                         `;
                         tbody.appendChild(tr);
                     }
                 });
             });
+
+            const trSorSingle = document.createElement('tr');
+            trSorSingle.innerHTML = `
+                <td>全项目综合排名</td>
+                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">单次</span></td>
+                <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">Kailin Sun (孙凯霖)</td>
+                <td class="highlight-score">5278</td>
+                <td>${formatRank(67, 'NR')}</td>
+                <td>${formatRank(267, 'AsR')}</td>
+                <td>${formatRank(1531, 'WR')}</td>
+                <td style="color:#adb5bd; font-size:0.9em;">-</td>
+                <td style="font-size:0.95em;">2023-07-16</td>
+            `;
+            tbody.appendChild(trSorSingle);
+
+            const trSorAvg = document.createElement('tr');
+            trSorAvg.innerHTML = `
+                <td></td>
+                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">平均</span></td>
+                <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">Chang Guo (郭畅)</td>
+                <td class="highlight-score">5163</td>
+                <td>${formatRank(70, 'NR')}</td>
+                <td>${formatRank(291, 'AsR')}</td>
+                <td>${formatRank(1495, 'WR')}</td>
+                <td style="color:#adb5bd; font-size:0.9em;">-</td>
+                <td style="font-size:0.95em;">2026-06-08</td>
+            `;
+            tbody.appendChild(trSorAvg);
         }
 
         fetchAllData();
