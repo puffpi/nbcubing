@@ -87,7 +87,6 @@
             transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease;
         }
         
-        /* 修复悬浮抖动问题：将 scale 放大改为 translateY 向上微浮动，不改变行宽度 */
         tbody tr:hover { 
             background-color: #f8fcfd;
             transform: translateY(-2px); 
@@ -115,6 +114,22 @@
             text-decoration: underline;
         }
 
+        .pk-inputs-container { display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .pk-input { padding: 12px 16px; font-size: 16px; border-radius: 8px; border: 1px solid #dee2e6; flex: 1; min-width: 200px; outline: none; transition: var(--transition); text-align: center; }
+        .pk-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+        .pk-vs { font-size: 24px; font-weight: 900; color: #e63946; font-style: italic; }
+        
+        .pk-score-board { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px; }
+        .pk-score-item { text-align: center; width: 33%; }
+        .pk-score-name { font-size: 16px; color: var(--text-main); margin-bottom: 5px; font-weight: bold; }
+        .pk-score-value { font-size: 48px; font-weight: 900; line-height: 1; }
+        .pk-score-value.win { color: #059669; }
+        .pk-score-value.lose { color: #e63946; }
+        .pk-score-value.tie { color: #2563eb; }
+        
+        .pk-cell-win { font-weight: bold; color: #059669; background-color: #ecfdf5 !important; }
+        .pk-cell-tie { font-weight: bold; color: #d97706; }
+
         #global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -127,12 +142,21 @@
         <div>正在从 WCA 数据库拉取并计算宁波魔友成绩，请稍候...</div>
     </div>
 
+    <div id="pk-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+        <div class="card" style="width: 320px; max-width: 90%; margin: 0; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top:0; text-align:center;">请选择选手 (<span id="pk-modal-side"></span>)</h3>
+            <div id="pk-modal-list" style="display:flex; flex-direction:column; gap:10px; overflow-y: auto; padding-right: 5px;"></div>
+            <button id="pk-modal-cancel" class="btn btn-outline" style="margin-top:15px; width:100%">取消</button>
+        </div>
+    </div>
+
     <div id="home-page" class="page-container card">
         <h1>宁波 WCA 魔方数据库</h1>
         <p style="text-align: center; color: #8d99ae;">选择你想要查看的功能</p>
         <div class="home-menu">
             <button class="btn" onclick="navigateTo('ranking-page')">📊 宁波魔方成绩排行榜</button>
             <button class="btn" onclick="navigateTo('records-page'); generateRecords();">👑 宁波 WCA 纪录榜</button>
+            <button class="btn" style="background-color: #e63946;" onclick="navigateTo('pk-page')">⚔️ 选手成绩 PK</button>
         </div>
     </div>
 
@@ -224,6 +248,59 @@
         </div>
     </div>
 
+    <div id="pk-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">成绩 PK</h2>
+                <!-- 新增：非宁波魔友输入提示 -->
+                <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">宁波魔友请输入中文名，非宁波魔友请输入 WCA ID</div>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="pk-inputs-container">
+                <input type="text" id="pk-input-a" class="pk-input" placeholder="输入选手A (姓名 或 WCAID)">
+                <div class="pk-vs">VS</div>
+                <input type="text" id="pk-input-b" class="pk-input" placeholder="输入选手B (姓名 或 WCAID)">
+            </div>
+            <div style="text-align: center;">
+                <button class="btn" style="background-color: #e63946;" onclick="preparePK()">🔥 开始对比</button>
+            </div>
+        </div>
+
+        <div class="card" id="pk-result-card" style="display:none;">
+            <div class="pk-score-board">
+                <div class="pk-score-item">
+                    <div class="pk-score-name" id="pk-board-name-a">选手A</div>
+                    <div class="pk-score-value" id="pk-board-score-a">0</div>
+                </div>
+                <div class="pk-score-item" style="font-size: 18px; font-weight: bold; color: var(--text-muted);">
+                    总比分
+                </div>
+                <div class="pk-score-item">
+                    <div class="pk-score-name" id="pk-board-name-b">选手B</div>
+                    <div class="pk-score-value" id="pk-board-score-b">0</div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="pk-table-name-a" style="width: 35%">选手A</th>
+                            <th style="width: 30%">比赛项目</th>
+                            <th id="pk-table-name-b" style="width: 35%">选手B</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pk-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div id="person-page" class="page-container">
         <div class="header-controls">
             <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
@@ -248,7 +325,6 @@
                         </tr>
                     </thead>
                     <tbody id="person-tbody">
-                        <!-- 个人成绩将通过 JS 动态插入 -->
                     </tbody>
                 </table>
             </div>
@@ -257,42 +333,29 @@
 
     <script>
         const rosterIds = [
-            '2024GUOC01', // 郭畅
-            '2024FENG08', // 冯海栋
-            '2023WANY03', // 王宇航
-            '2018WANH02', // 王浩 (🐴浩)
-            '2016WUJI01', // 吴嘉顺
-            '2018HUAN49', // 黄海陶鲲
-            '2019ZHOU88', // 周稼宁
-            '2025CHEJ08', // 陈家淯
-            '2026QIAN04', // (无特定昵称)
-            '2025HUAN11', // 黄创辉
-            '2025JIAN23', // 蒋凯
-            '2025WANB01', // 王炳杰
-            '2018ZHAX04', // 章学威
-            '2018SUNK01', // 孙凯霖
-            '2024WANG52', // 王炎杰
-            '2025QING03', // 卿顺
-            '2023CHEJ12', // 陈家悦
-            '2023CHEN30', // 陈震
-            '2018ZHAJ16', // 张嘉阳
-            '2016HEZH01', // 何章元
-            '2018WANZ50', // 王子兴
-            '2011HUAN10', // 黄斌
-            '2018SHAO02', // 邵振洋
-            '2017DONG13', // 董毋小
-            '2015CAIT01', // 蔡天威
-            '2017YANY06', // 严勇杰
-            '2021HUAN17', // 黄国鹏
-            '2015ZHUJ05', // 朱嘉辉
-            '2018ZHUH05', // 朱泓同
-            '2017ZHUY03', // 朱云奇
-            '2014CHEN33', // 陈昊
-            '2018WANH29', // 王海宁
-            '2021WENZ02', // 闻哲宸
-            '2026DING03', // 丁艺
-            '2017PANL01', // 潘理杰
-            '2014LITI01', // 李田立
+            // === 之前已存在的魔友 ===
+            '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02', 
+            '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08', 
+            '2026QIAN04', '2025HUAN11', '2025JIAN23', '2025WANB01', 
+            '2018ZHAX04', '2018SUNK01', '2024WANG52', '2025QING03', 
+            '2023CHEJ12', '2023CHEN30', '2018ZHAJ16', '2016HEZH01', 
+            '2018WANZ50', '2011HUAN10', '2018SHAO02', '2017DONG13', 
+            '2015CAIT01', '2017YANY06', '2021HUAN17', '2015ZHUJ05', 
+            '2018ZHUH05', '2017ZHUY03', '2014CHEN33', '2018WANH29', 
+            '2021WENZ02', '2026DING03', '2017PANL01', '2014LITI01',
+            // === 本次从表格新导入的魔友 ===
+            '2009FENG07', '2011YANX02', '2016ZHOU21', '2016ZHOU16', 
+            '2015LINX02', '2018GUOZ07', '2018ZHAO61', '2018WANG12', 
+            '2018GOUS01', '2018XIEN01', '2018XUSH07', '2018QIZI01', 
+            '2018LIHA15', '2018ZHAO59', '2018SHIY09', '2018LINY10', 
+            '2018ZOUZ02', '2018ZHAO62', '2017ZHOU10', '2015LIJI05', 
+            '2011FANG03', '2019CHEQ01', '2026JIAN17', '2016HEJI02', 
+            '2015FUYU01', '2026ZHEN08', '2025CHEN46', '2025SHEN26', 
+            '2025QIHA02', '2025HUAY04', '2024XULI01', '2025LIZH05', 
+            '2025WANG45', '2019CHEY56', '2019CHEN92', '2014ZHUC01', 
+            '2025LOUJ01', '2019GUAN18', '2024GUAN02', '2025WUBO02', 
+            '2024LUOK01', '2025ZHEN27', '2025SHEN27', '2025LICH03', 
+            '2025ZHAZ11', '2026ZHAN79'
         ];
 
         const eventDict = [
@@ -308,8 +371,20 @@
         ];
 
         let allCubersData = [];
-        
         let historyStack = [];
+
+        // ==========================================
+        // 新增核心工具：全局名字翻转
+        // 将 "Chang Guo (郭畅)" 翻转为 "郭畅 (Chang Guo)"
+        // ==========================================
+        function formatName(rawName) {
+            if (!rawName) return '';
+            const match = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+            if (match) {
+                return `${match[2]} (${match[1]})`;
+            }
+            return rawName; // 若无括号则保持原样
+        }
 
         function navigateTo(pageId, isForward = false) {
             const currentPage = document.querySelector('.page-container.active');
@@ -345,11 +420,178 @@
             }
         }
 
+        async function preparePK() {
+            document.getElementById('pk-result-card').style.display = 'none';
+            const valA = document.getElementById('pk-input-a').value.trim();
+            const valB = document.getElementById('pk-input-b').value.trim();
+
+            if (!valA || !valB) {
+                alert('请在两边都输入想要对战的选手姓名或 WCA ID！');
+                return;
+            }
+
+            const playerA = await resolvePlayerAsync(valA, '左边选手A');
+            if (!playerA) return;
+            
+            const playerB = await resolvePlayerAsync(valB, '右边选手B');
+            if (!playerB) return;
+
+            renderPK(playerA, playerB);
+        }
+
+        async function resolvePlayerAsync(input, sideLabel) {
+            let exact = allCubersData.find(c => c && c.person && c.person.wca_id.toUpperCase() === input.toUpperCase());
+            if (exact) return exact;
+
+            // 检查输入是否为中文名或是WCA ID的一部分
+            let matches = allCubersData.filter(c => c && c.person && 
+                (c.person.name.toLowerCase().includes(input.toLowerCase()) || 
+                 c.person.wca_id.toUpperCase().includes(input.toUpperCase()))
+            );
+
+            if (matches.length === 1) {
+                return matches[0];
+            }
+
+            if (matches.length > 1) {
+                return await showSelectionModal(matches, sideLabel);
+            }
+
+            // 如果本地没有找到，检查输入的是不是规范的 WCA ID
+            if (/^\d{4}[A-Z]{4}\d{2}$/i.test(input)) {
+                try {
+                    document.getElementById('global-loading').style.display = 'flex';
+                    let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${input.toUpperCase()}`);
+                    if (!res.ok) throw new Error();
+                    let data = await res.json();
+                    document.getElementById('global-loading').style.display = 'none';
+                    return data;
+                } catch(err) {
+                    document.getElementById('global-loading').style.display = 'none';
+                    alert(`在 WCA 官方数据库中未找到 ID 为 [${input}] 的选手！`);
+                    return null;
+                }
+            }
+
+            // 如果不是 WCA ID，且本地查无此人，弹出提示
+            alert(`未在宁波魔友库找到名为 [${input}] 的选手！\n\n如果您想查询非宁波魔友，请务必输入他完整的 WCA ID（例如 2015ZHAO04）。`);
+            return null;
+        }
+
+        function showSelectionModal(matches, sideLabel) {
+            return new Promise((resolve) => {
+                document.getElementById('pk-modal-side').innerText = sideLabel;
+                const list = document.getElementById('pk-modal-list');
+                list.innerHTML = '';
+                
+                matches.forEach(m => {
+                    let btn = document.createElement('button');
+                    btn.className = 'btn btn-outline';
+                    btn.style.textAlign = 'left';
+                    // 弹窗里也应用名字翻转
+                    btn.innerText = `${formatName(m.person.name)} (${m.person.wca_id})`;
+                    btn.onclick = () => {
+                        document.getElementById('pk-modal').style.display = 'none';
+                        resolve(m);
+                    };
+                    list.appendChild(btn);
+                });
+                
+                document.getElementById('pk-modal-cancel').onclick = () => {
+                    document.getElementById('pk-modal').style.display = 'none';
+                    resolve(null); 
+                };
+                
+                document.getElementById('pk-modal').style.display = 'flex';
+            });
+        }
+
+        function renderPK(pA, pB) {
+            // 在 PK 板和表头里使用翻转后的名字和底部的灰字 WCAID
+            let nameAHtml = `${formatName(pA.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pA.person.wca_id}</span>`;
+            let nameBHtml = `${formatName(pB.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pB.person.wca_id}</span>`;
+
+            document.getElementById('pk-board-name-a').innerHTML = nameAHtml;
+            document.getElementById('pk-board-name-b').innerHTML = nameBHtml;
+            document.getElementById('pk-table-name-a').innerHTML = nameAHtml;
+            document.getElementById('pk-table-name-b').innerHTML = nameBHtml;
+            
+            let scoreA = 0;
+            let scoreB = 0;
+            
+            const tbody = document.getElementById('pk-tbody');
+            tbody.innerHTML = '';
+            
+            const types = [{id: 'single', label: '单次'}, {id: 'average', label: '平均'}];
+            
+            eventDict.forEach(ev => {
+                types.forEach(type => {
+                    let recA = pA.personal_records[ev.id] ? pA.personal_records[ev.id][type.id] : null;
+                    let recB = pB.personal_records[ev.id] ? pB.personal_records[ev.id][type.id] : null;
+                    
+                    if (recA || recB) {
+                        let valA = recA ? recA.best : Infinity;
+                        let valB = recB ? recB.best : Infinity;
+                        
+                        let timeA = valA !== Infinity ? formatWcaResult(valA, ev.id, type.id) : '-';
+                        let timeB = valB !== Infinity ? formatWcaResult(valB, ev.id, type.id) : '-';
+                        
+                        let classA = '';
+                        let classB = '';
+                        
+                        if (valA < valB) {
+                            scoreA++;
+                            classA = 'pk-cell-win';
+                        } else if (valB < valA) {
+                            scoreB++;
+                            classB = 'pk-cell-win';
+                        } else if (valA === valB && valA !== Infinity) {
+                            classA = 'pk-cell-tie';
+                            classB = 'pk-cell-tie';
+                        }
+
+                        let tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="${classA}">${timeA}</td>
+                            <td>
+                                <div style="font-weight:bold; color:var(--text-main); font-size:1.05em;">${ev.name}</div>
+                                <div style="font-size:0.85em; color:var(--text-muted); margin-top:2px;">${type.label}</div>
+                            </td>
+                            <td class="${classB}">${timeB}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                });
+            });
+            
+            const scoreElA = document.getElementById('pk-board-score-a');
+            const scoreElB = document.getElementById('pk-board-score-b');
+            scoreElA.innerText = scoreA;
+            scoreElB.innerText = scoreB;
+
+            scoreElA.className = 'pk-score-value';
+            scoreElB.className = 'pk-score-value';
+
+            if (scoreA > scoreB) {
+                scoreElA.classList.add('win');
+                scoreElB.classList.add('lose');
+            } else if (scoreB > scoreA) {
+                scoreElA.classList.add('lose');
+                scoreElB.classList.add('win');
+            } else {
+                scoreElA.classList.add('tie');
+                scoreElB.classList.add('tie');
+            }
+            
+            document.getElementById('pk-result-card').style.display = 'block';
+        }
+
         function showPerson(wcaId) {
             const cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
             if (!cuber) return;
 
-            document.getElementById('person-title-name').innerText = cuber.person.name;
+            // 应用名字翻转
+            document.getElementById('person-title-name').innerText = formatName(cuber.person.name);
             document.getElementById('person-title-wcaid').innerText = `(${wcaId})`;
             
             const tbody = document.getElementById('person-tbody');
@@ -536,7 +778,8 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${rankDisplay}</td>
-                    <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${result.name}</td>
+                    <!-- 列表也应用名字翻转 -->
+                    <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${formatName(result.name)}</td>
                     <td class="highlight-score">${displayTime}</td>
                     <td>${formatRank(result.nr, 'NR')}</td>
                     <td>${formatRank(result.cr, crPrefix)}</td>
@@ -586,7 +829,8 @@
                         tr.innerHTML = `
                             <td>${displayEventName}</td>
                             <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">${type.label}</span></td>
-                            <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${bestRecord.name}</td>
+                            <!-- 记录榜也应用名字翻转 -->
+                            <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${formatName(bestRecord.name)}</td>
                             <td class="highlight-score">${displayTime}</td>
                             <td>${formatRank(bestRecord.nr, 'NR')}</td>
                             <td>${formatRank(bestRecord.cr, crPrefix)}</td>
@@ -603,7 +847,7 @@
             trSorSingle.innerHTML = `
                 <td>全项目综合排名</td>
                 <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">单次</span></td>
-                <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">Kailin Sun (孙凯霖)</td>
+                <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">孙凯霖 (Kailin Sun)</td>
                 <td class="highlight-score">5278</td>
                 <td>${formatRank(67, 'NR')}</td>
                 <td>${formatRank(267, 'AsR')}</td>
@@ -617,7 +861,7 @@
             trSorAvg.innerHTML = `
                 <td></td>
                 <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">平均</span></td>
-                <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">Chang Guo (郭畅)</td>
+                <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">郭畅 (Chang Guo)</td>
                 <td class="highlight-score">5163</td>
                 <td>${formatRank(70, 'NR')}</td>
                 <td>${formatRank(291, 'AsR')}</td>
