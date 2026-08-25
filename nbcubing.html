@@ -77,9 +77,9 @@
         }
         select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
 
-        .table-responsive { overflow-x: auto; padding-bottom: 5px; }
+        .table-responsive { overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
-        th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+        th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
         th { background-color: #f8f9fa; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; }
         th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
         
@@ -99,10 +99,11 @@
         .highlight-score { font-weight: 700; color: #2563eb; font-size: 1.1em; }
         .record-holder { font-weight: bold; color: var(--primary-color); }
         
-        .rank-top100 { 
-            color: #059669; 
-            font-weight: 800;
-        }
+        .rank-top100 { color: #059669; font-weight: 800; }
+
+        .badge-nr { background-color: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-cr { background-color: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-wr { background-color: #e63946; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold; }
 
         .clickable-name {
             cursor: pointer;
@@ -113,6 +114,9 @@
             color: var(--primary-hover);
             text-decoration: underline;
         }
+
+        .action-btn { opacity: 0; transition: opacity 0.2s ease; margin: 0; }
+        tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
         .pk-inputs-container { display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
         .pk-input { padding: 12px 16px; font-size: 16px; border-radius: 8px; border: 1px solid #dee2e6; flex: 1; min-width: 200px; outline: none; transition: var(--transition); text-align: center; }
@@ -133,9 +137,39 @@
         #global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 650px) {
+            body { padding: 12px; }
+            .card { padding: 15px; }
+            .header-controls h2 { font-size: 18px; margin: 0; }
+            .header-controls .btn { padding: 8px 12px; font-size: 13px; }
+            .header-controls div { width: 90px !important; }
+            th, td { white-space: nowrap; padding: 12px 10px; font-size: 13px; }
+            .pk-inputs-container { flex-direction: column; gap: 10px; }
+            .pk-input { width: 100%; box-sizing: border-box; }
+            .pk-score-value { font-size: 36px; }
+            .home-menu .btn { padding: 16px; font-size: 16px; }
+            .action-btn { opacity: 1; } 
+        }
     </style>
 </head>
 <body>
+
+    <div id="pk-floating-bar" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1050; padding:12px 25px; border-radius:30px; box-shadow:0 10px 25px rgba(0,0,0,0.25); flex-direction:row; align-items:center; gap:20px; background:var(--primary-color); color:white; white-space:nowrap;">
+        <span style="font-size: 15px;">已选择 <b id="pk-float-name" style="color:#f8f9fa;"></b> 作为发起方。请选择对手！</span>
+        <button class="btn btn-outline" style="border-color:white; color:white; padding:6px 14px; font-size:13px; border-radius: 20px;" onclick="cancelInlinePK()">取消 PK</button>
+    </div>
+
+    <div id="pk-confirm-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; justify-content:center; align-items:center;">
+        <div class="card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0;">确认战局</h3>
+            <p style="margin: 20px 0; font-size: 16px;">是否将<br><span id="pk-confirm-a" style="font-weight:bold; color:var(--primary-color); display:inline-block; margin-top:10px;"></span><br>与<br><span id="pk-confirm-b" style="font-weight:bold; color:#e63946; display:inline-block; margin-bottom:10px;"></span><br>进行 PK？</p>
+            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                <button class="btn btn-outline" style="flex:1;" onclick="abortInlinePK()">取消</button>
+                <button class="btn" style="background-color: #e63946; flex:1;" onclick="executeInlinePK()">确认 PK</button>
+            </div>
+        </div>
+    </div>
 
     <div id="global-loading">
         <div class="spinner"></div>
@@ -156,13 +190,15 @@
         <div class="home-menu">
             <button class="btn" onclick="navigateTo('ranking-page')">📊 宁波魔方成绩排行榜</button>
             <button class="btn" onclick="navigateTo('records-page'); generateRecords();">👑 宁波 WCA 纪录榜</button>
-            <button class="btn" style="background-color: #e63946;" onclick="navigateTo('pk-page')">⚔️ 选手成绩 PK</button>
+            <button class="btn" style="background-color: #10b981;" onclick="navigateTo('search-page')">🔍 个人成绩查询</button>
+            <button class="btn" style="background-color: #e63946;" onclick="openPkPage()">⚔️ 选手成绩 PK</button>
         </div>
+        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 35px;">作者：b站@泡芙老师k3</p>
     </div>
 
     <div id="ranking-page" class="page-container">
         <div class="header-controls">
-            <button class="btn btn-outline" onclick="navigateTo('home-page')">← 返回主页</button>
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
             <h2>成绩排行榜</h2>
             <div style="width: 100px;"></div> 
         </div>
@@ -207,8 +243,9 @@
                             <th>姓名</th>
                             <th>成绩</th>
                             <th>国家排名 (NR)</th>
-                            <th>洲排名 (CR)</th>
+                            <th>洲际排名 (CR)</th>
                             <th>世界排名 (WR)</th>
+                            <th style="width: 80px;">PK</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -218,9 +255,10 @@
         </div>
     </div>
 
+    <!-- 删除了纪录榜单的“比赛”和“日期”两列 -->
     <div id="records-page" class="page-container">
         <div class="header-controls">
-            <button class="btn btn-outline" onclick="navigateTo('home-page')">← 返回主页</button>
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
             <h2>WCA 宁波纪录</h2>
             <div style="width: 100px;"></div>
         </div>
@@ -235,10 +273,9 @@
                             <th>纪录保持者</th>
                             <th>成绩</th>
                             <th>国家排名 (NR)</th>
-                            <th>洲排名 (CR)</th>
+                            <th>洲际排名 (CR)</th>
                             <th>世界排名 (WR)</th>
-                            <th>比赛</th>
-                            <th>日期</th>
+                            <th style="width: 80px;">PK</th>
                         </tr>
                     </thead>
                     <tbody id="records-tbody">
@@ -248,12 +285,14 @@
         </div>
     </div>
 
+    <!-- ==========================================
+         页面分离 1：PK 搜索框与历史记录页
+         ========================================== -->
     <div id="pk-page" class="page-container">
         <div class="header-controls">
             <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
             <div style="text-align: center;">
                 <h2 style="margin-bottom: 5px;">成绩 PK</h2>
-                <!-- 新增：非宁波魔友输入提示 -->
                 <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">宁波魔友请输入中文名，非宁波魔友请输入 WCA ID</div>
             </div>
             <div style="width: 100px;"></div>
@@ -266,11 +305,29 @@
                 <input type="text" id="pk-input-b" class="pk-input" placeholder="输入选手B (姓名 或 WCAID)">
             </div>
             <div style="text-align: center;">
-                <button class="btn" style="background-color: #e63946;" onclick="preparePK()">🔥 开始对比</button>
+                <button class="btn" style="background-color: #e63946;" onclick="handlePkClick()">🔥 开始对比</button>
             </div>
         </div>
 
-        <div class="card" id="pk-result-card" style="display:none;">
+        <div class="card" id="pk-history-container" style="display:none; padding: 15px 24px;">
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px; font-weight: bold; text-align: center;">成绩 PK 历史记录</div>
+            <div id="pk-history-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         页面分离 2：专属的 PK 结果展示页
+         ========================================== -->
+    <div id="pk-result-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">PK 战报</h2>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card" id="pk-result-card">
             <div class="pk-score-board">
                 <div class="pk-score-item">
                     <div class="pk-score-name" id="pk-board-name-a">选手A</div>
@@ -284,7 +341,7 @@
                     <div class="pk-score-value" id="pk-board-score-b">0</div>
                 </div>
             </div>
-            
+
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -297,6 +354,24 @@
                     <tbody id="pk-tbody">
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">成绩查询</h2>
+                <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">宁波魔友请输入中文名，非宁波魔友请输入 WCA ID</div>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="pk-inputs-container">
+                <input type="text" id="search-input" class="pk-input" placeholder="输入选手 (姓名 或 WCAID)">
+                <button class="btn" style="background-color: #10b981; white-space: nowrap;" onclick="performSearch()">🔍 开始查询</button>
             </div>
         </div>
     </div>
@@ -320,7 +395,7 @@
                             <th>类型</th>
                             <th>成绩</th>
                             <th>国家排名 (NR)</th>
-                            <th>洲排名 (CR)</th>
+                            <th>洲际排名 (CR)</th>
                             <th>世界排名 (WR)</th>
                         </tr>
                     </thead>
@@ -333,7 +408,6 @@
 
     <script>
         const rosterIds = [
-            // === 之前已存在的魔友 ===
             '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02', 
             '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08', 
             '2026QIAN04', '2025HUAN11', '2025JIAN23', '2025WANB01', 
@@ -343,7 +417,6 @@
             '2015CAIT01', '2017YANY06', '2021HUAN17', '2015ZHUJ05', 
             '2018ZHUH05', '2017ZHUY03', '2014CHEN33', '2018WANH29', 
             '2021WENZ02', '2026DING03', '2017PANL01', '2014LITI01',
-            // === 本次从表格新导入的魔友 ===
             '2009FENG07', '2011YANX02', '2016ZHOU21', '2016ZHOU16', 
             '2015LINX02', '2018GUOZ07', '2018ZHAO61', '2018WANG12', 
             '2018GOUS01', '2018XIEN01', '2018XUSH07', '2018QIZI01', 
@@ -372,23 +445,25 @@
 
         let allCubersData = [];
         let historyStack = [];
+        
+        let pkHistoryList = []; // 全局维护的 PK 历史栈
 
-        // ==========================================
-        // 新增核心工具：全局名字翻转
-        // 将 "Chang Guo (郭畅)" 翻转为 "郭畅 (Chang Guo)"
-        // ==========================================
+        let inlinePkState = 0; 
+        let inlinePkPlayerA = null;
+        let pendingPkPlayerB = null;
+
         function formatName(rawName) {
             if (!rawName) return '';
             const match = rawName.match(/^(.*?)\s*\((.*?)\)$/);
             if (match) {
                 return `${match[2]} (${match[1]})`;
             }
-            return rawName; // 若无括号则保持原样
+            return rawName;
         }
 
         function navigateTo(pageId, isForward = false) {
             const currentPage = document.querySelector('.page-container.active');
-            
+
             if (isForward && currentPage) {
                 historyStack.push({ id: currentPage.id, scrollY: window.scrollY });
             } else if (!isForward) {
@@ -408,20 +483,131 @@
         function goBack() {
             if (historyStack.length > 0) {
                 const prevState = historyStack.pop(); 
-                
+
                 document.querySelectorAll('.page-container').forEach(page => {
                     page.classList.remove('active');
                 });
                 document.getElementById(prevState.id).classList.add('active');
-                
+
                 setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
             } else {
                 navigateTo('home-page');
             }
         }
 
-        async function preparePK() {
-            document.getElementById('pk-result-card').style.display = 'none';
+        // ==========================================
+        // 快捷 PK 控制逻辑
+        // ==========================================
+        function getPkButtonHtml(wcaId, formattedName) {
+            const safeName = formattedName.replace(/'/g, "\\'");
+            if (inlinePkState === 0) {
+                return `<button class="action-btn btn btn-outline" style="padding: 4px 10px; font-size: 12px; white-space: nowrap;" onclick="startInlinePK('${wcaId}', '${safeName}')">我要 PK</button>`;
+            } else {
+                if (inlinePkPlayerA.id === wcaId) {
+                    return `<button class="action-btn btn btn-outline" style="padding: 4px 10px; font-size: 12px; white-space: nowrap; border-color: #e63946; color: #e63946;" onclick="cancelInlinePK()">取消 PK</button>`;
+                } else {
+                    return `<button class="action-btn btn" style="padding: 4px 10px; font-size: 12px; white-space: nowrap; background-color: #e63946;" onclick="selectOpponent('${wcaId}', '${safeName}')">选择该对手</button>`;
+                }
+            }
+        }
+
+        function startInlinePK(wcaId, name) {
+            inlinePkState = 1;
+            inlinePkPlayerA = { id: wcaId, name: name };
+            document.body.classList.add('pk-mode');
+            document.getElementById('pk-float-name').innerText = name;
+            document.getElementById('pk-floating-bar').style.display = 'flex';
+            
+            if (document.getElementById('ranking-page').classList.contains('active')) updateRanking();
+            if (document.getElementById('records-page').classList.contains('active')) generateRecords();
+        }
+
+        function cancelInlinePK() {
+            inlinePkState = 0;
+            inlinePkPlayerA = null;
+            document.body.classList.remove('pk-mode');
+            document.getElementById('pk-floating-bar').style.display = 'none';
+            
+            if (document.getElementById('ranking-page').classList.contains('active')) updateRanking();
+            if (document.getElementById('records-page').classList.contains('active')) generateRecords();
+        }
+
+        function selectOpponent(wcaId, name) {
+            pendingPkPlayerB = { id: wcaId, name: name };
+            document.getElementById('pk-confirm-a').innerText = inlinePkPlayerA.name;
+            document.getElementById('pk-confirm-b').innerText = name;
+            document.getElementById('pk-confirm-modal').style.display = 'flex';
+        }
+
+        function abortInlinePK() {
+            pendingPkPlayerB = null;
+            document.getElementById('pk-confirm-modal').style.display = 'none';
+        }
+
+        // ==========================================
+        // PK 对战历史与状态管理
+        // ==========================================
+        function addPkHistory(pA, pB) {
+            const existsIndex = pkHistoryList.findIndex(e => 
+                (e.a.person.wca_id === pA.person.wca_id && e.b.person.wca_id === pB.person.wca_id) ||
+                (e.a.person.wca_id === pB.person.wca_id && e.b.person.wca_id === pA.person.wca_id)
+            );
+            if (existsIndex > -1) {
+                pkHistoryList.splice(existsIndex, 1);
+            }
+            pkHistoryList.unshift({a: pA, b: pB});
+        }
+
+        function renderPkHistory() {
+            const container = document.getElementById('pk-history-container');
+            const list = document.getElementById('pk-history-list');
+            if (pkHistoryList.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'block';
+            list.innerHTML = '';
+            pkHistoryList.forEach(entry => {
+                let btn = document.createElement('button');
+                btn.className = 'btn btn-outline';
+                btn.style.display = 'block';
+                btn.style.width = '100%';
+                btn.style.textAlign = 'center';
+                btn.innerHTML = `${formatName(entry.a.person.name)} <span style="color:#e63946; font-style:italic; margin:0 10px;">VS</span> ${formatName(entry.b.person.name)}`;
+                btn.onclick = () => {
+                    navigateTo('pk-result-page', true);
+                    renderPK(entry.a, entry.b);
+                };
+                list.appendChild(btn);
+            });
+        }
+
+        function openPkPage() {
+            document.getElementById('pk-input-a').value = '';
+            document.getElementById('pk-input-b').value = '';
+            renderPkHistory();
+            navigateTo('pk-page');
+        }
+
+        async function executeInlinePK() {
+            document.getElementById('pk-confirm-modal').style.display = 'none';
+            let pA_id = inlinePkPlayerA.id;
+            let pB_id = pendingPkPlayerB.id;
+            cancelInlinePK(); 
+            
+            document.getElementById('global-loading').style.display = 'flex';
+            const fullA = await resolvePlayerAsync(pA_id, '选手A');
+            const fullB = await resolvePlayerAsync(pB_id, '选手B');
+            document.getElementById('global-loading').style.display = 'none';
+            
+            if(fullA && fullB) {
+                addPkHistory(fullA, fullB);
+                navigateTo('pk-result-page', true); // 注意：这里以 isForward=true 跳转到结果页，返回即可回到原榜单
+                renderPK(fullA, fullB);
+            }
+        }
+
+        async function handlePkClick() {
             const valA = document.getElementById('pk-input-a').value.trim();
             const valB = document.getElementById('pk-input-b').value.trim();
 
@@ -432,32 +618,40 @@
 
             const playerA = await resolvePlayerAsync(valA, '左边选手A');
             if (!playerA) return;
-            
+
             const playerB = await resolvePlayerAsync(valB, '右边选手B');
             if (!playerB) return;
 
+            addPkHistory(playerA, playerB);
+            navigateTo('pk-result-page', true);
             renderPK(playerA, playerB);
+        }
+
+        async function performSearch() {
+            const val = document.getElementById('search-input').value.trim();
+            if (!val) {
+                alert('请输入想要查询的选手姓名或 WCA ID！');
+                return;
+            }
+            const player = await resolvePlayerAsync(val, '成绩查询');
+            if (player) {
+                renderPersonPage(player); 
+            }
         }
 
         async function resolvePlayerAsync(input, sideLabel) {
             let exact = allCubersData.find(c => c && c.person && c.person.wca_id.toUpperCase() === input.toUpperCase());
             if (exact) return exact;
 
-            // 检查输入是否为中文名或是WCA ID的一部分
             let matches = allCubersData.filter(c => c && c.person && 
                 (c.person.name.toLowerCase().includes(input.toLowerCase()) || 
                  c.person.wca_id.toUpperCase().includes(input.toUpperCase()))
             );
 
-            if (matches.length === 1) {
-                return matches[0];
-            }
+            if (matches.length === 1) return matches[0];
 
-            if (matches.length > 1) {
-                return await showSelectionModal(matches, sideLabel);
-            }
+            if (matches.length > 1) return await showSelectionModal(matches, sideLabel);
 
-            // 如果本地没有找到，检查输入的是不是规范的 WCA ID
             if (/^\d{4}[A-Z]{4}\d{2}$/i.test(input)) {
                 try {
                     document.getElementById('global-loading').style.display = 'flex';
@@ -473,7 +667,6 @@
                 }
             }
 
-            // 如果不是 WCA ID，且本地查无此人，弹出提示
             alert(`未在宁波魔友库找到名为 [${input}] 的选手！\n\n如果您想查询非宁波魔友，请务必输入他完整的 WCA ID（例如 2015ZHAO04）。`);
             return null;
         }
@@ -483,12 +676,11 @@
                 document.getElementById('pk-modal-side').innerText = sideLabel;
                 const list = document.getElementById('pk-modal-list');
                 list.innerHTML = '';
-                
+
                 matches.forEach(m => {
                     let btn = document.createElement('button');
                     btn.className = 'btn btn-outline';
                     btn.style.textAlign = 'left';
-                    // 弹窗里也应用名字翻转
                     btn.innerText = `${formatName(m.person.name)} (${m.person.wca_id})`;
                     btn.onclick = () => {
                         document.getElementById('pk-modal').style.display = 'none';
@@ -496,18 +688,17 @@
                     };
                     list.appendChild(btn);
                 });
-                
+
                 document.getElementById('pk-modal-cancel').onclick = () => {
                     document.getElementById('pk-modal').style.display = 'none';
                     resolve(null); 
                 };
-                
+
                 document.getElementById('pk-modal').style.display = 'flex';
             });
         }
 
         function renderPK(pA, pB) {
-            // 在 PK 板和表头里使用翻转后的名字和底部的灰字 WCAID
             let nameAHtml = `${formatName(pA.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pA.person.wca_id}</span>`;
             let nameBHtml = `${formatName(pB.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pB.person.wca_id}</span>`;
 
@@ -515,30 +706,30 @@
             document.getElementById('pk-board-name-b').innerHTML = nameBHtml;
             document.getElementById('pk-table-name-a').innerHTML = nameAHtml;
             document.getElementById('pk-table-name-b').innerHTML = nameBHtml;
-            
+
             let scoreA = 0;
             let scoreB = 0;
-            
+
             const tbody = document.getElementById('pk-tbody');
             tbody.innerHTML = '';
-            
+
             const types = [{id: 'single', label: '单次'}, {id: 'average', label: '平均'}];
-            
+
             eventDict.forEach(ev => {
                 types.forEach(type => {
                     let recA = pA.personal_records[ev.id] ? pA.personal_records[ev.id][type.id] : null;
                     let recB = pB.personal_records[ev.id] ? pB.personal_records[ev.id][type.id] : null;
-                    
+
                     if (recA || recB) {
                         let valA = recA ? recA.best : Infinity;
                         let valB = recB ? recB.best : Infinity;
-                        
+
                         let timeA = valA !== Infinity ? formatWcaResult(valA, ev.id, type.id) : '-';
                         let timeB = valB !== Infinity ? formatWcaResult(valB, ev.id, type.id) : '-';
-                        
+
                         let classA = '';
                         let classB = '';
-                        
+
                         if (valA < valB) {
                             scoreA++;
                             classA = 'pk-cell-win';
@@ -563,7 +754,7 @@
                     }
                 });
             });
-            
+
             const scoreElA = document.getElementById('pk-board-score-a');
             const scoreElB = document.getElementById('pk-board-score-b');
             scoreElA.innerText = scoreA;
@@ -582,22 +773,16 @@
                 scoreElA.classList.add('tie');
                 scoreElB.classList.add('tie');
             }
-            
-            document.getElementById('pk-result-card').style.display = 'block';
         }
 
-        function showPerson(wcaId) {
-            const cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
-            if (!cuber) return;
-
-            // 应用名字翻转
+        function renderPersonPage(cuber) {
             document.getElementById('person-title-name').innerText = formatName(cuber.person.name);
-            document.getElementById('person-title-wcaid').innerText = `(${wcaId})`;
-            
+            document.getElementById('person-title-wcaid').innerText = `(${cuber.person.wca_id})`;
+
             const tbody = document.getElementById('person-tbody');
             tbody.innerHTML = '';
 
-            const records = cuber.personal_records;
+            const records = cuber.personal_records || {};
             const iso2 = cuber.person.country_iso2;
             const crPrefix = getContinentRankPrefix(iso2);
 
@@ -618,7 +803,7 @@
                             const trSingle = document.createElement('tr');
                             trSingle.innerHTML = `
                                 <td style="font-weight:bold;">${isFirstRow ? ev.name : ''}</td>
-                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">单次</span></td>
+                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">单次</span></td>
                                 <td class="highlight-score">${singleTime}</td>
                                 <td>${singleNR}</td>
                                 <td>${singleCR}</td>
@@ -637,7 +822,7 @@
                             const trAvg = document.createElement('tr');
                             trAvg.innerHTML = `
                                 <td style="font-weight:bold;">${isFirstRow ? ev.name : ''}</td>
-                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">平均</span></td>
+                                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">平均</span></td>
                                 <td class="highlight-score">${avgTime}</td>
                                 <td>${avgNR}</td>
                                 <td>${avgCR}</td>
@@ -653,9 +838,30 @@
             navigateTo('person-page', true);
         }
 
+        async function showPerson(wcaId) {
+            if (inlinePkState !== 0) return;
+
+            let cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
+            
+            if (!cuber) {
+                try {
+                    document.getElementById('global-loading').style.display = 'flex';
+                    let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${wcaId}`);
+                    if (res.ok) {
+                        cuber = await res.json();
+                    }
+                } catch(e) {}
+                document.getElementById('global-loading').style.display = 'none';
+            }
+
+            if (cuber) {
+                renderPersonPage(cuber);
+            }
+        }
+
         function getContinentRankPrefix(iso2) {
             if (!iso2) return 'CR';
-            
+
             const asianCountries = ['CN', 'JP', 'KR', 'TW', 'HK', 'MO', 'IN', 'ID', 'PH', 'MY', 'SG', 'VN', 'TH', 'KZ', 'UZ'];
             const europeanCountries = ['GB', 'FR', 'DE', 'IT', 'ES', 'PL', 'NL', 'SE', 'NO', 'FI', 'DK', 'RU', 'UA', 'CH'];
             const northAmericanCountries = ['US', 'CA', 'MX'];
@@ -669,14 +875,20 @@
             if (southAmericanCountries.includes(iso2)) return 'SAR';
             if (oceaniaCountries.includes(iso2)) return 'OcR';
             if (africanCountries.includes(iso2)) return 'AfR';
-            
+
             return 'CR';
         }
 
         function formatRank(rankValue, prefix) {
             if (!rankValue) return '-';
-            const displayStr = `${prefix} ${rankValue}`;
             
+            if (rankValue == 1 || rankValue === '1') {
+                if (prefix === 'NR') return `<span class="badge-nr">NR</span>`;
+                if (prefix === 'WR') return `<span class="badge-wr">WR</span>`;
+                return `<span class="badge-cr">${prefix}</span>`;
+            }
+
+            const displayStr = `${prefix} ${rankValue}`;
             if (rankValue <= 100) {
                 return `<span class="rank-top100">${displayStr}</span>`;
             }
@@ -693,9 +905,9 @@
                         })
                         .catch(err => null) 
                 );
-                
+
                 allCubersData = await Promise.all(promises);
-                
+
                 document.getElementById('global-loading').style.display = 'none';
                 navigateTo('home-page');
                 updateRanking();
@@ -730,7 +942,7 @@
             const cents = rawScore % 100;
             const padSecs = secs.toString().padStart(2, '0');
             const padCents = cents.toString().padStart(2, '0');
-            
+
             if (mins > 0) return `${mins}:${padSecs}.${padCents}`;
             return `${totalSeconds}.${padCents}`;
         }
@@ -760,7 +972,7 @@
             });
 
             if (validResults.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">暂无该项目的成绩数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7">暂无该项目的成绩数据</td></tr>';
                 return;
             }
 
@@ -774,16 +986,17 @@
                 if(rankDisplay === 3) rankDisplay = '🥉 3';
 
                 let crPrefix = getContinentRankPrefix(result.iso2);
+                const formattedName = formatName(result.name);
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${rankDisplay}</td>
-                    <!-- 列表也应用名字翻转 -->
-                    <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${formatName(result.name)}</td>
+                    <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${formattedName}</td>
                     <td class="highlight-score">${displayTime}</td>
                     <td>${formatRank(result.nr, 'NR')}</td>
                     <td>${formatRank(result.cr, crPrefix)}</td>
                     <td>${formatRank(result.wr, 'WR')}</td>
+                    <td style="width: 80px;">${getPkButtonHtml(result.wcaId, formattedName)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -822,52 +1035,50 @@
                     if (bestRecord) {
                         let displayTime = formatWcaResult(bestRecord.rawScore, ev.id, type.id);
                         let crPrefix = getContinentRankPrefix(bestRecord.iso2);
-                        
                         let displayEventName = (type.id === 'single') ? ev.name : '';
+                        const formattedName = formatName(bestRecord.name);
 
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td>${displayEventName}</td>
-                            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">${type.label}</span></td>
-                            <!-- 记录榜也应用名字翻转 -->
-                            <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${formatName(bestRecord.name)}</td>
+                            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">${type.label}</span></td>
+                            <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${formattedName}</td>
                             <td class="highlight-score">${displayTime}</td>
                             <td>${formatRank(bestRecord.nr, 'NR')}</td>
                             <td>${formatRank(bestRecord.cr, crPrefix)}</td>
                             <td>${formatRank(bestRecord.wr, 'WR')}</td>
-                            <td style="color:#adb5bd; font-size:0.9em;">-</td>
-                            <td style="color:#adb5bd; font-size:0.9em;">-</td>
+                            <td style="width: 80px;">${getPkButtonHtml(bestRecord.wcaId, formattedName)}</td>
                         `;
                         tbody.appendChild(tr);
                     }
                 });
             });
 
+            const nameSun = formatName('孙凯霖 (Kailin Sun)');
             const trSorSingle = document.createElement('tr');
             trSorSingle.innerHTML = `
                 <td>全项目综合排名</td>
-                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">单次</span></td>
-                <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">孙凯霖 (Kailin Sun)</td>
+                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">单次</span></td>
+                <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">${nameSun}</td>
                 <td class="highlight-score">5278</td>
                 <td>${formatRank(67, 'NR')}</td>
                 <td>${formatRank(267, 'AsR')}</td>
                 <td>${formatRank(1531, 'WR')}</td>
-                <td style="color:#adb5bd; font-size:0.9em;">-</td>
-                <td style="font-size:0.95em;">2023-07-16</td>
+                <td style="width: 80px;">${getPkButtonHtml('2018SUNK01', nameSun)}</td>
             `;
             tbody.appendChild(trSorSingle);
 
+            const nameGuo = formatName('郭畅 (Chang Guo)');
             const trSorAvg = document.createElement('tr');
             trSorAvg.innerHTML = `
                 <td></td>
-                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px;">平均</span></td>
-                <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">郭畅 (Chang Guo)</td>
+                <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">平均</span></td>
+                <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">${nameGuo}</td>
                 <td class="highlight-score">5266</td>
                 <td>${formatRank(68, 'NR')}</td>
                 <td>${formatRank(295, 'AsR')}</td>
                 <td>${formatRank(1524, 'WR')}</td>
-                <td style="color:#adb5bd; font-size:0.9em;">-</td>
-                <td style="font-size:0.95em;">2026-08-15</td>
+                <td style="width: 80px;">${getPkButtonHtml('2024GUOC01', nameGuo)}</td>
             `;
             tbody.appendChild(trSorAvg);
         }
