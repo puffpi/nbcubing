@@ -751,12 +751,13 @@ async function fetchPersonData(id) {
     for (let i = 0; i < 3; i++) {
         try {
             const res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${id}`);
-            if (res.status === 429) { await sleep(1000); continue; }
+            // 当遭到 WCA 官方限流 (429) 时，增加停顿时间至 1.5 秒
+            if (res.status === 429) { await sleep(1500); continue; }
             if (!res.ok) return null;
             return await res.json();
         } catch (err) {
             if (i === 2) return null;
-            await sleep(500);
+            await sleep(1000);
         }
     }
     return null;
@@ -791,13 +792,21 @@ async function initData() {
     loader.style.display = 'flex';
 
     allCubersData = [];
-    const chunkSize = 25;
+    
+    // 【关键修改】大幅减小并发请求数量，从 25 降为 5
+    const chunkSize = 5; 
+    
     for (let i = 0; i < rosterIds.length; i += chunkSize) {
         const chunk = rosterIds.slice(i, i + chunkSize);
-        loadingText.innerText = `高速数据同步中（${Math.min(i + chunkSize, rosterIds.length)}/${rosterIds.length}）...`;
+        loadingText.innerText = `数据同步中（${Math.min(i + chunkSize, rosterIds.length)}/${rosterIds.length}）...`;
         const promises = chunk.map(id => fetchPersonData(id));
         const chunkResults = await Promise.all(promises);
         allCubersData.push(...chunkResults);
+        
+        // 【关键修改】每次发送完 5 个请求后，停顿 300 毫秒，防止触发 WCA 服务器的 DDoS 防护机制
+        if (i + chunkSize < rosterIds.length) {
+            await sleep(300);
+        }
     }
 
     localStorage.setItem(CACHE_KEY, JSON.stringify(allCubersData));
