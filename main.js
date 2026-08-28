@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAutocomplete('pk-input-b', 'autocomplete-b');
     setupAutocomplete('search-input', 'autocomplete-search');
     navigateTo('home-page');
-    initData(); // 页面加载后立即读取静态文件
+    initData(); 
 });
 
 function formatName(rawName) {
@@ -121,10 +121,7 @@ function formatName(rawName) {
 }
 
 function navigateTo(pageId, isForward = false) {
-    if (!isDataReady && pageId !== 'home-page') {
-        alert('📦 首次数据正在生成中，请等待约 1 分钟后刷新网页！');
-        return;
-    }
+    // 移除了进入非首页的硬性弹窗拦截，改为如果数据没好则温和提示并静默拉取
     const currentPage = document.querySelector('.page-container.active');
     if (isForward && currentPage) {
         historyStack.push({ id: currentPage.id, scrollY: window.scrollY });
@@ -134,6 +131,12 @@ function navigateTo(pageId, isForward = false) {
     document.querySelectorAll('.page-container').forEach(page => page.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
     if (isForward || !isForward) window.scrollTo(0, 0);
+
+    // 每次切换页面时，若当前页面需要数据渲染，自动触发刷新
+    if (isDataReady) {
+        if (pageId === 'ranking-page') updateRanking();
+        if (pageId === 'records-page') generateRecords();
+    }
 }
 
 function goBack() {
@@ -744,40 +747,24 @@ function generateRecords() {
 }
 
 // ============================================
-// 全新极速初始化代码：直接读取本地生成的 JSON 文件
+// 初始化逻辑：读取 JSON 并主动触发当前页面的刷新渲染
 // ============================================
 async function initData() {
-    const loader = document.getElementById('global-loading');
-    
-    // 依然保留好看的浮窗样式，以防弱网环境加载文件也需要零点几秒
-    loader.style.cssText = `
-        position: fixed; bottom: 30px; top: auto; left: 50%; transform: translateX(-50%);
-        background: rgba(43, 45, 66, 0.9); color: white; padding: 12px 24px;
-        border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        z-index: 9999; flex-direction: row; align-items: center; width: 85%; max-width: 350px;
-    `;
-    loader.querySelector('.spinner').style.cssText = `width: 20px; height: 20px; border-width: 3px; border-color: rgba(255,255,255,0.2); border-top-color: #10b981;`;
-    const loadingText = loader.querySelector('div:nth-child(2)');
-    loadingText.style.fontSize = '13px'; loadingText.style.marginLeft = '10px';
-    loadingText.innerText = "正在拉取云端极速数据...";
-    loader.style.display = 'flex';
-
     try {
-        // 在末尾加个时间戳，防止手机浏览器死记硬背旧缓存，确保每天拉取到最新的
         const res = await fetch('wca_data.json?t=' + new Date().getTime());
         if (!res.ok) throw new Error("File not found");
         
         allCubersData = await res.json();
         isDataReady = true;
-        loader.style.display = 'none';
 
-        // 渲染页面数据
-        if (document.getElementById('ranking-page').classList.contains('active')) updateRanking();
-        if (document.getElementById('records-page').classList.contains('active')) generateRecords();
+        // 【关键修复】数据加载完成后，立刻检查当前用户正停留在哪个页面，主动触发渲染！
+        const activePage = document.querySelector('.page-container.active');
+        if (activePage) {
+            if (activePage.id === 'ranking-page') updateRanking();
+            if (activePage.id === 'records-page') generateRecords();
+        }
         
     } catch (err) {
-        console.error(err);
-        loader.querySelector('.spinner').style.display = 'none';
-        loadingText.innerText = "数据文件初始化中，请稍后刷新网页...";
+        console.error("数据加载失败", err);
     }
 }
