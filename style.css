@@ -206,3 +206,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     .home-menu .btn { padding: 16px; font-size: 16px; }
     .action-btn { opacity: 1; }
 }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
