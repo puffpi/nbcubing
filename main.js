@@ -106,13 +106,11 @@ function setupAutocomplete(inputId, dropdownId) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById('global-loading').style.display = 'none';
     setupAutocomplete('pk-input-a', 'autocomplete-a');
     setupAutocomplete('pk-input-b', 'autocomplete-b');
     setupAutocomplete('search-input', 'autocomplete-search');
     navigateTo('home-page');
-    updateRanking();
-    generateRecords();
+    initData(); // 页面加载后立即读取静态文件
 });
 
 function formatName(rawName) {
@@ -124,7 +122,7 @@ function formatName(rawName) {
 
 function navigateTo(pageId, isForward = false) {
     if (!isDataReady && pageId !== 'home-page') {
-        alert('🔥 数据正在飞速拉取中，请稍候两三秒钟！');
+        alert('📦 首次数据正在生成中，请等待约 1 分钟后刷新网页！');
         return;
     }
     const currentPage = document.querySelector('.page-container.active');
@@ -745,41 +743,13 @@ function generateRecords() {
     tbody.appendChild(trSorAvg);
 }
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function fetchPersonData(id) {
-    for (let i = 0; i < 3; i++) {
-        try {
-            const res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${id}`);
-            // 当遭到 WCA 官方限流 (429) 时，增加停顿时间至 1.5 秒
-            if (res.status === 429) { await sleep(1500); continue; }
-            if (!res.ok) return null;
-            return await res.json();
-        } catch (err) {
-            if (i === 2) return null;
-            await sleep(1000);
-        }
-    }
-    return null;
-}
-
+// ============================================
+// 全新极速初始化代码：直接读取本地生成的 JSON 文件
+// ============================================
 async function initData() {
     const loader = document.getElementById('global-loading');
-    loader.style.display = 'none';
-
-    const CACHE_KEY = 'wca_nb_data';
-    const CACHE_TIME_KEY = 'wca_nb_time';
-    const CACHE_DURATION = 12 * 60 * 60 * 1000;
-
-    const cachedData = localStorage.getItem(CACHE_KEY);
-    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
-
-    if (cachedData && cachedTime && (Date.now() - cachedTime < CACHE_DURATION)) {
-        allCubersData = JSON.parse(cachedData);
-        isDataReady = true;
-        return;
-    }
-
+    
+    // 依然保留好看的浮窗样式，以防弱网环境加载文件也需要零点几秒
     loader.style.cssText = `
         position: fixed; bottom: 30px; top: auto; left: 50%; transform: translateX(-50%);
         background: rgba(43, 45, 66, 0.9); color: white; padding: 12px 24px;
@@ -789,31 +759,25 @@ async function initData() {
     loader.querySelector('.spinner').style.cssText = `width: 20px; height: 20px; border-width: 3px; border-color: rgba(255,255,255,0.2); border-top-color: #10b981;`;
     const loadingText = loader.querySelector('div:nth-child(2)');
     loadingText.style.fontSize = '13px'; loadingText.style.marginLeft = '10px';
+    loadingText.innerText = "正在拉取云端极速数据...";
     loader.style.display = 'flex';
 
-    allCubersData = [];
-    
-    // 【关键修改】大幅减小并发请求数量，从 25 降为 5
-    const chunkSize = 5; 
-    
-    for (let i = 0; i < rosterIds.length; i += chunkSize) {
-        const chunk = rosterIds.slice(i, i + chunkSize);
-        loadingText.innerText = `数据同步中（${Math.min(i + chunkSize, rosterIds.length)}/${rosterIds.length}）...`;
-        const promises = chunk.map(id => fetchPersonData(id));
-        const chunkResults = await Promise.all(promises);
-        allCubersData.push(...chunkResults);
+    try {
+        // 在末尾加个时间戳，防止手机浏览器死记硬背旧缓存，确保每天拉取到最新的
+        const res = await fetch('wca_data.json?t=' + new Date().getTime());
+        if (!res.ok) throw new Error("File not found");
         
-        // 【关键修改】每次发送完 5 个请求后，停顿 300 毫秒，防止触发 WCA 服务器的 DDoS 防护机制
-        if (i + chunkSize < rosterIds.length) {
-            await sleep(300);
-        }
+        allCubersData = await res.json();
+        isDataReady = true;
+        loader.style.display = 'none';
+
+        // 渲染页面数据
+        if (document.getElementById('ranking-page').classList.contains('active')) updateRanking();
+        if (document.getElementById('records-page').classList.contains('active')) generateRecords();
+        
+    } catch (err) {
+        console.error(err);
+        loader.querySelector('.spinner').style.display = 'none';
+        loadingText.innerText = "数据文件初始化中，请稍后刷新网页...";
     }
-
-    localStorage.setItem(CACHE_KEY, JSON.stringify(allCubersData));
-    localStorage.setItem(CACHE_TIME_KEY, Date.now());
-
-    isDataReady = true;
-    loader.style.display = 'none';
 }
-
-initData();
