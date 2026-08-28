@@ -121,7 +121,6 @@ function formatName(rawName) {
 }
 
 function navigateTo(pageId, isForward = false) {
-    // 移除了进入非首页的硬性弹窗拦截，改为如果数据没好则温和提示并静默拉取
     const currentPage = document.querySelector('.page-container.active');
     if (isForward && currentPage) {
         historyStack.push({ id: currentPage.id, scrollY: window.scrollY });
@@ -132,7 +131,6 @@ function navigateTo(pageId, isForward = false) {
     document.getElementById(pageId).classList.add('active');
     if (isForward || !isForward) window.scrollTo(0, 0);
 
-    // 每次切换页面时，若当前页面需要数据渲染，自动触发刷新
     if (isDataReady) {
         if (pageId === 'ranking-page') updateRanking();
         if (pageId === 'records-page') generateRecords();
@@ -747,9 +745,11 @@ function generateRecords() {
 }
 
 // ============================================
-// 初始化逻辑：读取 JSON 并主动触发当前页面的刷新渲染
+// 初始化逻辑：读取 JSON、隐藏加载动画并刷新当前页面
 // ============================================
 async function initData() {
+    const loader = document.getElementById('global-loading');
+    
     try {
         const res = await fetch('wca_data.json?t=' + new Date().getTime());
         if (!res.ok) throw new Error("File not found");
@@ -757,7 +757,12 @@ async function initData() {
         allCubersData = await res.json();
         isDataReady = true;
 
-        // 【关键修复】数据加载完成后，立刻检查当前用户正停留在哪个页面，主动触发渲染！
+        // 【关键修复】成功拿到数据后，立刻隐藏全屏加载动画
+        if (loader) {
+            loader.style.display = 'none';
+        }
+
+        // 检查当前用户正停留在哪个页面，主动触发渲染
         const activePage = document.querySelector('.page-container.active');
         if (activePage) {
             if (activePage.id === 'ranking-page') updateRanking();
@@ -766,5 +771,8 @@ async function initData() {
         
     } catch (err) {
         console.error("数据加载失败", err);
+        if (loader) {
+            loader.innerHTML = "数据加载失败，请刷新网页重试";
+        }
     }
 }
