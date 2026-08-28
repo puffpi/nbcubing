@@ -109,7 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAutocomplete('pk-input-a', 'autocomplete-a');
     setupAutocomplete('pk-input-b', 'autocomplete-b');
     setupAutocomplete('search-input', 'autocomplete-search');
-    navigateTo('home-page');
+    
+    // 初始状态下不让首页直接乱显现，先在后台拉取数据
     initData(); 
 });
 
@@ -745,11 +746,17 @@ function generateRecords() {
 }
 
 // ============================================
-// 初始化逻辑：读取 JSON、隐藏加载动画并刷新当前页面
+// 初始化逻辑：先转圈隐藏，数据就绪后平滑淡入首页
 // ============================================
 async function initData() {
     const loader = document.getElementById('global-loading');
+    const homePage = document.getElementById('home-page');
     
+    // 确保一开始首页是隐藏的，避免下方乱跳
+    if (homePage) {
+        homePage.classList.remove('active');
+    }
+
     try {
         const res = await fetch('wca_data.json?t=' + new Date().getTime());
         if (!res.ok) throw new Error("File not found");
@@ -757,14 +764,20 @@ async function initData() {
         allCubersData = await res.json();
         isDataReady = true;
 
-        // 【关键修复】成功拿到数据后，立刻隐藏全屏加载动画
+        // 1. 隐藏加载动画
         if (loader) {
             loader.style.display = 'none';
         }
 
-        // 检查当前用户正停留在哪个页面，主动触发渲染
+        // 2. 将首页设为激活状态，并利用 CSS 动画实现优雅的淡入/上升效果
+        if (homePage) {
+            homePage.style.animation = 'fadeInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards';
+            homePage.classList.add('active');
+        }
+
+        // 检查当前用户正停留在哪个页面（防止一进来用户手动点到了别的页面）
         const activePage = document.querySelector('.page-container.active');
-        if (activePage) {
+        if (activePage && activePage.id !== 'home-page') {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
         }
