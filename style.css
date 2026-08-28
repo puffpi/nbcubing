@@ -1,0 +1,179 @@
+:root {
+    --primary-color: #4361ee;
+    --primary-hover: #3a0ca3;
+    --bg-color: #f4f7f6;
+    --card-bg: #ffffff;
+    --text-main: #2b2d42;
+    --text-muted: #8d99ae;
+    --border-radius: 12px;
+    --transition: all 0.3s ease;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    padding: 20px;
+    max-width: 1100px;
+    margin: auto;
+    line-height: 1.6;
+}
+
+h1, h2 { text-align: center; color: var(--text-main); }
+
+.page-container { display: none; animation: fadeIn 0.4s ease; }
+.page-container.active { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.card {
+    background: var(--card-bg);
+    padding: 24px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.btn:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(67, 97, 238, 0.3); }
+.btn-outline { background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+.btn-outline:hover { background-color: var(--primary-color); color: white; }
+
+.home-menu { display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 40px auto; }
+.home-menu .btn { padding: 20px; font-size: 18px; }
+.header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+
+select {
+    padding: 10px 16px;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+}
+select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+
+.table-responsive { overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+th { background-color: #f8f9fa; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; }
+th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
+
+tbody tr {
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease;
+}
+
+tbody tr:hover {
+    background-color: #f8fcfd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    position: relative;
+    z-index: 10;
+}
+tr:last-child td { border-bottom: none; }
+
+.highlight-score { font-weight: 700; color: #2563eb; font-size: 1.1em; }
+.record-holder { font-weight: bold; color: var(--primary-color); }
+
+.rank-top100 { color: #059669; font-weight: 800; }
+
+.badge-nr { background-color: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+.badge-cr { background-color: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+.badge-wr { background-color: #e63946; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+
+.clickable-name {
+    cursor: pointer;
+    color: var(--primary-color);
+    transition: var(--transition);
+}
+.clickable-name:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.action-btn { opacity: 0; transition: opacity 0.2s ease; margin: 0; }
+tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
+
+.pk-inputs-container { display: flex; justify-content: center; align-items: flex-start; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+
+.pk-input-wrapper { position: relative; flex: 1; min-width: 200px; width: 100%; }
+.pk-input { width: 100%; box-sizing: border-box; padding: 12px 16px; font-size: 16px; border-radius: 8px; border: 1px solid #dee2e6; outline: none; transition: var(--transition); text-align: center; }
+.pk-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 5px; display: none; text-align: left; }
+.autocomplete-item { padding: 12px 16px; cursor: pointer; transition: background 0.2s; font-size: 15px; border-bottom: 1px solid #f0f0f0; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: #f8fcfd; color: var(--primary-color); }
+
+.pk-vs { font-size: 24px; font-weight: 900; color: #e63946; font-style: italic; align-self: center; margin-top: 8px; }
+
+.pk-score-board { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px; }
+.pk-score-item { text-align: center; width: 35%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* 升级：新增的 PK 选手交互卡片效果 */
+.pk-player-card {
+    cursor: pointer;
+    padding: 15px 20px;
+    border-radius: 12px;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background: transparent;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pk-player-card:hover {
+    background: #ffffff;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+/* 恢复名字原本的颜色，去掉链接蓝 */
+.pk-score-name { font-size: 16px; color: var(--text-main); margin-bottom: 2px; font-weight: bold; }
+.pk-score-id { font-size: 13px; color: var(--text-muted); font-weight: normal; margin-bottom: 10px; }
+.pk-score-value { font-size: 48px; font-weight: 900; line-height: 1; }
+.pk-score-value.win { color: #059669; }
+.pk-score-value.lose { color: #e63946; }
+.pk-score-value.tie { color: #2563eb; }
+
+.pk-cell-win { font-weight: bold; color: #059669; background-color: #ecfdf5 !important; }
+.pk-cell-tie { font-weight: bold; color: #d97706; }
+
+.meta-tag { background: #eef2ff; color: var(--primary-color); padding: 0 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; height: 28px; }
+
+.history-list-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.history-tag { background: var(--card-bg); border: 1px solid #dee2e6; color: var(--text-main); padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; font-weight: 500; }
+.history-tag:hover { border-color: var(--primary-color); color: var(--primary-color); background: #f8fcfd; box-shadow: 0 2px 8px rgba(67,97,238,0.15); }
+.history-vs { color: #e63946; font-style: italic; font-weight: 900; margin: 0 8px; font-size: 1.1em; }
+
+#global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+@media (max-width: 650px) {
+    body { padding: 12px; }
+    .card { padding: 15px; }
+    .header-controls h2 { font-size: 18px; margin: 0; }
+    .header-controls .btn { padding: 8px 12px; font-size: 13px; }
+    .header-controls div { width: 90px !important; }
+    th, td { white-space: nowrap; padding: 12px 10px; font-size: 13px; }
+    .pk-inputs-container { flex-direction: column; gap: 10px; align-items: center; }
+    .pk-vs { margin-top: 0; margin-bottom: 5px; }
+    .pk-score-value { font-size: 36px; }
+    .pk-player-card { padding: 10px; }
+    .home-menu .btn { padding: 16px; font-size: 16px; }
+    .action-btn { opacity: 1; }
+}

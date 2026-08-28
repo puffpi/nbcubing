@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宁波 WCA 魔方数据库</title>
+    <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="pk-floating-bar" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1050; padding:12px 25px; border-radius:30px; box-shadow:0 10px 25px rgba(0,0,0,0.25); flex-direction:row; align-items:center; gap:20px; background:var(--primary-color); color:white; white-space:nowrap;">
+        <span style="font-size: 15px;">已选择 <b id="pk-float-name" style="color:#f8f9fa;"></b> 作为发起方。请选择对手！</span>
+        <button class="btn btn-outline" style="border-color:white; color:white; padding:6px 14px; font-size:13px; border-radius: 20px;" onclick="cancelInlinePK()">取消 PK</button>
+    </div>
+
+    <div id="pk-confirm-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; justify-content:center; align-items:center;">
+        <div class="card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0;">确认战局</h3>
+            <p style="margin: 20px 0; font-size: 16px;">是否将<br><span id="pk-confirm-a" style="font-weight:bold; color:var(--primary-color); display:inline-block; margin-top:10px;"></span><br>与<br><span id="pk-confirm-b" style="font-weight:bold; color:#e63946; display:inline-block; margin-bottom:10px;"></span><br>进行 PK？</p>
+            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                <button class="btn btn-outline" style="flex:1;" onclick="abortInlinePK()">取消</button>
+                <button class="btn" style="background-color: #e63946; flex:1;" onclick="executeInlinePK()">确认 PK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="global-loading">
+        <div class="spinner"></div>
+        <div>正在获取 WCA 数据库信息，请稍候...</div>
+    </div>
+
+    <div id="pk-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+        <div class="card" style="width: 320px; max-width: 90%; margin: 0; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top:0; text-align:center;">请选择选手（<span id="pk-modal-side"></span>）</h3>
+            <div id="pk-modal-list" style="display:flex; flex-direction:column; gap:10px; overflow-y: auto; padding-right: 5px;"></div>
+            <button id="pk-modal-cancel" class="btn btn-outline" style="margin-top:15px; width:100%">取消</button>
+        </div>
+    </div>
+
+    <div id="home-page" class="page-container card">
+        <h1>宁波 WCA 魔方数据库</h1>
+        <p style="text-align: center; color: #8d99ae;">选择你想要查看的功能</p>
+        <div class="home-menu">
+            <button class="btn" onclick="navigateTo('ranking-page')">📊 宁波魔方成绩排行榜</button>
+            <button class="btn" onclick="navigateTo('records-page'); generateRecords();">👑 宁波 WCA 纪录榜</button>
+            <button class="btn" style="background-color: #10b981;" onclick="openSearchPage()">🔍 个人成绩查询</button>
+            <button class="btn" style="background-color: #e63946;" onclick="openPkPage()">⚔️ 选手成绩 PK</button>
+        </div>
+        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 35px;">作者：b站@泡芙老师k3</p>
+    </div>
+
+    <div id="ranking-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <h2>成绩排行榜</h2>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="controls">
+                <label>选择项目：
+                    <select id="event-select" onchange="updateRanking()">
+                        <option value="333" selected>三阶（3x3x3）</option>
+                        <option value="222">二阶（2x2x2）</option>
+                        <option value="444">四阶（4x4x4）</option>
+                        <option value="555">五阶（5x5x5）</option>
+                        <option value="666">六阶（6x6x6）</option>
+                        <option value="777">七阶（7x7x7）</option>
+                        <option value="333bf">三盲（3x3x3 Blindfolded）</option>
+                        <option value="333fm">最少步（3x3x3 Fewest Moves）</option>
+                        <option value="333oh">单手（3x3x3 One-Handed）</option>
+                        <option value="clock">魔表（Clock）</option>
+                        <option value="minx">五魔方（Megaminx）</option>
+                        <option value="pyram">金字塔（Pyraminx）</option>
+                        <option value="skewb">斜转（Skewb）</option>
+                        <option value="sq1">SQ1（Square-1）</option>
+                        <option value="444bf">四盲（4x4x4 Blindfolded）</option>
+                        <option value="555bf">五盲（5x5x5 Blindfolded）</option>
+                        <option value="333mbf">多盲（3x3x3 Multi-Blind）</option>
+                        <!-- 新增远古已取消项目 -->
+                        <option value="333ft" style="color:var(--text-muted);">脚拧（3x3x3 With Feet）</option>
+                        <option value="magic" style="color:var(--text-muted);">八板（Magic）</option>
+                        <option value="mmagic" style="color:var(--text-muted);">十二板（Master Magic）</option>
+                        <option value="mbf" style="color:var(--text-muted);">旧版多盲（Old Multi-Blind）</option>
+                    </select>
+                </label>
+
+                <label>选择类型：
+                    <select id="type-select" onchange="updateRanking()">
+                        <option value="single">单次</option>
+                        <option value="average">平均</option>
+                    </select>
+                </label>
+
+                <label>性别：
+                    <select id="gender-select" onchange="updateRanking()">
+                        <option value="all" selected>全部</option>
+                        <option value="m">男</option>
+                        <option value="f">女</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>姓名</th>
+                            <th>成绩</th>
+                            <th>地区排名（NR）</th>
+                            <th>洲际排名（CR）</th>
+                            <th>世界排名（WR）</th>
+                            <th style="width: 80px;">PK</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="records-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <h2>WCA 宁波纪录</h2>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>类型</th>
+                            <th>纪录保持者</th>
+                            <th>成绩</th>
+                            <th>地区排名（NR）</th>
+                            <th>洲际排名（CR）</th>
+                            <th>世界排名（WR）</th>
+                            <th style="width: 80px;">PK</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="pk-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">成绩 PK</h2>
+                <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">支持输入全球任意选手的姓名或 WCA ID 进行查询</div>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="pk-inputs-container">
+                <div class="pk-input-wrapper">
+                    <input type="text" id="pk-input-a" class="pk-input" placeholder="输入选手A（姓名 或 WCAID）" autocomplete="off">
+                    <div id="autocomplete-a" class="autocomplete-list"></div>
+                </div>
+                <div class="pk-vs">VS</div>
+                <div class="pk-input-wrapper">
+                    <input type="text" id="pk-input-b" class="pk-input" placeholder="输入选手B（姓名 或 WCAID）" autocomplete="off">
+                    <div id="autocomplete-b" class="autocomplete-list"></div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button class="btn" style="background-color: #e63946;" onclick="handlePkClick()">🔥 开始对比</button>
+            </div>
+        </div>
+
+        <div class="card" id="pk-history-container" style="display:none; padding: 20px 24px;">
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center;">最近对战记录</div>
+            <div id="pk-history-list" class="history-list-container"></div>
+        </div>
+    </div>
+
+    <div id="pk-result-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">PK 战报</h2>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card" id="pk-result-card">
+            <div class="pk-score-board">
+                <div class="pk-score-item">
+                    <div class="pk-score-name" id="pk-board-name-a">选手A</div>
+                    <div class="pk-score-value" id="pk-board-score-a">0</div>
+                </div>
+                <div class="pk-score-item" style="font-size: 18px; font-weight: bold; color: var(--text-muted);">
+                    总比分
+                </div>
+                <div class="pk-score-item">
+                    <div class="pk-score-name" id="pk-board-name-b">选手B</div>
+                    <div class="pk-score-value" id="pk-board-score-b">0</div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="pk-table-name-a" style="width: 35%">选手A</th>
+                            <th style="width: 30%">比赛项目</th>
+                            <th id="pk-table-name-b" style="width: 35%">选手B</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pk-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 style="margin-bottom: 5px;">成绩查询</h2>
+                <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">支持输入全球任意选手的姓名或 WCA ID 进行查询</div>
+            </div>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="pk-inputs-container">
+                <div class="pk-input-wrapper">
+                    <input type="text" id="search-input" class="pk-input" placeholder="输入选手（姓名 或 WCAID）" autocomplete="off">
+                    <div id="autocomplete-search" class="autocomplete-list"></div>
+                </div>
+                <button class="btn" style="background-color: #10b981; white-space: nowrap;" onclick="performSearch()">🔍 开始查询</button>
+            </div>
+        </div>
+
+        <div class="card" id="search-history-container" style="display:none; padding: 20px 24px;">
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center;">最近查询</div>
+            <div id="search-history-list" class="history-list-container"></div>
+        </div>
+    </div>
+
+    <div id="person-page" class="page-container">
+        <div class="header-controls">
+            <button class="btn btn-outline" onclick="goBack()">← 返回上一页</button>
+            <div style="text-align: center;">
+                <h2 id="person-title-name" style="margin-bottom: 0;">选手姓名</h2>
+                <div id="person-title-wcaid" style="color: var(--text-muted); font-size: 16px; margin-top: 4px; font-weight: 500;">WCA ID</div>
+                <div id="person-title-meta" style="margin-top: 12px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;"></div>
+                <div id="person-wca-link" style="margin-top: 12px;"></div>
+            </div>
+            <div style="width: 130px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>类型</th>
+                            <th>成绩</th>
+                            <th>地区排名（NR）</th>
+                            <th>洲际排名（CR）</th>
+                            <th>世界排名（WR）</th>
+                        </tr>
+                    </thead>
+                    <tbody id="person-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="database.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
