@@ -109,9 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAutocomplete('pk-input-a', 'autocomplete-a');
     setupAutocomplete('pk-input-b', 'autocomplete-b');
     setupAutocomplete('search-input', 'autocomplete-search');
-    
+
     // 初始状态下不让首页直接乱显现，先在后台拉取数据
-    initData(); 
+    initData();
 });
 
 function formatName(rawName) {
@@ -312,6 +312,20 @@ async function performSearch() {
     }
 }
 
+// 修复：点击名字跳转个人主页的函数
+async function showPerson(wcaId) {
+    document.getElementById('global-loading').style.display = 'flex';
+    // 利用已有的 resolvePlayerAsync 函数获取数据
+    const player = await resolvePlayerAsync(wcaId, '个人主页');
+    document.getElementById('global-loading').style.display = 'none';
+
+    if (player) {
+        // 可选：将点击查看的选手也加入搜索历史记录
+        addSearchHistory(player);
+        renderPersonPage(player);
+    }
+}
+
 async function resolvePlayerAsync(input, sideLabel) {
     const idMatch = input.match(/[（\(]([A-Z0-9]+)[）\)]$/i);
     if (idMatch) {
@@ -476,7 +490,10 @@ function renderPersonPage(cuber) {
 
     const wcaLinkContainer = document.getElementById('person-wca-link');
     if (wcaLinkContainer) {
-        wcaLinkContainer.innerHTML = `<a href="https://www.worldcubeassociation.org/persons/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 16px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">🔗 访问 WCA 官方主页</a>`;
+        wcaLinkContainer.innerHTML = `
+            <a href="https://www.worldcubeassociation.org/persons/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">🔗 WCA 官方</a>
+            <a href="https://cubing.com/results/person/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; border-color: #f59e0b; color: #f59e0b; margin-left: 8px;">📊 粗饼主页</a>
+        `;
     }
 
     const metaContainer = document.getElementById('person-title-meta');
@@ -539,24 +556,70 @@ function renderPersonPage(cuber) {
             }
         }
     });
-    navigateTo('person-page', true);
-}
 
-async function showPerson(wcaId) {
-    if (inlinePkState !== 0) return;
-    let cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
-    if (!cuber) {
-        try {
-            document.getElementById('global-loading').style.display = 'flex';
-            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${wcaId}`);
-            if (res.ok) cuber = await res.json();
-        } catch(e) {}
-        document.getElementById('global-loading').style.display = 'none';
+    // ============================================
+    // 计算并渲染高阶健康指数
+    // ============================================
+    const bigCubeCard = document.getElementById('big-cube-index-card');
+    const bigCubeTbody = document.getElementById('big-cube-tbody');
+    bigCubeTbody.innerHTML = '';
+
+    const r4 = records['444'];
+    const r5 = records['555'];
+    const r6 = records['666'];
+    const r7 = records['777'];
+
+    // 只有当选手至少有一项相邻高阶的成绩时，才展示面板
+    if ((r4 && r5) || (r5 && r6) || (r6 && r7)) {
+        bigCubeCard.style.display = 'block';
+
+        // 颜色判断逻辑
+        const getHealthColor = (ratio, type) => {
+            const val = parseFloat(ratio);
+            if (type === '54' || type === '65') {
+                if (val >= 2.1) return 'color: #e63946;'; // 红灯
+                if (val >= 2.0) return 'color: #f59e0b;'; // 黄灯
+                return 'color: #10b981;'; // 绿灯健康
+            } else if (type === '76') {
+                if (val >= 1.7) return 'color: #e63946;'; // 红灯
+                if (val >= 1.6) return 'color: #f59e0b;'; // 黄灯
+                return 'color: #10b981;'; // 绿灯健康
+            }
+            return '';
+        };
+
+        // 核心计算逻辑：带有阈值颜色渲染
+        const calcRatio = (high, low, type) => {
+            if (high && low) {
+                const ratio = (high.best / low.best).toFixed(2);
+                return `<span style="${getHealthColor(ratio, type)}">${ratio}</span>`;
+            }
+            return '-';
+        };
+
+        const trSingle = document.createElement('tr');
+        trSingle.innerHTML = `
+            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap;">单次</span></td>
+            <td style="font-weight: 600;">${calcRatio(r5?.single, r4?.single, '54')}</td>
+            <td style="font-weight: 600;">${calcRatio(r6?.single, r5?.single, '65')}</td>
+            <td style="font-weight: 600;">${calcRatio(r7?.single, r6?.single, '76')}</td>
+        `;
+
+        const trAvg = document.createElement('tr');
+        trAvg.innerHTML = `
+            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap;">平均</span></td>
+            <td style="font-weight: 600;">${calcRatio(r5?.average, r4?.average, '54')}</td>
+            <td style="font-weight: 600;">${calcRatio(r6?.average, r5?.average, '65')}</td>
+            <td style="font-weight: 600;">${calcRatio(r7?.average, r6?.average, '76')}</td>
+        `;
+
+        bigCubeTbody.appendChild(trSingle);
+        bigCubeTbody.appendChild(trAvg);
+    } else {
+        bigCubeCard.style.display = 'none';
     }
-    if (cuber) {
-        addSearchHistory(cuber);
-        renderPersonPage(cuber);
-    }
+
+    navigateTo('person-page', true);
 }
 
 function getContinentRankPrefix(iso2) {
@@ -745,14 +808,10 @@ function generateRecords() {
     tbody.appendChild(trSorAvg);
 }
 
-// ============================================
-// 初始化逻辑：先转圈隐藏，数据就绪后平滑淡入首页
-// ============================================
 async function initData() {
     const loader = document.getElementById('global-loading');
     const homePage = document.getElementById('home-page');
-    
-    // 确保一开始首页是隐藏的，避免下方乱跳
+
     if (homePage) {
         homePage.classList.remove('active');
     }
@@ -760,28 +819,25 @@ async function initData() {
     try {
         const res = await fetch('wca_data.json?t=' + new Date().getTime());
         if (!res.ok) throw new Error("File not found");
-        
+
         allCubersData = await res.json();
         isDataReady = true;
 
-        // 1. 隐藏加载动画
         if (loader) {
             loader.style.display = 'none';
         }
 
-        // 2. 将首页设为激活状态，并利用 CSS 动画实现优雅的淡入/上升效果
         if (homePage) {
             homePage.style.animation = 'fadeInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards';
             homePage.classList.add('active');
         }
 
-        // 检查当前用户正停留在哪个页面（防止一进来用户手动点到了别的页面）
         const activePage = document.querySelector('.page-container.active');
         if (activePage && activePage.id !== 'home-page') {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
         }
-        
+
     } catch (err) {
         console.error("数据加载失败", err);
         if (loader) {
@@ -789,3 +845,4 @@ async function initData() {
         }
     }
 }
+
