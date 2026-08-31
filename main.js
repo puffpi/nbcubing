@@ -577,12 +577,12 @@ function renderPersonPage(cuber) {
         const getHealthColor = (ratio, type) => {
             const val = parseFloat(ratio);
             if (type === '54' || type === '65') {
-                if (val >= 2.1) return 'color: #e63946;'; // 红灯
-                if (val >= 2.0) return 'color: #f59e0b;'; // 黄灯
+                if (val >= 2.10 || val < 1.60) return 'color: #e63946;'; // 红灯
+                if (val >= 2.00 || val < 1.70) return 'color: #f59e0b;'; // 黄灯
                 return 'color: #10b981;'; // 绿灯健康
             } else if (type === '76') {
-                if (val >= 1.7) return 'color: #e63946;'; // 红灯
-                if (val >= 1.6) return 'color: #f59e0b;'; // 黄灯
+                if (val >= 1.65 || val < 1.40) return 'color: #e63946;'; // 红灯
+                if (val >= 1.60 || val < 1.45) return 'color: #f59e0b;'; // 黄灯
                 return 'color: #10b981;'; // 绿灯健康
             }
             return '';
@@ -620,6 +620,116 @@ function renderPersonPage(cuber) {
     }
 
     navigateTo('person-page', true);
+}
+
+function updateChart() {
+    if (!currentPersonHistory) return;
+
+    const eventId = document.getElementById('chart-event-select').value;
+    const type = document.getElementById('chart-type-select').value;
+
+    let results = currentPersonHistory[eventId];
+    if (!results) return;
+
+    let plotData = [];
+    let bestValue = Infinity;
+    let bestIndex = -1;
+
+    // WCA 数据接口导出的成绩通常为倒序（最新的在最前）
+    // 为了画出顺应时间的进步曲线，这里逆向遍历
+    for (let i = results.length - 1; i >= 0; i--) {
+        let r = results[i];
+        let val = r[type];
+        // 过滤掉 DNF(-1)、DNS(-2) 等无效值，只描绘正常完成的成绩
+        if (val && val > 0) {
+            plotData.push({
+                x: r.competitionId, // 赛事名
+                y: val,           // 原始数值
+                displayTime: formatWcaResult(val, eventId, type) // 直接复用你之前写好的成绩转换工具
+            });
+        }
+    }
+
+    if (plotData.length === 0) {
+        if (progressChartInstance) progressChartInstance.destroy();
+        return;
+    }
+
+    // 寻找数值最小的那一次，即为 PR
+    plotData.forEach((point, index) => {
+        if (point.y < bestValue) {
+            bestValue = point.y;
+            bestIndex = index;
+        }
+    });
+
+    // 计算 Y 轴数据，除了最少步（333fm 的单次不用除以 100），全部换算为秒数方便刻度展示
+    let chartValues = plotData.map(p => {
+        if (eventId === '333fm') return type === 'average' ? p.y / 100 : p.y;
+        return p.y / 100;
+    });
+
+    let labels = plotData.map(p => p.x);
+
+    // 渲染样式：找出 PR 点后，单独给它涂上高亮的红色以及特殊的星星形状
+    let pointColors = plotData.map((_, i) => i === bestIndex ? '#e63946' : '#f59e0b');
+    let pointRadii = plotData.map((_, i) => i === bestIndex ? 7 : 4);
+    let pointStyles = plotData.map((_, i) => i === bestIndex ? 'star' : 'circle');
+
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    if (progressChartInstance) progressChartInstance.destroy();
+
+    progressChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '成绩',
+                data: chartValues,
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 2,
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
+                pointRadius: pointRadii,
+                pointHoverRadius: 8,
+                pointStyle: pointStyles,
+                fill: true,
+                tension: 0.2 // 让曲线有一定的平滑弧度
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) { return context[0].label; },
+                        label: function(context) {
+                            let dataIndex = context.dataIndex;
+                            let info = plotData[dataIndex];
+                            // 如果鼠标悬停在 PR 点上，会有皇冠特殊提示
+                            let prefix = (dataIndex === bestIndex) ? '🏆 PR: ' : '成绩: ';
+                            return prefix + info.displayTime;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { title: { display: true, text: '成绩 (秒/步)' } },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45,
+                        font: { size: 10 },
+                        autoSkip: true, // 比赛过多时自动隐藏部分底部字，防止排版挤压
+                        maxTicksLimit: 12
+                    }
+                }
+            }
+        }
+    });
 }
 
 function getContinentRankPrefix(iso2) {
@@ -845,4 +955,3 @@ async function initData() {
         }
     }
 }
-
