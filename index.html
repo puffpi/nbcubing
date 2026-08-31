@@ -78,7 +78,6 @@
                         <option value="444bf">四盲（4x4x4 Blindfolded）</option>
                         <option value="555bf">五盲（5x5x5 Blindfolded）</option>
                         <option value="333mbf">多盲（3x3x3 Multi-Blind）</option>
-                        <!-- 新增远古已取消项目 -->
                         <option value="333ft" style="color:var(--text-muted);">脚拧（3x3x3 With Feet）</option>
                         <option value="magic" style="color:var(--text-muted);">八板（Magic）</option>
                         <option value="mmagic" style="color:var(--text-muted);">十二板（Master Magic）</option>
@@ -276,6 +275,31 @@
                         </tr>
                     </thead>
                     <tbody id="person-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 新增的高阶健康指数面板 -->
+        <div class="card" id="big-cube-index-card" style="display: none; margin-top: 20px; background-color: #fafbfc;">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 5px 0; font-size: 16px; color: var(--primary-color);">📈 高阶健康指数</h3>
+                <div style="font-size: 12px; color: var(--text-muted);">
+                    评估四阶至七阶的复原时间健康度<br>
+                    （参考区间：五阶/四阶&lt;2.0，六阶/五阶&lt;2.0，七阶≤六阶+五阶 即 七阶/六阶≈1.5）
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 25%">类型</th>
+                            <th style="width: 25%">五阶 / 四阶</th>
+                            <th style="width: 25%">六阶 / 五阶</th>
+                            <th style="width: 25%">七阶 / 六阶</th>
+                        </tr>
+                    </thead>
+                    <tbody id="big-cube-tbody">
                     </tbody>
                 </table>
             </div>
