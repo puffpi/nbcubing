@@ -6,6 +6,13 @@ let inlinePkState = 0;
 let inlinePkPlayerA = null;
 let pendingPkPlayerB = null;
 let isDataReady = false;
+let allHistoryData = {};
+let currentPersonHistory = null;
+let progressChartInstance = null;
+let currentChartEventId = '333'; // 默认优先三阶
+let currentChartType = 'average'; // 记录当前选中的是平均还是单次
+let currentRankingType = 'single';
+let currentRankingGender = 'all';
 
 const countryDict = {
     'CN': '中国', 'HK': '中国香港', 'MO': '中国澳门', 'TW': '中国台湾',
@@ -128,8 +135,9 @@ function navigateTo(pageId, isForward = false) {
     } else if (!isForward) {
         historyStack = [];
     }
-    document.querySelectorAll('.page-container').forEach(page => page.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
+
+    showPage(pageId);
+
     if (isForward || !isForward) window.scrollTo(0, 0);
 
     if (isDataReady) {
@@ -139,25 +147,62 @@ function navigateTo(pageId, isForward = false) {
 }
 
 function goBack() {
+    // 返回上一页时，如果正处于“选择 PK 对手”状态，先彻底清除 PK 状态
+    if (inlinePkState !== 0) {
+        inlinePkState = 0;
+        inlinePkPlayerA = null;
+        pendingPkPlayerB = null;
+
+        document.body.classList.remove('pk-mode');
+
+        const floatingBar = document.getElementById('pk-floating-bar');
+        if (floatingBar) floatingBar.style.display = 'none';
+
+        const confirmModal = document.getElementById('pk-confirm-modal');
+        if (confirmModal) confirmModal.style.display = 'none';
+    }
+
     if (historyStack.length > 0) {
         const prevState = historyStack.pop();
-        document.querySelectorAll('.page-container').forEach(page => page.classList.remove('active'));
-        document.getElementById(prevState.id).classList.add('active');
+        showPage(prevState.id);
         setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
     } else {
         navigateTo('home-page');
     }
 }
 
+function showPage(pageId) {
+    const page = document.getElementById(pageId);
+
+    document.querySelectorAll('.page-container').forEach(p => {
+        p.classList.remove('active');
+    });
+
+    // 强制浏览器重新计算布局，让动画每次都重新开始
+    void page.offsetWidth;
+
+    page.classList.add('active');
+
+    // === 新增：控制悬浮导航显示/隐藏 ===
+    const floatingNav = document.getElementById('floating-nav');
+    if (floatingNav) {
+        floatingNav.style.display = (pageId === 'home-page') ? 'none' : 'block';
+    }
+}
+
 function getPkButtonHtml(wcaId, formattedName) {
     const safeName = formattedName.replace(/'/g, "\\'");
+
     if (inlinePkState === 0) {
-        return `<button class="action-btn btn btn-outline" style="padding: 4px 10px; font-size: 12px; white-space: nowrap;" onclick="startInlinePK('${wcaId}', '${safeName}')">我要 PK</button>`;
+        return `<button class="action-btn btn btn-outline pk-action-btn pk-start-btn"
+            onclick="startInlinePK('${wcaId}', '${safeName}')">我要 PK</button>`;
     } else {
         if (inlinePkPlayerA.id === wcaId) {
-            return `<button class="action-btn btn btn-outline" style="padding: 4px 10px; font-size: 12px; white-space: nowrap; border-color: #e63946; color: #e63946;" onclick="cancelInlinePK()">取消 PK</button>`;
+            return `<button class="action-btn btn btn-outline pk-action-btn pk-cancel-btn"
+                onclick="cancelInlinePK()">取消 PK</button>`;
         } else {
-            return `<button class="action-btn btn" style="padding: 4px 10px; font-size: 12px; white-space: nowrap; background-color: #e63946;" onclick="selectOpponent('${wcaId}', '${safeName}')">选择该对手</button>`;
+            return `<button class="action-btn btn pk-action-btn pk-opponent-btn"
+                onclick="selectOpponent('${wcaId}', '${safeName}')">选择该对手</button>`;
         }
     }
 }
@@ -453,8 +498,8 @@ function renderPK(pA, pB) {
                 let timeB = valB !== Infinity ? formatWcaResult(valB, ev.id, type.id) : '-';
                 let classA = ''; let classB = '';
 
-                if (valA < valB) { scoreA++; classA = 'pk-cell-win'; }
-                else if (valB < valA) { scoreB++; classB = 'pk-cell-win'; }
+                if (valA < valB) { scoreA++; classA = 'pk-cell-win'; classB = 'pk-cell-lose'; }
+                else if (valB < valA) { scoreB++; classB = 'pk-cell-win'; classA = 'pk-cell-lose'; }
                 else if (valA === valB && valA !== Infinity) { classA = 'pk-cell-tie'; classB = 'pk-cell-tie'; }
 
                 let tr = document.createElement('tr');
@@ -529,11 +574,15 @@ function renderPersonPage(cuber) {
                     let trSingle = document.createElement('tr');
                     trSingle.innerHTML = `
                         <td>${eventHtml}</td>
-                        <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">单次</span></td>
+                        <td><span class="type-badge">单次</span></td>
                         <td class="highlight-score">${singleTime}</td>
                         <td>${formatRank(single.country_rank, 'NR')}</td>
                         <td>${formatRank(single.continent_rank, crPrefix)}</td>
                         <td>${formatRank(single.world_rank, 'WR')}</td>
+                        <td>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${single.comp_name || '-'}</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${single.comp_date || '-'}</div>
+                        </td>
                     `;
                     tbody.appendChild(trSingle);
                     isFirstRow = false;
@@ -544,11 +593,15 @@ function renderPersonPage(cuber) {
                     let trAvg = document.createElement('tr');
                     trAvg.innerHTML = `
                         <td>${eventHtml}</td>
-                        <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">平均</span></td>
+                        <td><span class="type-badge">平均</span></td>
                         <td class="highlight-score">${avgTime}</td>
                         <td>${formatRank(average.country_rank, 'NR')}</td>
                         <td>${formatRank(average.continent_rank, crPrefix)}</td>
                         <td>${formatRank(average.world_rank, 'WR')}</td>
+                        <td>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${average.comp_name || '-'}</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${average.comp_date || '-'}</div>
+                        </td>
                     `;
                     tbody.appendChild(trAvg);
                     isFirstRow = false;
@@ -599,7 +652,7 @@ function renderPersonPage(cuber) {
 
         const trSingle = document.createElement('tr');
         trSingle.innerHTML = `
-            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap;">单次</span></td>
+            <td><span class="type-badge">单次</span></td>
             <td style="font-weight: 600;">${calcRatio(r5?.single, r4?.single, '54')}</td>
             <td style="font-weight: 600;">${calcRatio(r6?.single, r5?.single, '65')}</td>
             <td style="font-weight: 600;">${calcRatio(r7?.single, r6?.single, '76')}</td>
@@ -607,7 +660,7 @@ function renderPersonPage(cuber) {
 
         const trAvg = document.createElement('tr');
         trAvg.innerHTML = `
-            <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap;">平均</span></td>
+            <td><span class="type-badge">平均</span></td>
             <td style="font-weight: 600;">${calcRatio(r5?.average, r4?.average, '54')}</td>
             <td style="font-weight: 600;">${calcRatio(r6?.average, r5?.average, '65')}</td>
             <td style="font-weight: 600;">${calcRatio(r7?.average, r6?.average, '76')}</td>
@@ -619,117 +672,274 @@ function renderPersonPage(cuber) {
         bigCubeCard.style.display = 'none';
     }
 
+    // 注入并渲染历史曲线图与表格
+    currentPersonHistory = allHistoryData[cuber.person.wca_id] || null;
+    const chartCard = document.getElementById('history-chart-card');
+    const eventTabs = document.getElementById('history-event-tabs');
+
+    if (currentPersonHistory && Object.keys(currentPersonHistory).length > 0) {
+        chartCard.style.display = 'block';
+        eventTabs.innerHTML = '';
+
+        // 每次进入个人主页时，强制将项目重置为三阶 (333)
+        currentChartEventId = '333';
+
+        let isFirst = true;
+        eventTabs.innerHTML = '';
+
+        // 按照 eventDict 中的官方顺序对选手参加过的项目进行排序（被取消的项目会自动排在最后）
+        let availableEvents = Object.keys(currentPersonHistory);
+        availableEvents.sort((a, b) => {
+            let idxA = eventDict.findIndex(e => e.id === a);
+            let idxB = eventDict.findIndex(e => e.id === b);
+            return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+        });
+
+        // let isFirst = true;
+        availableEvents.forEach(evId => {
+            let isSelected = (currentChartEventId === evId) || (isFirst && !currentPersonHistory[currentChartEventId]);
+            if (isSelected) {
+                currentChartEventId = evId;
+                isFirst = false;
+            }
+
+            let tab = document.createElement('div');
+            tab.className = `history-event-tab ${isSelected ? 'active' : ''}`;
+            tab.innerHTML = `<span class="cubing-icon event-${evId}" style="font-size: 26px;"></span>`;
+
+            tab.onclick = () => {
+                currentChartEventId = evId;
+                document.querySelectorAll('.history-event-tab').forEach(el => el.classList.remove('active'));
+                tab.classList.add('active');
+                updateChartAndTable();
+            };
+            eventTabs.appendChild(tab);
+        });
+        updateChartAndTable();
+    } else {
+        chartCard.style.display = 'none';
+    }
+
     navigateTo('person-page', true);
 }
 
-function updateChart() {
+function updateChartAndTable() {
     if (!currentPersonHistory) return;
-
-    const eventId = document.getElementById('chart-event-select').value;
-    const type = document.getElementById('chart-type-select').value;
-
+    const type = currentChartType;
+    const eventId = currentChartEventId;
     let results = currentPersonHistory[eventId];
     if (!results) return;
 
+    // 记录当前的滚动条位置，防止表格刷新时页面上下跳动
+    const currentScrollY = window.scrollY;
+
+    let rollingPrSingle = Infinity;
+    let rollingPrAverage = Infinity;
+
+    results.forEach(r => {
+        r.isPrSingle = false;
+        r.isPrAverage = false;
+        // 这里的 r.single > 0 和 r.average > 0 严格保障了 DNF/DNS 绝不可能被标为 PR
+        if (r.single && r.single > 0 && r.single < rollingPrSingle) {
+            rollingPrSingle = r.single;
+            r.isPrSingle = true;
+        }
+        if (r.average && r.average > 0 && r.average < rollingPrAverage) {
+            rollingPrAverage = r.average;
+            r.isPrAverage = true;
+        }
+    });
+
     let plotData = [];
-    let bestValue = Infinity;
-    let bestIndex = -1;
-
-    // WCA 数据接口导出的成绩通常为倒序（最新的在最前）
-    // 为了画出顺应时间的进步曲线，这里逆向遍历
-    for (let i = results.length - 1; i >= 0; i--) {
-        let r = results[i];
+    results.forEach((r) => {
         let val = r[type];
-        // 过滤掉 DNF(-1)、DNS(-2) 等无效值，只描绘正常完成的成绩
         if (val && val > 0) {
-            plotData.push({
-                x: r.competitionId, // 赛事名
-                y: val,           // 原始数值
-                displayTime: formatWcaResult(val, eventId, type) // 直接复用你之前写好的成绩转换工具
-            });
-        }
-    }
-
-    if (plotData.length === 0) {
-        if (progressChartInstance) progressChartInstance.destroy();
-        return;
-    }
-
-    // 寻找数值最小的那一次，即为 PR
-    plotData.forEach((point, index) => {
-        if (point.y < bestValue) {
-            bestValue = point.y;
-            bestIndex = index;
+            let isPr = (type === 'average') ? r.isPrAverage : r.isPrSingle;
+            plotData.push({ x: r.date, compName: r.comp, y: val, displayTime: formatWcaResult(val, eventId, type), isPr: isPr });
         }
     });
 
-    // 计算 Y 轴数据，除了最少步（333fm 的单次不用除以 100），全部换算为秒数方便刻度展示
-    let chartValues = plotData.map(p => {
-        if (eventId === '333fm') return type === 'average' ? p.y / 100 : p.y;
-        return p.y / 100;
-    });
+    if (plotData.length > 0) {
+        let chartValues = plotData.map(p => eventId === '333fm' && type === 'single' ? p.y : p.y / 100);
+        let labels = plotData.map(p => p.x);
 
-    let labels = plotData.map(p => p.x);
+        let pointColors = plotData.map(p => p.isPr ? '#f59e0b' : '#9ca3af');
+        let pointBorderColors = plotData.map(p => p.isPr ? '#ffffff' : '#ffffff');
+        let pointRadii = plotData.map(p => p.isPr ? 5 : 3);
+        let pointBorderWidths = plotData.map(p => p.isPr ? 2 : 1);
 
-    // 渲染样式：找出 PR 点后，单独给它涂上高亮的红色以及特殊的星星形状
-    let pointColors = plotData.map((_, i) => i === bestIndex ? '#e63946' : '#f59e0b');
-    let pointRadii = plotData.map((_, i) => i === bestIndex ? 7 : 4);
-    let pointStyles = plotData.map((_, i) => i === bestIndex ? 'star' : 'circle');
+        const ctx = document.getElementById('progressChart').getContext('2d');
 
-    const ctx = document.getElementById('progressChart').getContext('2d');
-    if (progressChartInstance) progressChartInstance.destroy();
+        if (progressChartInstance) {
+            progressChartInstance.data.labels = labels;
+            progressChartInstance.data.datasets[0].data = chartValues;
+            progressChartInstance.data.datasets[0].pointBackgroundColor = pointColors;
+            progressChartInstance.data.datasets[0].pointBorderColor = pointBorderColors;
+            progressChartInstance.data.datasets[0].pointRadius = pointRadii;
+            progressChartInstance.data.datasets[0].pointBorderWidth = pointBorderWidths;
 
-    progressChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '成绩',
-                data: chartValues,
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 2,
-                pointBackgroundColor: pointColors,
-                pointBorderColor: pointColors,
-                pointRadius: pointRadii,
-                pointHoverRadius: 8,
-                pointStyle: pointStyles,
-                fill: true,
-                tension: 0.2 // 让曲线有一定的平滑弧度
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        title: function(context) { return context[0].label; },
-                        label: function(context) {
-                            let dataIndex = context.dataIndex;
-                            let info = plotData[dataIndex];
-                            // 如果鼠标悬停在 PR 点上，会有皇冠特殊提示
-                            let prefix = (dataIndex === bestIndex) ? '🏆 PR: ' : '成绩: ';
-                            return prefix + info.displayTime;
+            if (progressChartInstance.options.animations && progressChartInstance.options.animations.y) {
+                delete progressChartInstance.options.animations.y;
+            }
+
+            progressChartInstance._plotData = plotData;
+            progressChartInstance.update();
+        } else {
+            progressChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '成绩',
+                        data: chartValues,
+                        borderColor: '#d1d5db',
+                        backgroundColor: 'rgba(209, 213, 219, 0.2)',
+                        borderWidth: 2,
+                        pointBackgroundColor: pointColors,
+                        pointBorderColor: pointBorderColors,
+                        pointBorderWidth: pointBorderWidths,
+                        pointRadius: pointRadii,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animations: {
+                        y: { duration: 1000, easing: 'easeOutQuart', from: (ctx) => ctx.chart.scales.y ? ctx.chart.scales.y.bottom : 300 }
+                    },
+                    interaction: { mode: 'index', intersect: false, axis: 'x' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            backgroundColor: 'rgba(51, 65, 85, 0.95)',
+                            padding: 12,
+                            titleFont: { size: 0 },
+                            bodyFont: { size: 14, lineHeight: 1.5 },
+                            callbacks: {
+                                title: () => null,
+                                label: function(tooltipItem) {
+                                    let currentPlotData = tooltipItem.chart._plotData;
+                                    let dataIndex = tooltipItem.dataIndex;
+                                    if (!currentPlotData || !currentPlotData[dataIndex]) return '';
+
+                                    let compName = currentPlotData[dataIndex].compName;
+                                    let prefix = currentPlotData[dataIndex].isPr ? 'PR: ' : '成绩: ';
+                                    let scoreStr = prefix + currentPlotData[dataIndex].displayTime;
+                                    return [compName, scoreStr];
+                                }
+                            }
                         }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: '成绩', font: { size: 13 } },
+                            afterFit: function(scaleInstance) { scaleInstance.width = 65; },
+                            ticks: {
+                                callback: function(value) {
+                                    if (eventId === '333fm' || eventId === '333mbf') return value;
+                                    let cleanVal = Number(value.toFixed(2));
+                                    if (cleanVal >= 60) {
+                                        let m = Math.floor(cleanVal / 60);
+                                        let s = Math.floor(cleanVal % 60).toString().padStart(2, '0');
+                                        return `${m}:${s}`;
+                                    }
+                                    return cleanVal.toString();
+                                }
+                            }
+                        },
+                        x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 }, autoSkip: true, maxTicksLimit: 12 } }
                     }
                 }
-            },
-            scales: {
-                y: { title: { display: true, text: '成绩 (秒/步)' } },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45,
-                        font: { size: 10 },
-                        autoSkip: true, // 比赛过多时自动隐藏部分底部字，防止排版挤压
-                        maxTicksLimit: 12
-                    }
+            });
+            progressChartInstance._plotData = plotData;
+        }
+    } else {
+        if (progressChartInstance) { progressChartInstance.destroy(); progressChartInstance = null; }
+    }
+
+    const tbody = document.getElementById('history-detail-tbody');
+    tbody.innerHTML = '';
+    const reversedResults = [...results].reverse();
+
+    const prStyle = 'color: #f59e0b; font-weight: bold;';
+    const roundMap = { '1': '初赛', '2': '复赛', '3': '半决赛', 'f': '决赛', 'c': '联合初/复赛', 'd': '第一轮', 'e': '第二轮', 'b': 'B组决赛', 'h': '资格赛' };
+
+    let lastComp = '';
+    reversedResults.forEach(r => {
+        let displayComp = '';
+        if (r.comp !== lastComp) {
+            displayComp = `<div style="font-size: 14px; font-weight: bold; color: var(--text-main); line-height: 1.4;">${r.comp}</div>
+                           <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">${r.date}</div>`;
+            lastComp = r.comp;
+        }
+
+        let displayRound = roundMap[r.round] || r.round;
+        let displayPos = r.pos ? r.pos : '-';
+
+        // 将没有成绩的记录直接替换为 DNF (或 DNS)
+        let singleHtml = 'DNF';
+        if (r.single && r.single > 0) singleHtml = formatWcaResult(r.single, eventId, 'single');
+        else if (r.single === -2) singleHtml = 'DNS';
+
+        if (r.isPrSingle) singleHtml = `<span style="${prStyle}">${singleHtml}</span>`;
+
+        let avgHtml = 'DNF';
+        if (r.average && r.average > 0) avgHtml = formatWcaResult(r.average, eventId, 'average');
+        else if (r.average === -2) avgHtml = 'DNS';
+
+        if (r.isPrAverage) avgHtml = `<span style="${prStyle}">${avgHtml}</span>`;
+
+        let rawVals = [r.v1 || 0, r.v2 || 0, r.v3 || 0, r.v4 || 0, r.v5 || 0];
+        let validVals = [];
+        let dnfCount = 0;
+        rawVals.forEach(v => {
+            if (v === -1 || v === -2) dnfCount++;
+            else if (v > 0) validVals.push(v);
+        });
+
+        let best = validVals.length > 0 ? Math.min(...validVals) : -1;
+        let worst = validVals.length > 0 ? Math.max(...validVals) : -1;
+
+        let bestWrapped = false;
+        let worstWrapped = false;
+        let isAo5 = (rawVals.filter(v => v !== 0 && v !== null).length === 5);
+
+        let detailsHtmlArr = rawVals.map(v => {
+            if (v === 0 || v === null || isNaN(v)) return '';
+            let str = (v === -1) ? 'DNF' : (v === -2) ? 'DNS' : formatWcaResult(v, eventId, 'single');
+
+            // 纯粹地添加括号，不再注入控制灰色的 HTML 标签
+            if (isAo5) {
+                if ((v === -1 || v === -2) && !worstWrapped) {
+                    str = `(${str})`; worstWrapped = true;
+                } else if (v === worst && !worstWrapped && dnfCount === 0) {
+                    str = `(${str})`; worstWrapped = true;
+                } else if (v === best && !bestWrapped) {
+                    str = `(${str})`; bestWrapped = true;
                 }
             }
-        }
+            return str;
+        });
+
+        let finalDetails = detailsHtmlArr.filter(s => s !== '').join(' &nbsp; ');
+        if (!finalDetails) finalDetails = '-';
+
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${displayComp}</td>
+            <td style="font-size: 14px; color: var(--text-main);">${displayRound}</td>
+            <td style="font-size: 14px; color: var(--text-main);">${displayPos}</td>
+            <td style="font-size: 15px; color: var(--text-main);">${singleHtml}</td>
+            <td style="font-size: 15px; color: var(--text-main);">${avgHtml}</td>
+            <td style="font-family: SFMono-Regular, Consolas, monospace; font-size: 15px; color: var(--text-main);">${finalDetails}</td>
+        `;
+        tbody.appendChild(tr);
     });
+
+    window.scrollTo(0, currentScrollY);
 }
 
 function getContinentRankPrefix(iso2) {
@@ -793,53 +1003,131 @@ function formatWcaResult(rawScore, eventId, type) {
 
 function updateRanking() {
     if (!isDataReady) return;
+
     const currentEvent = document.getElementById('event-select').value;
-    const currentType = document.getElementById('type-select').value;
-    const currentGender = document.getElementById('gender-select').value;
+    const currentType = currentRankingType;
+    const currentGender = currentRankingGender;
     const tbody = document.getElementById('table-body');
+
+    // 强制重置上一轮动画
+    tbody.classList.remove('ranking-transition-in', 'ranking-transition-out');
+    void tbody.offsetWidth;
+
+    // 开始旧内容淡出
+    tbody.classList.add('ranking-transition-out');
+
     tbody.innerHTML = '';
 
     let validResults = [];
+
     allCubersData.forEach(cuber => {
         if (!cuber || !cuber.personal_records || !cuber.person) return;
         if (currentGender !== 'all' && cuber.person.gender !== currentGender) return;
 
         const records = cuber.personal_records;
+
         if (records[currentEvent] && records[currentEvent][currentType]) {
             validResults.push({
-                name: cuber.person.name, wcaId: cuber.person.wca_id, iso2: cuber.person.country_iso2,
-                bestRaw: records[currentEvent][currentType].best, nr: records[currentEvent][currentType].country_rank,
-                cr: records[currentEvent][currentType].continent_rank, wr: records[currentEvent][currentType].world_rank
+                name: cuber.person.name,
+                wcaId: cuber.person.wca_id,
+                iso2: cuber.person.country_iso2,
+                bestRaw: records[currentEvent][currentType].best,
+                nr: records[currentEvent][currentType].country_rank,
+                cr: records[currentEvent][currentType].continent_rank,
+                wr: records[currentEvent][currentType].world_rank,
+                compName: records[currentEvent][currentType].comp_name || '-',
+                compDate: records[currentEvent][currentType].comp_date || '-'
             });
         }
     });
 
     if (validResults.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">暂无符合条件的成绩数据</td></tr>'; return;
+        tbody.innerHTML = '<tr><td colspan="8">暂无符合条件的成绩数据</td></tr>';
+
+        // 新内容淡入
+        requestAnimationFrame(() => {
+            tbody.classList.remove('ranking-transition-out');
+            tbody.classList.add('ranking-transition-in');
+
+            setTimeout(() => {
+                tbody.classList.remove('ranking-transition-in');
+            }, 400);
+        });
+
+        return;
     }
 
     validResults.sort((a, b) => a.bestRaw - b.bestRaw);
+
     validResults.forEach((result, index) => {
-        let displayTime = formatWcaResult(result.bestRaw, currentEvent, currentType);
+        let displayTime = formatWcaResult(
+            result.bestRaw,
+            currentEvent,
+            currentType
+        );
+
         let rankDisplay = index + 1;
-        if(rankDisplay === 1) rankDisplay = '🥇 1';
-        if(rankDisplay === 2) rankDisplay = '🥈 2';
-        if(rankDisplay === 3) rankDisplay = '🥉 3';
+
+        if (rankDisplay === 1) rankDisplay = '🥇 1';
+        if (rankDisplay === 2) rankDisplay = '🥈 2';
+        if (rankDisplay === 3) rankDisplay = '🥉 3';
 
         let crPrefix = getContinentRankPrefix(result.iso2);
         const formattedName = formatName(result.name);
 
         const tr = document.createElement('tr');
+
+        // 给每一行设置一个非常小的错峰延迟
+        tr.style.setProperty(
+            '--row-delay',
+            `${Math.min(index * 0.012, 0.15)}s`
+        );
+
         tr.innerHTML = `
             <td>${rankDisplay}</td>
-            <td class="clickable-name" onclick="showPerson('${result.wcaId}')">${formattedName}</td>
+
+            <td class="clickable-name-cell">
+                <span class="clickable-name"
+                      onclick="showPerson('${result.wcaId}')">
+                    ${formattedName}
+                </span>
+            </td>
+
             <td class="highlight-score">${displayTime}</td>
+
             <td>${formatRank(result.nr, 'NR')}</td>
+
             <td>${formatRank(result.cr, crPrefix)}</td>
+
             <td>${formatRank(result.wr, 'WR')}</td>
-            <td style="width: 80px;">${getPkButtonHtml(result.wcaId, formattedName)}</td>
+
+            <td>
+                <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">
+                    ${result.compName}
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">
+                    ${result.compDate}
+                </div>
+            </td>
+
+            <td style="width: 80px;">
+                ${getPkButtonHtml(result.wcaId, formattedName)}
+            </td>
         `;
+
         tbody.appendChild(tr);
+    });
+
+    // 下一帧开始显示新表格
+    requestAnimationFrame(() => {
+        tbody.classList.remove('ranking-transition-out');
+        tbody.classList.add('ranking-transition-in');
+
+        // 强制重新计算，让新内容的动画每次都从头开始
+        void tbody.offsetWidth;
+
+        tbody.classList.remove('ranking-transition-out');
+        tbody.classList.add('ranking-transition-in');
     });
 }
 
@@ -861,7 +1149,9 @@ function generateRecords() {
                         bestRecord = {
                             name: cuber.person.name, wcaId: cuber.person.wca_id, iso2: cuber.person.country_iso2,
                             rawScore: score, nr: records[ev.id][type.id].country_rank,
-                            cr: records[ev.id][type.id].continent_rank, wr: records[ev.id][type.id].world_rank
+                            cr: records[ev.id][type.id].continent_rank, wr: records[ev.id][type.id].world_rank,
+                            compName: records[ev.id][type.id].comp_name || '-',
+                            compDate: records[ev.id][type.id].comp_date || '-'
                         };
                     }
                 }
@@ -876,13 +1166,18 @@ function generateRecords() {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${displayEventName}</td>
-                    <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">${type.label}</span></td>
-                    <td class="clickable-name record-holder" onclick="showPerson('${bestRecord.wcaId}')">${formattedName}</td>
+                    <td><span class="type-badge">${type.label}</span></td>
+                    <td class="clickable-name-cell">
+                        <span class="clickable-name" onclick="showPerson('${bestRecord.wcaId}')">${formattedName}</span>
+                    </td>
                     <td class="highlight-score">${displayTime}</td>
                     <td>${formatRank(bestRecord.nr, 'NR')}</td>
                     <td>${formatRank(bestRecord.cr, crPrefix)}</td>
                     <td>${formatRank(bestRecord.wr, 'WR')}</td>
-                    <td style="width: 80px;">${getPkButtonHtml(bestRecord.wcaId, formattedName)}</td>
+                    <td>
+                        <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${bestRecord.compName}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${bestRecord.compDate}</div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             }
@@ -893,13 +1188,18 @@ function generateRecords() {
     const trSorSingle = document.createElement('tr');
     trSorSingle.innerHTML = `
         <td style="color:var(--text-main);">全项目综合排名</td>
-        <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">单次</span></td>
-        <td class="clickable-name record-holder" onclick="showPerson('2018SUNK01')">${nameSun}</td>
+        <td><span class="type-badge">单次</span></td>
+        <td class="clickable-name-cell">
+            <span class="clickable-name" onclick="showPerson('2018SUNK01')">${nameSun}</span>
+        </td>
         <td class="highlight-score">5278</td>
         <td>${formatRank(67, 'NR')}</td>
         <td>${formatRank(267, 'AsR')}</td>
         <td>${formatRank(1531, 'WR')}</td>
-        <td style="width: 80px;">${getPkButtonHtml('2018SUNK01', nameSun)}</td>
+        <td>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Vietnam Championship 2023</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2023-07-16</div>
+        </td>
     `;
     tbody.appendChild(trSorSingle);
 
@@ -907,13 +1207,18 @@ function generateRecords() {
     const trSorAvg = document.createElement('tr');
     trSorAvg.innerHTML = `
         <td></td>
-        <td><span style="background:#eef2ff; color:#4361ee; padding:4px 8px; border-radius:4px; font-size:12px; white-space:nowrap; display:inline-block;">平均</span></td>
-        <td class="clickable-name record-holder" onclick="showPerson('2024GUOC01')">${nameGuo}</td>
+        <td><span class="type-badge">平均</span></td>
+        <td class="clickable-name-cell">
+            <span class="clickable-name" onclick="showPerson('2024GUOC01')">${nameGuo}</span>
+        </td>
         <td class="highlight-score">5266</td>
         <td>${formatRank(68, 'NR')}</td>
         <td>${formatRank(295, 'AsR')}</td>
         <td>${formatRank(1524, 'WR')}</td>
-        <td style="width: 80px;">${getPkButtonHtml('2024GUOC01', nameGuo)}</td>
+        <td>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Hefei August Open 2026</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2026-08-15</div>
+        </td>
     `;
     tbody.appendChild(trSorAvg);
 }
@@ -927,10 +1232,16 @@ async function initData() {
     }
 
     try {
-        const res = await fetch('wca_data.json?t=' + new Date().getTime());
-        if (!res.ok) throw new Error("File not found");
+        // 替换掉原来的 fetch('wca_data.json...') 相关代码
+        const [resWca, resHist] = await Promise.all([
+            fetch('wca_data.json?t=' + new Date().getTime()),
+            fetch('history_data.json?t=' + new Date().getTime())
+        ]);
 
-        allCubersData = await res.json();
+        if (!resWca.ok || !resHist.ok) throw new Error("File not found");
+
+        allCubersData = await resWca.json();
+        allHistoryData = await resHist.json();
         isDataReady = true;
 
         if (loader) {
@@ -938,7 +1249,6 @@ async function initData() {
         }
 
         if (homePage) {
-            homePage.style.animation = 'fadeInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards';
             homePage.classList.add('active');
         }
 
@@ -955,3 +1265,515 @@ async function initData() {
         }
     }
 }
+
+function setChartType(type) {
+    currentChartType = type;
+
+    document.querySelectorAll('#btn-type-average, #btn-type-single')
+        .forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(`btn-type-${type}`).classList.add('active');
+
+    updateChartAndTable();
+}
+
+function setRankingType(type) {
+    currentRankingType = type;
+
+    document.querySelectorAll('[id^="ranking-type-"]')
+        .forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(`ranking-type-${type}`).classList.add('active');
+
+    updateRanking();
+}
+
+function setRankingGender(gender) {
+    currentRankingGender = gender;
+
+    document.querySelectorAll('[id^="ranking-gender-"]')
+        .forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(`ranking-gender-${gender}`).classList.add('active');
+
+    updateRanking();
+}
+
+function getRankingColumnPositions() {
+    const table = document.getElementById('ranking-table');
+    if (!table) return null;
+
+    const tableLeft = table.getBoundingClientRect().left;
+    return Array.from(table.querySelectorAll('thead th')).map(th => {
+        return th.getBoundingClientRect().left - tableLeft;
+    });
+}
+
+function animateRankingColumns(oldPositions) {
+    const table = document.getElementById('ranking-table');
+    if (!table || !oldPositions) return;
+
+    requestAnimationFrame(() => {
+        const tableLeft = table.getBoundingClientRect().left;
+        const newHeaders = Array.from(table.querySelectorAll('thead th'));
+
+        const newPositions = newHeaders.map(th => {
+            return th.getBoundingClientRect().left - tableLeft;
+        });
+
+        const shifts = newPositions.map((newX, index) => {
+            if (oldPositions[index] === undefined) return 0;
+            return oldPositions[index] - newX;
+        });
+
+        const cells = table.querySelectorAll('th, td');
+
+        cells.forEach(cell => {
+            const index = Array.from(cell.parentElement.children).indexOf(cell);
+            const shift = shifts[index] || 0;
+
+            cell.style.transition = 'none';
+            cell.style.setProperty('--column-shift-x', `${shift}px`);
+        });
+
+        // 强制浏览器应用初始位置
+        void table.offsetWidth;
+
+        requestAnimationFrame(() => {
+            cells.forEach(cell => {
+                cell.style.transition =
+                    'transform 0.32s cubic-bezier(0.25, 0.8, 0.25, 1)';
+                cell.style.setProperty('--column-shift-x', '0px');
+            });
+        });
+
+        setTimeout(() => {
+            cells.forEach(cell => {
+                cell.style.transition = '';
+                cell.style.removeProperty('--column-shift-x');
+            });
+        }, 360);
+    });
+}
+
+// =========================================
+// 全局智能悬浮导航拖拽逻辑
+// =========================================
+// =========================================
+// 全局智能悬浮导航拖拽逻辑 (仅左右半圆版)
+// =========================================
+function setupDraggableNav() {
+    const nav = document.getElementById('floating-nav');
+    if (!nav) return;
+
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    const onDragStart = (e) => {
+        if (e.target.closest('.nav-item')) return;
+        isDragging = true;
+        nav.style.transition = 'none';
+
+        // 核心修复：拖拽时全局强制禁止选中文字
+        document.body.style.userSelect = 'none';
+
+        const rect = nav.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        nav.style.bottom = 'auto';
+        nav.style.right = 'auto';
+        nav.style.left = initialLeft + 'px';
+        nav.style.top = initialTop + 'px';
+
+        if (e.type === 'touchstart') {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        } else {
+            startX = e.clientX;
+            startY = e.clientY;
+        }
+    };
+
+    const onDragMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        let clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        let clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+        let newLeft = initialLeft + (clientX - startX);
+        let newTop = initialTop + (clientY - startY);
+
+        const maxX = window.innerWidth - nav.offsetWidth;
+        const maxY = window.innerHeight - nav.offsetHeight;
+        newLeft = Math.max(0, Math.min(newLeft, maxX));
+        newTop = Math.max(0, Math.min(newTop, maxY));
+
+        nav.style.left = newLeft + 'px';
+        nav.style.top = newTop + 'px';
+    };
+
+    const onDragEnd = () => {
+        if (isDragging) {
+            isDragging = false;
+            nav.style.transition = 'all 0.3s ease';
+
+            // 核心修复：拖拽结束后恢复网页文字正常选中状态
+            document.body.style.userSelect = '';
+
+            const rect = nav.getBoundingClientRect();
+            const centerX = window.innerWidth / 2;
+
+            nav.classList.remove('expand-left', 'expand-right');
+
+            // 极简判断：只区分左右半圆展开
+            if (rect.left < centerX) {
+                nav.classList.add('expand-right'); // 处在左半屏 -> 向右边展开半圆
+            } else {
+                nav.classList.add('expand-left');  // 处在右半屏 -> 向左边展开半圆
+            }
+        }
+    };
+
+    nav.addEventListener('mousedown', onDragStart);
+    document.addEventListener('mousemove', onDragMove, { passive: false });
+    document.addEventListener('mouseup', onDragEnd);
+
+    nav.addEventListener('touchstart', onDragStart, { passive: false });
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+}
+
+// 确保 DOM 加载后初始化拖拽功能
+document.addEventListener("DOMContentLoaded", () => {
+    // 之前已有的其他逻辑...
+    setupDraggableNav();
+});
+
+// =========================================
+// NB Timer 核心逻辑 (多项目支持 + Ao5 + 滚动 PB)
+// =========================================
+let timerState = 'IDLE';
+let timerHoldTimeout = null;
+let solveStartTime = 0;
+let requestAnimFrameId = null;
+
+// { '333': [ { ms: 1230, time: '12.30', ao5: '13.00', isPb: true } ], ... }
+let timerHistoryData = {};
+let currentTimerEvent = '333';
+let currentSessionBestMs = Infinity;
+let currentSessionBestAo5Ms = Infinity; // 新增：记录当前项目的 Ao5 PB
+
+function initTimer() {
+    const select = document.getElementById('timer-event-select');
+    if (select.children.length === 0) {
+        // 排除已取消、多盲、最少步等不适合网页即时计时的项目
+        const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+        eventDict.forEach(ev => {
+            if (!excludedEvents.includes(ev.id)) {
+                let option = document.createElement('option');
+                option.value = ev.id;
+                option.text = ev.name;
+                select.appendChild(option);
+            }
+        });
+        select.value = '333';
+        switchTimerEvent();
+    }
+}
+
+function switchTimerEvent() {
+    const select = document.getElementById('timer-event-select');
+    currentTimerEvent = select.value;
+
+    // 核心修复：强制下拉框失去焦点，防止后续按方向键时意外拨动菜单
+    select.blur();
+
+    // 更新标题并拼接 "WCA - " 前缀
+    const evName = select.options[select.selectedIndex].text;
+    document.getElementById('timer-event-title').innerText = "WCA - " + formatName(evName);
+
+    if (!timerHistoryData[currentTimerEvent]) {
+        timerHistoryData[currentTimerEvent] = [];
+    }
+
+    currentSessionBestMs = Infinity;
+    currentSessionBestAo5Ms = Infinity;
+    timerHistoryData[currentTimerEvent].forEach(record => {
+        if (record.ms < currentSessionBestMs) currentSessionBestMs = record.ms;
+        if (record.ao5Ms && record.ao5Ms < currentSessionBestAo5Ms) currentSessionBestAo5Ms = record.ao5Ms;
+    });
+
+    renderTimerHistory();
+    generateScramble();
+}
+
+function formatTimerOutput(ms) {
+    let totalSec = Math.floor(ms / 10);
+    let sec = Math.floor(totalSec / 100);
+    let centi = (totalSec % 100).toString().padStart(2, '0');
+    if (sec >= 60) {
+        let min = Math.floor(sec / 60);
+        let remSec = (sec % 60).toString().padStart(2, '0');
+        return `${min}:${remSec}.${centi}`;
+    }
+    return `${sec}.${centi}`;
+}
+
+// 自动计算最近 5 次的 Ao5 (去头去尾取平均)
+function calculateAo5(historyList) {
+    if (historyList.length < 5) return { str: '-', ms: Infinity };
+    let last5 = historyList.slice(0, 5).map(r => r.ms);
+    last5.sort((a, b) => a - b);
+    let sum = last5[1] + last5[2] + last5[3];
+    let avgMs = Math.floor(sum / 3);
+    return { str: formatTimerOutput(avgMs), ms: avgMs };
+}
+
+function renderTimerHistory() {
+    const list = document.getElementById('timer-history-list');
+    list.innerHTML = '';
+
+    const records = timerHistoryData[currentTimerEvent];
+
+    records.forEach((r, index) => {
+        const div = document.createElement('div');
+        div.className = 'timer-history-item';
+
+        let timeClass = r.isPb ? 'timer-pb' : '';
+        let ao5Class = r.isAo5Pb ? 'timer-pb' : ''; // 新增：判定 Ao5 是否该高亮
+        let displayCount = records.length - index;
+
+        div.innerHTML = `
+            <span>${displayCount}</span>
+            <span class="${timeClass}">${r.time}</span>
+            <span class="${ao5Class}">${r.ao5}</span>
+        `;
+        list.appendChild(div);
+    });
+
+    // 更新左下角数据榜
+    if (records.length > 0) {
+        document.getElementById('timer-stat-best').innerText = `best: ${formatTimerOutput(currentSessionBestMs)}`;
+        document.getElementById('timer-stat-ao5').innerText = `ao5: ${records[0].ao5}`;
+    } else {
+        document.getElementById('timer-stat-best').innerText = `best: -`;
+        document.getElementById('timer-stat-ao5').innerText = `ao5: -`;
+    }
+}
+
+// ================= 空格键与右键监听控制 =================
+document.addEventListener('keydown', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+
+    if (timerState === 'IDLE') {
+        // 严格限定：只有向右方向键才能切换打乱，并拦截页面的默认横向滚动
+        if (e.code === 'ArrowRight') {
+            e.preventDefault();
+            generateScramble();
+            return;
+        }
+
+        // 启动计时的逻辑
+        if (e.code === 'Space') {
+            e.preventDefault(); // 拦截空格键导致的页面下滚
+
+            // 再次做全局安全排查：如果焦点残留在了任何按钮或输入框上，强制剥离
+            if (document.activeElement) document.activeElement.blur();
+
+            if (e.repeat) return;
+            timerState = 'WAITING';
+            const display = document.getElementById('timer-display');
+            display.classList.add('waiting');
+            timerHoldTimeout = setTimeout(() => {
+                if (timerState === 'WAITING') {
+                    timerState = 'READY';
+                    display.classList.remove('waiting');
+                    display.classList.add('ready');
+                }
+            }, 350);
+        }
+    } else if (timerState === 'RUNNING') {
+        e.preventDefault(); // 运行状态下拦截任何按键的默认网页行为
+        stopTimer();
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+    if (e.code === 'Space') {
+        const display = document.getElementById('timer-display');
+        if (timerState === 'WAITING') {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'IDLE';
+            display.classList.remove('waiting');
+        } else if (timerState === 'READY') {
+            startTimer();
+        }
+    }
+});
+
+function startTimer() {
+    timerState = 'RUNNING';
+    const display = document.getElementById('timer-display');
+    display.classList.remove('ready');
+    solveStartTime = performance.now();
+
+    function update() {
+        if (timerState !== 'RUNNING') return;
+        let elapsed = Math.floor(performance.now() - solveStartTime);
+        display.innerText = formatTimerOutput(elapsed);
+        requestAnimFrameId = requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+function stopTimer() {
+    timerState = 'IDLE';
+    cancelAnimationFrame(requestAnimFrameId);
+
+    let elapsed = Math.floor(performance.now() - solveStartTime);
+    let finalTimeStr = formatTimerOutput(elapsed);
+    document.getElementById('timer-display').innerText = finalTimeStr;
+
+    // 判定单次 PB
+    let isPb = false;
+    if (elapsed < currentSessionBestMs) {
+        isPb = true;
+        currentSessionBestMs = elapsed;
+    }
+
+    const sessionArr = timerHistoryData[currentTimerEvent];
+    let newRecord = { ms: elapsed, time: finalTimeStr, isPb: isPb, ao5: '-', ao5Ms: Infinity, isAo5Pb: false };
+    sessionArr.unshift(newRecord);
+
+    // 算出 Ao5 后回填，并同步判定 Ao5 PB
+    let ao5Result = calculateAo5(sessionArr);
+    newRecord.ao5 = ao5Result.str;
+    newRecord.ao5Ms = ao5Result.ms;
+
+    if (newRecord.ao5Ms !== Infinity && newRecord.ao5Ms < currentSessionBestAo5Ms) {
+        newRecord.isAo5Pb = true;
+        currentSessionBestAo5Ms = newRecord.ao5Ms;
+    }
+
+    renderTimerHistory();
+    generateScramble();
+}
+
+// ================= 全项目随机打乱引擎 =================
+function generateScramble() {
+    const ev = currentTimerEvent;
+    let scramble = "";
+
+    if (ev === '222') {
+        scramble = getRandomMoves(["R", "U", "F"], 11);
+    } else if (['333', '333oh', '333bf', '333fm', '333mbf', '333ft'].includes(ev)) {
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20);
+    } else if (['444', '444bf'].includes(ev)) {
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 45);
+    } else if (['555', '555bf', '666', '777'].includes(ev)) {
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], ev === '555' ? 60 : 80);
+    } else if (ev === 'pyram') {
+        scramble = getRandomMoves(["U", "L", "R", "B"], 11);
+        let tips = ["u", "l", "r", "b"];
+        tips.forEach(t => { if(Math.random() > 0.5) scramble += " " + t + (Math.random() > 0.5 ? "'" : ""); });
+    } else if (ev === 'minx') {
+        let res = [];
+        for (let i=0; i<7; i++) {
+            for (let j=0; j<10; j++) res.push((j%2===0 ? "R" : "D") + (Math.random() > 0.5 ? "++" : "--"));
+            res.push("U" + (Math.random() > 0.5 ? "'" : "") + "<br>");
+        }
+        scramble = res.join(" ");
+    } else if (ev === 'skewb') {
+        scramble = getRandomMoves(["R", "L", "U", "B"], 11);
+    } else if (ev === 'sq1') {
+        let res = [];
+        for(let i=0; i<12; i++) {
+            let top = Math.floor(Math.random()*12)-5;
+            let bot = Math.floor(Math.random()*12)-5;
+            res.push(`(${top},${bot})`);
+        }
+        scramble = res.join(" / ");
+    } else if (ev === 'clock') {
+        let pins = ["UR","DR","DL","UL","U","R","D","L","ALL"];
+        let res = [];
+        pins.forEach(p => res.push(`${p}${Math.floor(Math.random()*12)-5}+`));
+        res.push("y2");
+        ["U","R","D","L","ALL"].forEach(p => res.push(`${p}${Math.floor(Math.random()*12)-5}+`));
+        scramble = res.join(" ");
+    } else {
+        scramble = "无打乱规则";
+    }
+
+    document.getElementById('scramble-text').innerHTML = scramble;
+}
+
+function getRandomMoves(moves, length) {
+    const mods = ["", "'", "2"];
+    let scramble = [];
+    let lastMove = "";
+    for(let i = 0; i < length; i++) {
+        let m;
+        do { m = moves[Math.floor(Math.random() * moves.length)]; } while (m[0] === lastMove[0]);
+        lastMove = m;
+        scramble.push(m + mods[Math.floor(Math.random() * mods.length)]);
+    }
+    return scramble.join(" ");
+}
+
+// ================= 手机端滑动切打乱逻辑 =================
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.addEventListener('touchstart', e => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+    touchStartX = e.changedTouches[0].screenX;
+}, {passive: true});
+
+document.addEventListener('touchend', e => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+    touchEndX = e.changedTouches[0].screenX;
+
+    // 空闲状态下，向右滑动超过 50px 即触发生成新打乱
+    if (timerState === 'IDLE' && (touchEndX - touchStartX > 50)) {
+        generateScramble();
+    }
+}, {passive: true});
+
+// =========================================
+// 手机端悬浮导航：点击展开与点空白处收回逻辑
+// =========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const nav = document.getElementById('floating-nav');
+    const mainBtn = document.getElementById('nav-main-btn');
+
+    if(nav && mainBtn) {
+        // 1. 点击主按钮触发展开/收起
+        mainBtn.addEventListener('click', (e) => {
+            if (window.innerWidth <= 650 || ('ontouchstart' in window)) {
+                nav.classList.toggle('touch-expanded');
+                e.stopPropagation(); // 阻止事件冒泡，防止立刻触发下方的 document 点击关闭
+            }
+        });
+
+        // 2. 点击页面其他任意位置，缩回菜单
+        document.addEventListener('click', (e) => {
+            if (!nav.contains(e.target)) {
+                nav.classList.remove('touch-expanded');
+            }
+        });
+
+        // 3. 点击三个小选项执行功能后，也自动缩回
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                nav.classList.remove('touch-expanded');
+            });
+        });
+    }
+});
