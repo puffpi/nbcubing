@@ -1,12 +1,15 @@
+/* =========================================
+   全局基调重置 (素雅泛灰极简风)
+   ========================================= */
 :root {
-    --primary-color: #4361ee;
-    --primary-hover: #3a0ca3;
-    --bg-color: #f4f7f6;
-    --card-bg: #ffffff;
-    --text-main: #2b2d42;
-    --text-muted: #8d99ae;
+    --primary-color: #475569;
+    --primary-hover: #334155;
+    --bg-color: #f8fafc;
+    --text-main: #334155;
+    --text-muted: #94a3b8;
     --border-radius: 12px;
-    --transition: all 0.3s ease;
+    --transition: all 0.25s ease;
+    --border-color: #e2e8f0;
 }
 
 body {
@@ -14,26 +17,126 @@ body {
     background-color: var(--bg-color);
     color: var(--text-main);
     padding: 20px;
-    max-width: 1100px;
+    max-width: 1300px;
     margin: auto;
     line-height: 1.6;
 }
 
-h1, h2 { text-align: center; color: var(--text-main); }
-
-.page-container { display: none; animation: fadeIn 0.4s ease; }
-.page-container.active { display: block; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-.card {
-    background: var(--card-bg);
-    padding: 24px;
-    border-radius: var(--border-radius);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
+h1, h2, h3 {
+    text-align: center;
+    color: var(--text-main);
 }
 
+.page-container {
+    display: none;
+}
+
+.page-container.active {
+    display: block;
+    animation: pageFadeIn 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================================
+   子页面顶部导航 (绝对左上角防位移版)
+   ========================================= */
+.page-header {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 24px;
+    margin-bottom: 30px;
+    min-height: 44px;
+    padding: 0 140px; /* 增加安全区，防止更大号的按钮挡住文字 */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.page-header > div,
+.page-header h1, .page-header h2, .page-header h3, #person-title-name {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    line-height: 1.4;
+    font-size: 22px;
+}
+
+.page-header p, #person-title-wcaid {
+    width: 100%;
+    text-align: center;
+    margin: 5px 0 0 0;
+}
+
+/* 返回按钮：加大尺寸，严格锁死绝对左上角 */
+.page-header > button {
+    position: absolute;
+    left: 0;
+    top: 0; /* 取消 50% 居中，死死钉在左上角，确保所有页面高度一致 */
+    transform: none; /* 移除位移扯动 */
+
+    background: rgba(148, 163, 184, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: var(--text-main);
+
+    /* 核心修改：尺寸大幅度增加 */
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 12px;
+
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: var(--transition);
+    z-index: 10;
+}
+
+.page-header > button:hover {
+    background: rgba(148, 163, 184, 0.25);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    transform: scale(1.02); /* 仅放大，不位移 */
+}
+
+/* =========================================
+   个人主页专属排版修复
+   ========================================= */
+#person-title-meta, #person-wca-link {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+/* =========================================
+   全局卡片风格
+   ========================================= */
+.card {
+    background-color: #ffffff;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+/* =========================================
+   基础按钮与表单控件
+   ========================================= */
 .btn {
     background-color: var(--primary-color);
     color: white;
@@ -49,15 +152,15 @@ h1, h2 { text-align: center; color: var(--text-main); }
     justify-content: center;
     text-decoration: none;
 }
-.btn:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(67, 97, 238, 0.3); }
+.btn:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(71, 85, 105, 0.2);
+}
 .btn-outline { background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
 .btn-outline:hover { background-color: var(--primary-color); color: white; }
 
-.home-menu { display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 40px auto; }
-.home-menu .btn { padding: 20px; font-size: 18px; }
-.header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
-
+.controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 20px;}
 select {
     padding: 10px 16px;
     font-size: 15px;
@@ -68,65 +171,178 @@ select {
     outline: none;
     transition: var(--transition);
 }
-select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.15); }
 
+/* =========================================
+   首页专属高级极简风格按钮
+   ========================================= */
+.home-menu { display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 40px auto; }
+
+.home-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 360px;
+    padding: 18px 24px;
+    color: #334155;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-shadow: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background: rgba(148, 163, 184, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.home-nav-btn:hover {
+    transform: translateY(-3px);
+    background-color: rgba(148, 163, 184, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+    color: #0f172a;
+}
+.home-nav-btn:active {
+    transform: translateY(1px);
+    background-color: rgba(148, 163, 184, 0.35);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* =========================================
+   表格基础样式与防覆盖行交互
+   ========================================= */
 .table-responsive { overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
-th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
-th { background-color: #f8f9fa; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; }
-th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0 2px; margin-top: 10px; }
+td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
 
-tbody tr {
-    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease;
+/* 表头：极淡灰色，避免色彩过深 */
+th {
+    background-color: #f8fafc !important; /* 极淡的灰白色 */
+    border-bottom: 2px solid #f1f5f9 !important;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    padding: 14px 12px;
+    text-align: center;
+    white-space: nowrap;
+}
+th:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+th:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+
+/* 统一所有表格单元格的过渡动画 */
+table tbody tr td {
+    transition: background-color 0.2s ease, transform 0.32s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-tbody tr:hover {
-    background-color: #f8fcfd;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    position: relative;
-    z-index: 10;
+/* 1. 所有单元格在鼠标悬浮时统一上浮，消灭左右断层的撕裂感 */
+table tbody tr:hover td {
+    transform: translateY(-3px);
 }
+
+/* 2. 中间项目和败方(lose)单元格统一应用灰色底色 */
+table tbody tr:hover td:not(.pk-cell-win):not(.pk-cell-tie) {
+    background-color: #f8fafc;
+}
+
+/* 3. 胜方(win)和平局(tie)自带底色，悬浮时同步微调加深，保持整行交互一致性 */
+table tbody tr:hover td.pk-cell-win {
+    background-color: #e5fbee !important;
+}
+table tbody tr:hover td.pk-cell-tie {
+    background-color: #e0f2fe !important;
+}
+
+table tbody tr:hover td:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+table tbody tr:hover td:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
 tr:last-child td { border-bottom: none; }
 
 .highlight-score { font-weight: 700; color: #2563eb; font-size: 1.1em; }
-.record-holder { font-weight: bold; color: var(--primary-color); }
-
+.record-holder {
+    font-weight: 400;
+    color: var(--primary-color);
+}
 .rank-top100 { color: #059669; font-weight: 800; }
-
 .badge-nr { background-color: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 .badge-cr { background-color: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 .badge-wr { background-color: #e63946; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 
-.clickable-name {
-    cursor: pointer;
-    color: var(--primary-color);
-    transition: var(--transition);
+/* =========================================
+   单次/平均 标签 (纯正 iOS 毛玻璃质感)
+   ========================================= */
+.type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #475569;
+
+    /* 彻底去除廉价金属渐变，使用半透明底色 + 强背景模糊 */
+    background: rgba(148, 163, 184, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    /* 白色极细高光边缘，增强玻璃质感 */
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02); /* 极弱的柔和阴影 */
 }
+
+/* =========================================
+   名字交互净化 (彻底剥离多余背景与阴影)
+   ========================================= */
+.clickable-name {
+    display: inline-block;
+    cursor: pointer;
+
+    /* 扩大点击感应区 */
+    padding: 20px 35px;
+    margin: -20px -35px;
+
+    color: var(--primary-color);
+    font-weight: 400;
+    text-decoration: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+
+    transition: color 0.2s ease;
+}
+
 .clickable-name:hover {
-    color: var(--primary-hover);
-    text-decoration: underline;
+    color: #2562e9 !important;
+    font-weight: 400;
+    text-decoration: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .action-btn { opacity: 0; transition: opacity 0.2s ease; margin: 0; }
 tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
+/* =========================================
+   PK 系统专属样式
+   ========================================= */
 .pk-inputs-container { display: flex; justify-content: center; align-items: flex-start; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
-
 .pk-input-wrapper { position: relative; flex: 1; min-width: 200px; width: 100%; }
 .pk-input { width: 100%; box-sizing: border-box; padding: 12px 16px; font-size: 16px; border-radius: 8px; border: 1px solid #dee2e6; outline: none; transition: var(--transition); text-align: center; }
-.pk-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+.pk-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.15); }
 .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 5px; display: none; text-align: left; }
 .autocomplete-item { padding: 12px 16px; cursor: pointer; transition: background 0.2s; font-size: 15px; border-bottom: 1px solid #f0f0f0; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
 .autocomplete-item:last-child { border-bottom: none; }
-.autocomplete-item:hover { background: #f8fcfd; color: var(--primary-color); }
+.autocomplete-item:hover { background: #f8fafc; color: var(--primary-color); }
 
 .pk-vs { font-size: 24px; font-weight: 900; color: #e63946; font-style: italic; align-self: center; margin-top: 8px; }
-
 .pk-score-board { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px; }
 .pk-score-item { text-align: center; width: 35%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
-/* 升级：新增的 PK 选手交互卡片效果 */
 .pk-player-card {
     cursor: pointer;
     padding: 15px 20px;
@@ -141,61 +357,102 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     transform: translateY(-4px);
     box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
-/* 恢复名字原本的颜色，去掉链接蓝 */
-.pk-score-name { font-size: 16px; color: var(--text-main); margin-bottom: 2px; font-weight: bold; }
-.pk-score-id { font-size: 13px; color: var(--text-muted); font-weight: normal; margin-bottom: 10px; }
+
+.pk-score-name { font-size: 16px; font-weight: 700 !important; color: #1e293b !important; margin-bottom: 2px; }
+.pk-score-id { font-size: 13px; color: #64748b !important; font-weight: normal; margin-bottom: 10px; }
 .pk-score-value { font-size: 48px; font-weight: 900; line-height: 1; }
-.pk-score-value.win { color: #059669; }
-.pk-score-value.lose { color: #e63946; }
-.pk-score-value.tie { color: #2563eb; }
 
-.pk-cell-win { font-weight: bold; color: #059669; background-color: #ecfdf5 !important; }
-.pk-cell-tie { font-weight: bold; color: #d97706; }
+.pk-score-value.win { color: #2ac364 !important; }
+.pk-score-value.lose { color: #fa5252 !important; }
+.pk-score-value.tie { color: #0284c7 !important; }
 
+.pk-cell-win { font-weight: 700 !important; color: #16a34a !important; background-color: #f0fdf4 !important; }
+.pk-cell-lose { color: #1e293b !important; }
+.pk-cell-tie { font-weight: 600 !important; color: #0284c7 !important; background-color: #f0f9ff !important; }
+
+/* =========================================
+   个人主页与杂项组件
+   ========================================= */
 .meta-tag { background: #eef2ff; color: var(--primary-color); padding: 0 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; height: 28px; }
 
 .history-list-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-.history-tag { background: var(--card-bg); border: 1px solid #dee2e6; color: var(--text-main); padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; font-weight: 500; }
-.history-tag:hover { border-color: var(--primary-color); color: var(--primary-color); background: #f8fcfd; box-shadow: 0 2px 8px rgba(67,97,238,0.15); }
+.history-tag { background: #ffffff; border: 1px solid #dee2e6; color: var(--text-main); padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; font-weight: 500; }
+.history-tag:hover { border-color: var(--primary-color); color: var(--primary-color); background: #f8fafc; box-shadow: 0 2px 8px rgba(71,85,105,0.15); }
 .history-vs { color: #e63946; font-style: italic; font-weight: 900; margin: 0 8px; font-size: 1.1em; }
 
 #global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
-.spinner { width: 40px; height: 40px; border: 4px solid rgba(67,97,238,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+.spinner { width: 40px; height: 40px; border: 4px solid rgba(71,85,105,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* 【关键修改】优化手机端排版适配，特别是顶部控制栏部分 */
+/* 历史记录项目图标按钮 */
+.history-event-tab {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    color: var(--text-muted);
+    background: transparent;
+    transition: all 0.25s ease;
+}
+.history-event-tab:hover {
+    background: rgba(200, 200, 200, 0.15);
+    color: var(--text-main);
+}
+.history-event-tab.active {
+    color: #000000;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.ios-segment-control {
+    display: inline-flex;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 3px;
+}
+.ios-segment-btn {
+    padding: 4px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.25s ease;
+}
+.ios-segment-btn:hover { color: var(--text-main); }
+.ios-segment-btn.active {
+    background: #ffffff;
+    color: var(--text-main);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* =========================================
+   移动端响应式布局优化
+   ========================================= */
 @media (max-width: 650px) {
     body { padding: 12px; }
     .card { padding: 15px; }
-    
-    /* 1. 将头部改为相对定位，方便按钮绝对定位 */
-    .header-controls {
-        position: relative;
-        justify-content: center;
-        padding-top: 45px; /* 给绝对定位的返回按钮留出垂直空间 */
+
+    .page-header {
+        margin-top: 15px;
         margin-bottom: 25px;
+        padding: 0;
     }
-    
-    /* 2. 将返回按钮悬浮在左上角，彻底脱离排版，不占中间内容的宽度 */
-    .header-controls > button.btn-outline {
-        position: absolute;
-        left: 0;
+    .page-header h2, .page-header h3, #person-title-name {
+        margin-top: 50px !important;
+    }
+
+    .page-header > button {
+        padding: 8px 16px !important;
+        font-size: 14px;
         top: 0;
-        padding: 6px 12px !important;
-        font-size: 13px;
-        z-index: 10;
+        transform: none;
     }
-    
-    .header-controls h2 { font-size: 18px; margin: 0; }
-    
-    /* 3. 隐藏所有由于之前为了在电脑上居中对齐而添加的“右侧占位不可见 div” */
-    .header-controls > div[style*="width:"] { 
-        display: none !important; 
-    }
-    
-    /* 4. 让中间用来显示名字或标题的信息区占据100%的空间，防止字被挤去换行 */
-    .header-controls > div:not([style*="width:"]) {
-        width: 100%;
+    .page-header > button:hover {
+        transform: none;
     }
 
     th, td { white-space: nowrap; padding: 12px 10px; font-size: 13px; }
@@ -207,8 +464,323 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     .action-btn { opacity: 1; }
 }
 
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
+/* =========================================
+   PK 按钮专属样式
+   ========================================= */
+
+.pk-action-btn {
+    padding: 5px 11px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    border-radius: 9px !important;
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
+/* 未进入 PK 模式：我要 PK */
+.pk-start-btn {
+    background: rgba(255, 255, 255, 0.45) !important;
+    border: 1px solid rgba(71, 85, 105, 0.55) !important;
+    color: var(--primary-color) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.pk-start-btn:hover {
+    background: rgba(71, 85, 105, 0.12) !important;
+    border-color: rgba(71, 85, 105, 0.75) !important;
+    color: #334155 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* 已选择的发起方：取消 PK */
+.pk-cancel-btn {
+    background: rgba(217, 119, 6, 0.12) !important;
+    border: 1px solid rgba(217, 119, 6, 0.55) !important;
+    color: #d97706 !important;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.06);
+}
+
+.pk-cancel-btn:hover {
+    background: rgba(217, 119, 6, 0.22) !important;
+    border-color: rgba(217, 119, 6, 0.8) !important;
+    color: #b45309 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(217, 119, 6, 0.10);
+}
+
+/* 选择对手 */
+.pk-opponent-btn {
+    background: rgba(217, 119, 6, 0.85) !important;
+    border: 1px solid rgba(217, 119, 6, 0.95) !important;
+    color: white !important;
+    box-shadow: 0 3px 10px rgba(217, 119, 6, 0.12);
+}
+
+.pk-opponent-btn:hover {
+    background: rgba(217, 119, 6, 0.98) !important;
+    border-color: rgba(217, 119, 6, 1) !important;
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 12px rgba(217, 119, 6, 0.18);
+}
+
+/* =========================================
+   PK 确认战局弹窗 - 毛玻璃
+   ========================================= */
+.pk-confirm-card {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.12),
+        inset 0 1px 1px rgba(255, 255, 255, 0.7);
+
+    border-radius: 18px !important;
+}
+
+/* =========================================
+   排行榜切换：柔和羽化 + 轻微上浮
+   ========================================= */
+
+#table-body {
+    transition:
+        opacity 0.24s ease,
+        filter 0.24s ease,
+        transform 0.24s ease;
+}
+
+#table-body.ranking-transition-out {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(3px);
+}
+
+#table-body.ranking-transition-in tr {
+    --row-delay: 0s;
+    animation: rankingRowFadeIn 0.48s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+    animation-delay: var(--row-delay);
+}
+
+@keyframes rankingRowFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+        filter: blur(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+/* =========================================
+   全局智能悬浮导航 (高级黑灰 iOS 质感)
+   ========================================= */
+.floating-nav-container {
+    /* ✨ 第一个要求：在这里定义展开半径，只改这一个数字即可全局完美等比例缩放！ */
+    --r: 70px;
+
+    position: fixed;
+    bottom: 70px;
+    right: 225px;
+    z-index: 9999;
+    width: 64px;
+    height: 64px;
+    display: none;
+    border-radius: 50%;
+    cursor: grab;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.floating-nav-container:active { cursor: grabbing; }
+
+/* ✨ 第二个要求：增加一个隐形的判定扩大盾牌，防止鼠标滑动时菜单缩回 */
+.floating-nav-container::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60%;
+    height: 60%;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    transition: transform 0.1s;
+    z-index: 0; /* 垫在最底层 */
+}
+/* 当鼠标放上去时，隐形的圆盘判定区瞬间膨胀 4 倍，完美填补缝隙轨迹 */
+.floating-nav-container:hover::before {
+    transform: translate(-50%, -50%) scale(4);
+}
+
+/* 手机端响应式位置 */
+@media (max-width: 650px) {
+    .floating-nav-container {
+        right: 15px;
+        bottom: 40px;
+    }
+}
+
+/* 悬浮导航主按钮 - 深灰毛玻璃 */
+.nav-main-btn {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(71, 85, 105, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 26px;
+    color: #ffffff;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.floating-nav-container:hover .nav-main-btn { transform: scale(1.08); }
+
+/* 环绕菜单层 (彻底锁死与容器绝对同心) */
+.nav-menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* 环绕的子菜单按钮 - 浅灰毛玻璃 (体型偏小) */
+.nav-item {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0; margin: auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #334155;
+    cursor: pointer;
+    opacity: 0;
+
+    --tx: 0px;
+    --ty: 0px;
+    transform: translate(0, 0) scale(0.3);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: auto;
+}
+
+.nav-item:hover {
+    background: #ffffff;
+    color: #0f172a;
+    transform: translate(var(--tx), var(--ty)) scale(1.15) !important;
+}
+
+.floating-nav-container:hover .nav-item {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+}
+
+.empty-item { border: 2px dashed rgba(148, 163, 184, 0.5); background: transparent; cursor: default; }
+.empty-item:hover { transform: translate(var(--tx), var(--ty)) scale(1) !important; }
+
+/* 智能方向 1：处在屏幕右侧时，向左展开完美半圆
+   核心逻辑：利用 calc 与 sin(45°)=0.707 算出 X、Y 偏移，只需改 --r，不用再算角度！ */
+.floating-nav-container.expand-left:hover .nav-item:nth-child(1) { --tx: calc(var(--r) * -0.707); --ty: calc(var(--r) * -0.707); }
+.floating-nav-container.expand-left:hover .nav-item:nth-child(2) { --tx: calc(var(--r) * -1);     --ty: 0px; }
+.floating-nav-container.expand-left:hover .nav-item:nth-child(3) { --tx: calc(var(--r) * -0.707); --ty: calc(var(--r) * 0.707); }
+
+/* 智能方向 2：处在屏幕左侧时，向右展开完美半圆 */
+.floating-nav-container.expand-right:hover .nav-item:nth-child(1) { --tx: calc(var(--r) * 0.707);  --ty: calc(var(--r) * -0.707); }
+.floating-nav-container.expand-right:hover .nav-item:nth-child(2) { --tx: var(--r);                --ty: 0px; }
+.floating-nav-container.expand-right:hover .nav-item:nth-child(3) { --tx: calc(var(--r) * 0.707);  --ty: calc(var(--r) * 0.707); }
+
+/* 手机端点击悬浮导航的强制展开状态 */
+.floating-nav-container.touch-expanded .nav-item {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+}
+.floating-nav-container.touch-expanded::before {
+    transform: translate(-50%, -50%) scale(4);
+}
+
+/* =========================================
+   NB Timer 计时器专属样式 (清理合并版)
+   ========================================= */
+.timer-layout { display: flex; gap: 20px; align-items: stretch; height: 70vh; min-height: 520px; }
+
+/* 左侧栏及表格表头（已修复滚动条挤压位移） */
+.timer-sidebar { width: 260px; display: flex; flex-direction: column; margin-bottom: 0; padding: 20px; }
+.timer-history-header { display: flex; padding: 5px 16px 5px 10px; border-bottom: 2px solid var(--border-color); font-size: 13px; font-weight: bold; color: var(--text-muted); margin-bottom: 10px; }
+.timer-history-container { flex: 1; overflow-y: scroll; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: 600; color: var(--text-main); scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+.timer-history-container::-webkit-scrollbar { width: 6px; }
+.timer-history-container::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 4px; }
+
+/* 左侧列表单次、Ao5及琥珀色 PB 高亮 */
+.timer-history-item { display: flex; padding: 8px 10px; border-bottom: 1px dashed var(--border-color); align-items: center; }
+.timer-history-item > span:nth-child(1) { width: 15%; color: var(--text-muted); font-size: 13px; font-weight: normal; }
+.timer-history-item > span:nth-child(2) { width: 40%; color: var(--text-main); font-weight: 600; }
+.timer-history-item > span:nth-child(3) { width: 45%; color: #64748b; font-weight: 600; }
+.timer-pb { color: #f59e0b !important; font-weight: 800 !important; }
+
+/* 右侧主区与左下角数据面板 */
+.timer-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0; user-select: none; position: relative; }
+.timer-stats-panel { position: absolute; left: 24px; bottom: 24px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; color: #64748b; line-height: 1.6; font-weight: 600; }
+#timer-stat-best { color: var(--text-main); }
+
+/* 打乱公式区域 */
+.scramble-container { position: absolute; top: 30px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 40px; box-sizing: border-box; }
+#scramble-text { font-size: 19px; font-weight: 700; text-align: center; line-height: 1.4; font-family: 'SFMono-Regular', Consolas, monospace; color: var(--text-main); max-width: 85%; }
+
+/* 计时大屏：恢复高级系统字体，仅通过 tabular-nums 完美防抖 */
+.timer-display.waiting { color: #e63946; }
+.timer-display.ready { color: #10b981; }
+.timer-display {
+    font-size: 150px;
+    font-weight: 900;
+    color: var(--text-main);
+
+    /* 核心修复：双重强制开启系统原装字体的等宽数字与表格数字特性 */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+
+    line-height: 1;
+    transition: color 0.15s ease;
+    margin-top: 50px;
+    text-align: center;
+    display: inline-block; /* 锁死块级基线，防止数字跳动时带动整行上下微晃 */
+}
+
+@media (max-width: 768px) {
+    .timer-layout { flex-direction: column; height: auto; }
+    .timer-sidebar { width: 100%; height: 280px; }
+    .timer-display { font-size: 80px; margin-top: 80px; }
+    .scramble-container { position: relative; top: 0; padding: 0; margin-bottom: 20px; }
+    .timer-stats-panel { position: relative; left: 0; bottom: 0; margin-top: 20px; text-align: center; }
+}
