@@ -173,20 +173,16 @@ function goBack() {
 
 function showPage(pageId) {
     const page = document.getElementById(pageId);
-
     document.querySelectorAll('.page-container').forEach(p => {
         p.classList.remove('active');
     });
-
-    // 强制浏览器重新计算布局，让动画每次都重新开始
     void page.offsetWidth;
-
     page.classList.add('active');
 
-    // === 新增：控制悬浮导航显示/隐藏 ===
     const floatingNav = document.getElementById('floating-nav');
     if (floatingNav) {
-        floatingNav.style.display = (pageId === 'home-page') ? 'none' : 'block';
+        // 在主页和挑战页面均隐藏悬浮导航
+        floatingNav.style.display = (pageId === 'home-page' || pageId === 'challenge-page') ? 'none' : 'block';
     }
 }
 
@@ -1227,42 +1223,27 @@ async function initData() {
     const loader = document.getElementById('global-loading');
     const homePage = document.getElementById('home-page');
 
-    if (homePage) {
-        homePage.classList.remove('active');
-    }
-
     try {
-        // 替换掉原来的 fetch('wca_data.json...') 相关代码
         const [resWca, resHist] = await Promise.all([
             fetch('wca_data.json?t=' + new Date().getTime()),
             fetch('history_data.json?t=' + new Date().getTime())
         ]);
-
-        if (!resWca.ok || !resHist.ok) throw new Error("File not found");
-
         allCubersData = await resWca.json();
         allHistoryData = await resHist.json();
         isDataReady = true;
 
-        if (loader) {
-            loader.style.display = 'none';
-        }
+        if (loader) loader.style.display = 'none';
 
-        if (homePage) {
-            homePage.classList.add('active');
-        }
-
+        // 核心修复：仅在没有任何页面处于激活状态时，才显示首页，避免错乱
         const activePage = document.querySelector('.page-container.active');
-        if (activePage && activePage.id !== 'home-page') {
+        if (!activePage) {
+            if (homePage) homePage.classList.add('active');
+        } else {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
         }
-
     } catch (err) {
-        console.error("数据加载失败", err);
-        if (loader) {
-            loader.innerHTML = "数据加载失败，请刷新网页重试";
-        }
+        if (loader) loader.innerHTML = "数据加载失败，请刷新网页重试";
     }
 }
 
@@ -1465,10 +1446,25 @@ let currentTimerEvent = '333';
 let currentSessionBestMs = Infinity;
 let currentSessionBestAo5Ms = Infinity; // 新增：记录当前项目的 Ao5 PB
 
+// 新增：移动端计时器底部 Tab 切换逻辑
+function switchTimerTab(tabName) {
+    if (window.innerWidth > 768) return; // 桌面端不触发 Tab 切换
+
+    // 移除所有激活状态
+    document.getElementById('timer-tab-main').classList.remove('active-tab');
+    document.getElementById('timer-tab-list').classList.remove('active-tab');
+    document.getElementById('btn-tab-main').classList.remove('active');
+    document.getElementById('btn-tab-list').classList.remove('active');
+
+    // 激活对应的 Tab 和图标
+    document.getElementById(`timer-tab-${tabName}`).classList.add('active-tab');
+    document.getElementById(`btn-tab-${tabName}`).classList.add('active');
+}
+
+// 替换原有 initTimer：记录项目状态，强制进入计时视图
 function initTimer() {
     const select = document.getElementById('timer-event-select');
     if (select.children.length === 0) {
-        // 排除已取消、多盲、最少步等不适合网页即时计时的项目
         const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
         eventDict.forEach(ev => {
             if (!excludedEvents.includes(ev.id)) {
@@ -1480,7 +1476,13 @@ function initTimer() {
         });
         select.value = '333';
         switchTimerEvent();
+    } else {
+        // 项目已经存在，说明是二次进入。保留原有的 select 选项，只需刷新打乱公式即可
+        generateScramble();
     }
+
+    // 每次从主页点进来，不论上次停在哪，都强制切回第一个计时 Tab
+    switchTimerTab('main');
 }
 
 function switchTimerEvent() {
@@ -1725,26 +1727,96 @@ function getRandomMoves(moves, length) {
     return scramble.join(" ");
 }
 
-// ================= 手机端滑动切打乱逻辑 =================
+// =======================================================
+// 手机端：限定区域内的滑动切打乱与长按屏幕计时逻辑
+// =======================================================
 let touchStartX = 0;
 let touchEndX = 0;
 
-document.addEventListener('touchstart', e => {
+document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-    touchStartX = e.changedTouches[0].screenX;
-}, {passive: true});
 
-document.addEventListener('touchend', e => {
+    // 核心边界限制：仅当手指落在计时器主区域（#timer-main-area）时，才触发计时或滑动
+    const isTimerArea = e.target.closest('#timer-tab-main');
+    if (!isTimerArea) return;
+
+    touchStartX = e.changedTouches[0].screenX;
+
+    // 运行中触摸屏幕直接停止
+    if (timerState === 'RUNNING') {
+        if(e.cancelable) e.preventDefault();
+        stopTimer();
+        return;
+    }
+
+    // 空闲时触摸屏幕，进入 0.35 秒长按变色判定
+    if (timerState === 'IDLE') {
+        timerState = 'WAITING';
+        const display = document.getElementById('timer-display');
+        display.classList.add('waiting');
+        timerHoldTimeout = setTimeout(() => {
+            if (timerState === 'WAITING') {
+                timerState = 'READY';
+                display.classList.remove('waiting');
+                display.classList.add('ready');
+            }
+        }, 350);
+    }
+}, { passive: false });
+
+document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+
+    // 核心体验保护：长按准备期间（红字/绿字阶段），拦截屏幕滚动，防止画面随手指乱跑
+    const isTimerArea = e.target.closest('#timer-tab-main');
+    if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY')) {
+        if(e.cancelable) e.preventDefault();
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+
+    const isTimerArea = e.target.closest('#timer-tab-main');
+    if (!isTimerArea) {
+        // 如果手指不小心滑动到了下方成绩列表区域再松开，立刻安全重置状态
+        if (timerState === 'WAITING' || timerState === 'READY') {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'IDLE';
+            document.getElementById('timer-display').classList.remove('waiting', 'ready');
+        }
+        return;
+    }
+
     touchEndX = e.changedTouches[0].screenX;
 
-    // 空闲状态下，向右滑动超过 50px 即触发生成新打乱
-    if (timerState === 'IDLE' && (touchEndX - touchStartX > 50)) {
-        generateScramble();
+    // 判定滑动切打乱：处于空闲或刚按下一会，且在计时区域内右滑距离大于 50px，执行刷新
+    if (timerState === 'WAITING' || timerState === 'IDLE') {
+        if (touchEndX - touchStartX > 50) {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'IDLE';
+            document.getElementById('timer-display').classList.remove('waiting', 'ready');
+            generateScramble();
+            return;
+        }
     }
-}, {passive: true});
+
+    // 正常长按松开判定
+    const display = document.getElementById('timer-display');
+    if (timerState === 'WAITING') {
+        // 未超过 0.35 秒松开（红字状态），取消启动，恢复灰色
+        clearTimeout(timerHoldTimeout);
+        timerState = 'IDLE';
+        display.classList.remove('waiting');
+    } else if (timerState === 'READY') {
+        // 绿字状态松手，正式启动高精度计时
+        if(e.cancelable) e.preventDefault();
+        startTimer();
+    }
+}, { passive: false });
 
 // =========================================
 // 手机端悬浮导航：点击展开与点空白处收回逻辑
@@ -1776,4 +1848,240 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+});
+
+// =========================================
+// NB Challenge 核心逻辑引擎 (完整键鼠+触屏适配版)
+// =========================================
+let chalScoreTop = 0;
+let chalScoreBottom = 0;
+let chalState = 'IDLE';
+let chalTopPressed = false;
+let chalBottomPressed = false;
+let chalTopState = 'IDLE';
+let chalBottomState = 'IDLE';
+let chalHoldTimeout = null;
+let chalStartTime = 0;
+let chalAnimFrame = null;
+let chalTopTime = 0;
+let chalBottomTime = 0;
+
+function initChallenge() {
+    // 移除了 chalScoreTop = 0 和 chalScoreBottom = 0，从而保留历史比分
+    updateChallengeScores();
+    resetChallengeTimer();
+    generateChallengeScramble();
+
+    const nav = document.getElementById('floating-nav');
+    if (nav) nav.style.display = 'none';
+}
+
+function exitChallenge() {
+    // 如果正在计时中，拦截点击，不允许返回上一页
+    if (chalState === 'RUNNING') return;
+
+    goBack();
+    // 核心修复：删除了 nav.style.display = 'block';
+    // 页面切换后的悬浮窗显隐已经由 showPage() 统一智能接管，不再强制显示
+}
+
+function generateChallengeScramble() {
+    let scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20);
+    document.getElementById('challenge-scramble-top').innerHTML = scramble;
+    document.getElementById('challenge-scramble-bottom').innerHTML = scramble;
+}
+
+function updateChallengeScores() {
+    document.getElementById('challenge-score-top').innerText = chalScoreTop;
+    document.getElementById('challenge-score-bottom').innerText = chalScoreBottom;
+}
+
+function resetChallengeTimer() {
+    chalState = 'IDLE';
+    chalTopState = 'IDLE';
+    chalBottomState = 'IDLE';
+    chalTopPressed = false;
+    chalBottomPressed = false;
+
+    const tTop = document.getElementById('challenge-timer-top');
+    const tBot = document.getElementById('challenge-timer-bottom');
+    tTop.innerText = '0.00';
+    tBot.innerText = '0.00';
+    tTop.className = 'challenge-timer';
+    tBot.className = 'challenge-timer';
+
+    cancelAnimationFrame(chalAnimFrame);
+}
+
+function handleChalPress(player) {
+    if (chalState === 'DONE') {
+        chalState = 'IDLE';
+        chalTopState = 'IDLE';
+        chalBottomState = 'IDLE';
+    }
+
+    if (chalState === 'RUNNING') {
+        if (player === 'top' && chalTopState === 'RUNNING') {
+            chalTopState = 'STOPPED';
+            chalTopTime = performance.now() - chalStartTime;
+            document.getElementById('challenge-timer-top').innerText = formatTimerOutput(chalTopTime);
+            checkChallengeFinish();
+        }
+        if (player === 'bottom' && chalBottomState === 'RUNNING') {
+            chalBottomState = 'STOPPED';
+            chalBottomTime = performance.now() - chalStartTime;
+            document.getElementById('challenge-timer-bottom').innerText = formatTimerOutput(chalBottomTime);
+            checkChallengeFinish();
+        }
+        return;
+    }
+
+    // 只要有手放上去，立即清零并变红
+    if (player === 'top') {
+        chalTopPressed = true;
+        const topEl = document.getElementById('challenge-timer-top');
+        topEl.innerText = '0.00';
+        topEl.classList.add('waiting');
+        topEl.classList.remove('ready');
+    }
+    if (player === 'bottom') {
+        chalBottomPressed = true;
+        const botEl = document.getElementById('challenge-timer-bottom');
+        botEl.innerText = '0.00';
+        botEl.classList.add('waiting');
+        botEl.classList.remove('ready');
+    }
+
+    if (chalState === 'IDLE' && chalTopPressed && chalBottomPressed) {
+        chalState = 'WAITING';
+        chalHoldTimeout = setTimeout(() => {
+            if (chalState === 'WAITING' && chalTopPressed && chalBottomPressed) {
+                chalState = 'READY';
+                document.getElementById('challenge-timer-top').classList.replace('waiting', 'ready');
+                document.getElementById('challenge-timer-bottom').classList.replace('waiting', 'ready');
+            }
+        }, 400);
+    }
+}
+
+function handleChalRelease(player) {
+    if (player === 'top') {
+        chalTopPressed = false;
+        if (chalState !== 'RUNNING' && chalState !== 'DONE') {
+            document.getElementById('challenge-timer-top').classList.remove('waiting', 'ready');
+        }
+    }
+    if (player === 'bottom') {
+        chalBottomPressed = false;
+        if (chalState !== 'RUNNING' && chalState !== 'DONE') {
+            document.getElementById('challenge-timer-bottom').classList.remove('waiting', 'ready');
+        }
+    }
+
+    if (chalState === 'WAITING') {
+        clearTimeout(chalHoldTimeout);
+        chalState = 'IDLE';
+    } else if (chalState === 'READY') {
+        startChallenge();
+    }
+}
+
+function startChallenge() {
+    chalState = 'RUNNING';
+    chalTopState = 'RUNNING';
+    chalBottomState = 'RUNNING';
+    chalStartTime = performance.now();
+
+    document.getElementById('challenge-timer-top').className = 'challenge-timer';
+    document.getElementById('challenge-timer-bottom').className = 'challenge-timer';
+
+    function update() {
+        if (chalState !== 'RUNNING') return;
+        let elapsed = Math.floor(performance.now() - chalStartTime);
+        let timeStr = formatTimerOutput(elapsed);
+
+        if (chalTopState === 'RUNNING') document.getElementById('challenge-timer-top').innerText = timeStr;
+        if (chalBottomState === 'RUNNING') document.getElementById('challenge-timer-bottom').innerText = timeStr;
+
+        chalAnimFrame = requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+function checkChallengeFinish() {
+    if (chalTopState === 'STOPPED' && chalBottomState === 'STOPPED') {
+        chalState = 'DONE';
+        cancelAnimationFrame(chalAnimFrame);
+
+        if (chalTopTime < chalBottomTime) {
+            chalScoreTop++;
+        } else if (chalBottomTime < chalTopTime) {
+            chalScoreBottom++;
+        }
+        updateChallengeScores();
+
+        // 双方完成直接刷新打乱，保留成绩不重置
+        generateChallengeScramble();
+    }
+}
+
+/* ================= 触屏与鼠标事件绑定 ================= */
+const isChalActive = () => document.querySelector('.page-container.active')?.id === 'challenge-page';
+
+document.addEventListener('touchstart', (e) => {
+    // 核心修复：移除了 || chalState === 'DONE'，允许结算后再次触发按下事件
+    if (!isChalActive()) return;
+    if (e.target.closest('.challenge-divider')) return;
+    if (e.cancelable) e.preventDefault();
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        let t = e.changedTouches[i];
+        if (t.target.closest('#challenge-top-area')) handleChalPress('top');
+        if (t.target.closest('#challenge-bottom-area')) handleChalPress('bottom');
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+    if (!isChalActive()) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        let t = e.changedTouches[i];
+        if (t.target.closest('#challenge-top-area')) handleChalRelease('top');
+        if (t.target.closest('#challenge-bottom-area')) handleChalRelease('bottom');
+    }
+});
+
+document.addEventListener('mousedown', (e) => {
+    // 核心修复：移除了 || chalState === 'DONE'
+    if (!isChalActive()) return;
+    if (e.target.closest('.challenge-divider')) return;
+
+    if (e.target.closest('#challenge-top-area')) handleChalPress('top');
+    if (e.target.closest('#challenge-bottom-area')) handleChalPress('bottom');
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (!isChalActive()) return;
+    if (e.target.closest('#challenge-top-area')) handleChalRelease('top');
+    if (e.target.closest('#challenge-bottom-area')) handleChalRelease('bottom');
+});
+
+/* ================= 键盘事件绑定 (WASD & 方向键) ================= */
+const topKeys = ['w', 'a', 's', 'd'];
+const bottomKeys = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+
+document.addEventListener('keydown', (e) => {
+    // 核心修复：移除了 || chalState === 'DONE'
+    if (!isChalActive() || e.repeat) return;
+    const key = e.key.toLowerCase();
+
+    if (topKeys.includes(key)) { e.preventDefault(); handleChalPress('top'); }
+    if (bottomKeys.includes(key)) { e.preventDefault(); handleChalPress('bottom'); }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (!isChalActive()) return;
+    const key = e.key.toLowerCase();
+
+    if (topKeys.includes(key)) { e.preventDefault(); handleChalRelease('top'); }
+    if (bottomKeys.includes(key)) { e.preventDefault(); handleChalRelease('bottom'); }
 });
