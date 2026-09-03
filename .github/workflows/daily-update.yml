@@ -30,7 +30,7 @@ jobs:
       - name: Fetch and process WCA data
         run: |
           # 替换为你的实际执行命令
-          python main.py 
+          python update_data.py 
 
       - name: Commit and push if changed
         run: |
