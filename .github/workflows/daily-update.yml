@@ -2,41 +2,103 @@ name: Auto Update WCA Database
 
 on:
   schedule:
-    # 每天 UTC 时间 20:00 (北京时间凌晨 4:00) 自动执行
+    # 每天 UTC 20:00
+    # = 北京时间 04:00
     - cron: '0 20 * * *'
-  workflow_dispatch: # 允许你在 GitHub 网页上手动点击运行
+
+  # 允许在 GitHub Actions 页面手动执行
+  workflow_dispatch:
+
+# 防止同一个 workflow 同时运行多个版本
+concurrency:
+  group: wca-database-update
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     permissions:
-      contents: write # 赋予 GitHub Actions 推送代码到仓库的权限
+      contents: write
+
+    timeout-minutes: 45
 
     steps:
+
+      # ======================================================
+      # 1. 获取仓库代码
+      # ======================================================
+
       - name: Checkout repository
-        uses: actions/checkout@v4 # 升级到 v4 解决 Node.js 弃用警告
+        uses: actions/checkout@v6
+
+      # ======================================================
+      # 2. 安装 Python
+      # ======================================================
 
       - name: Set up Python
-        uses: actions/setup-python@v5 # 升级到 v5 解决 Node.js 弃用警告
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.10' # 可根据你的实际需求修改 Python 版本
+          python-version: '3.12'
+
+      # ======================================================
+      # 3. 安装 Python 依赖
+      # ======================================================
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # 如果仓库根目录有 requirements.txt 则自动安装依赖
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests
+
+      # ======================================================
+      # 4. 更新 WCA 数据
+      # ======================================================
 
       - name: Fetch and process WCA data
         run: |
-          # 替换为你的实际执行命令
-          python update_data.py 
+          python update_data.py
+
+      # ======================================================
+      # 5. 检查生成结果
+      # ======================================================
+
+      - name: Verify generated files
+        run: |
+          echo "Checking generated files..."
+
+          test -f wca_data.json
+          test -f history_data.json
+
+          echo "wca_data.json:"
+          ls -lh wca_data.json
+
+          echo "history_data.json:"
+          ls -lh history_data.json
+
+          echo "JSON validation:"
+          python -m json.tool wca_data.json > /dev/null
+          python -m json.tool history_data.json > /dev/null
+
+          echo "Generated JSON files are valid."
+
+      # ======================================================
+      # 6. 提交更新后的 JSON
+      # ======================================================
 
       - name: Commit and push if changed
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add .
-          
-          # 关键修复：检查是否有文件变动。如果有变动则 commit 并 push，如果没有变动则优雅退出，避免触发 exit code 1
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update WCA database" && git push)
+
+          # 只提交网站真正需要的两个数据文件
+          git add wca_data.json history_data.json
+
+          # 没有变化就正常退出
+          if git diff --cached --quiet; then
+            echo "No data changes detected."
+            exit 0
+          fi
+
+          git commit -m "chore: auto update WCA database"
+
+          git push
