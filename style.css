@@ -629,8 +629,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 /* 手机端响应式位置 */
 @media (max-width: 650px) {
     .floating-nav-container {
-        right: 15px;
-        bottom: 40px;
+        right: 20px;
+        bottom: 65px;
     }
 }
 
@@ -731,56 +731,395 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* =========================================
-   NB Timer 计时器专属样式 (清理合并版)
+   NB Timer 计时器专属样式 (终极适配版)
    ========================================= */
-.timer-layout { display: flex; gap: 20px; align-items: stretch; height: 70vh; min-height: 520px; }
 
-/* 左侧栏及表格表头（已修复滚动条挤压位移） */
-.timer-sidebar { width: 260px; display: flex; flex-direction: column; margin-bottom: 0; padding: 20px; }
-.timer-history-header { display: flex; padding: 5px 16px 5px 10px; border-bottom: 2px solid var(--border-color); font-size: 13px; font-weight: bold; color: var(--text-muted); margin-bottom: 10px; }
-.timer-history-container { flex: 1; overflow-y: scroll; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: 600; color: var(--text-main); scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+/* 1. 桌面端基础布局 (双栏) */
+.timer-layout {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    height: 70vh;
+    min-height: 520px;
+}
+
+/* 2. 左侧成绩列表 (桌面端) */
+.timer-sidebar {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+    padding: 20px;
+}
+.timer-history-header {
+    display: flex;
+    padding: 5px 16px 5px 10px;
+    border-bottom: 2px solid var(--border-color);
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+.timer-history-container {
+    flex: 1;
+    overflow-y: scroll;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
 .timer-history-container::-webkit-scrollbar { width: 6px; }
 .timer-history-container::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 4px; }
 
-/* 左侧列表单次、Ao5及琥珀色 PB 高亮 */
-.timer-history-item { display: flex; padding: 8px 10px; border-bottom: 1px dashed var(--border-color); align-items: center; }
-.timer-history-item > span:nth-child(1) { width: 15%; color: var(--text-muted); font-size: 13px; font-weight: normal; }
-.timer-history-item > span:nth-child(2) { width: 40%; color: var(--text-main); font-weight: 600; }
-.timer-history-item > span:nth-child(3) { width: 45%; color: #64748b; font-weight: 600; }
+/* 左侧列表排版：确保 ao5 列固定不被挤压 */
+.timer-history-item {
+    display: flex;
+    padding: 8px 10px;
+    border-bottom: 1px dashed var(--border-color);
+    align-items: center;
+}
+.timer-history-item > span:nth-child(1) { width: 15%; flex-shrink: 0; color: var(--text-muted); font-size: 13px; font-weight: normal; }
+.timer-history-item > span:nth-child(2) { width: 40%; flex-shrink: 0; color: var(--text-main); font-weight: 600; }
+.timer-history-item > span:nth-child(3) { width: 45%; flex-shrink: 0; text-align: right; padding-right: 10px; color: #64748b; font-weight: 600; }
 .timer-pb { color: #f59e0b !important; font-weight: 800 !important; }
 
-/* 右侧主区与左下角数据面板 */
-.timer-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0; user-select: none; position: relative; }
-.timer-stats-panel { position: absolute; left: 24px; bottom: 24px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; color: #64748b; line-height: 1.6; font-weight: 600; }
+/* 3. 右侧主计时区 (桌面端) */
+.timer-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    user-select: none;
+    position: relative;
+}
+
+/* 左下角数据面板 */
+.timer-stats-panel {
+    position: absolute;
+    left: 24px;
+    bottom: 24px;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 15px;
+    color: #64748b;
+    line-height: 1.6;
+    font-weight: 600;
+}
 #timer-stat-best { color: var(--text-main); }
 
-/* 打乱公式区域 */
-.scramble-container { position: absolute; top: 30px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 40px; box-sizing: border-box; }
-#scramble-text { font-size: 19px; font-weight: 700; text-align: center; line-height: 1.4; font-family: 'SFMono-Regular', Consolas, monospace; color: var(--text-main); max-width: 85%; }
+/* 4. 打乱公式区域 */
+.scramble-container {
+    position: absolute;
+    top: 30px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 40px;
+    box-sizing: border-box;
+    z-index: 10;
+}
+#timer-event-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+#scramble-text {
+    font-size: 19px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.4;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    color: var(--text-main);
+    max-width: 85%;
+}
 
-/* 计时大屏：恢复高级系统字体，仅通过 tabular-nums 完美防抖 */
-.timer-display.waiting { color: #e63946; }
-.timer-display.ready { color: #10b981; }
+/* 5. 计时大屏数字 */
 .timer-display {
+    font-family: 'SFMono-Regular', Consolas, monospace;
     font-size: 150px;
     font-weight: 900;
     color: var(--text-main);
-
-    /* 核心修复：双重强制开启系统原装字体的等宽数字与表格数字特性 */
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
-
     line-height: 1;
     transition: color 0.15s ease;
-    margin-top: 50px;
+    margin-top: 0;
     text-align: center;
-    display: inline-block; /* 锁死块级基线，防止数字跳动时带动整行上下微晃 */
+    display: inline-block;
+    z-index: 5;
+}
+.timer-display.waiting { color: #e63946; }
+.timer-display.ready { color: #10b981; }
+
+/* 6. 底部提示文字 */
+.timer-prompt-text {
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 30px;
+    text-align: center;
+    line-height: 1.8;
+    opacity: 0.85;
+}
+.prompt-sub { font-size: 13px; opacity: 0.8; }
+.mobile-prompt { display: none; }
+.desktop-prompt { display: block; }
+
+.timer-bottom-bar { display: none; }
+
+/* =========================================
+   7. 移动端响应式布局 (Tab 单页模式)
+   ========================================= */
+@media (max-width: 768px) {
+    .timer-layout {
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        gap: 0;
+    }
+
+    .timer-sidebar, .timer-main {
+        display: none !important;
+        width: 100%;
+        height: 100%;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        padding: 0 10px;
+    }
+
+    /* 包含切页丝滑淡入动画 */
+    #timer-tab-main.active-tab, #timer-tab-list.active-tab {
+        display: flex !important;
+        animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    }
+
+    #timer-tab-main.active-tab {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .scramble-container {
+        top: 10px;
+        padding: 0 10px;
+    }
+    #scramble-text {
+        font-size: 16px;
+        max-width: 95%;
+    }
+
+    .timer-display {
+        font-size: 110px;
+        margin-top: 0;
+    }
+
+    /* 数据面板大幅下移 */
+    .timer-stats-panel {
+        left: 15px;
+        bottom: 75px;
+        margin: 0;
+    }
+
+    .mobile-prompt { display: block; margin-top: 15px; }
+    .desktop-prompt { display: none; }
+
+    /* 底部导航栏大幅下移，并缩小胶囊宽度以匹配无字状态 */
+    .timer-bottom-bar {
+        display: flex;
+        position: fixed;
+        bottom: 12px;
+        left: 0; right: 0; margin: 0 auto;
+        width: 150px;
+        height: 52px;
+        background: rgba(248, 250, 252, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border-radius: 30px;
+        z-index: 1050;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+
+    /* 纯图标完美居中，引入颜色平滑过渡和点击缩放反馈 */
+    .timer-tab-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8; /* 未选中时的浅灰色 */
+        cursor: pointer;
+        transition: color 0.25s ease, transform 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 选中状态变深 */
+    .timer-tab-btn.active {
+        color: #334155;
+    }
+
+    .timer-tab-btn:active {
+        transform: scale(0.85);
+    }
 }
 
+/* =========================================
+   NB Challenge 专属样式 (电脑端不翻转 & 完美居中版)
+   ========================================= */
+#challenge-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    background: #f8fafc;
+    overflow: hidden;
+    z-index: 2000;
+    display: none;
+}
+
+#challenge-page.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.challenge-half {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* 确保计时器永远死死固定在半屏正中心 */
+    position: relative;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    cursor: pointer;
+}
+
+/* 手机端默认翻转上半部分 */
+.top-half { transform: rotate(180deg); }
+
+.challenge-divider {
+    height: 52px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+    z-index: 10;
+}
+
+.challenge-back-btn {
+    position: absolute;
+    left: 15px;
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--text-main);
+    cursor: pointer;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.challenge-event {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-main);
+}
+
+/* 修改此处的 font-size 即可调整手机端和电脑端的比分字体大小 */
+.challenge-score {
+    position: absolute;
+    font-size: 19px; /* ⬅️ 已为你调大，你可以随时修改这个数值 */
+    font-weight: 900;
+    color: var(--primary-color);
+}
+
+/* 完美对称设计：强制固定在距离中轴线左右两侧，不再翻转 */
+#challenge-score-top {
+    right: 50%;
+    margin-right: 55px; /* 手机端左侧比分距离中心的距离 */
+    transform: none;
+}
+#challenge-score-bottom {
+    left: 50%;
+    margin-left: 55px; /* 手机端右侧比分距离中心的距离 */
+}
+
+/* 电脑端适配补充调整，彻底解决不对称问题 */
+@media (min-width: 769px) {
+    .top-half { transform: none; }
+
+    /* 核心修复：在电脑端强制重新定义左右距离，确保绝对对称 */
+    #challenge-score-top {
+        transform: none;
+        right: 50%;
+        margin-right: 65px; /* ⬅️ 缩小此数值可让左边比分向中间靠拢 */
+    }
+    #challenge-score-bottom {
+        left: 50%;
+        margin-left: 65px;  /* ⬅️ 确保和 margin-right 数值一模一样即可完美对称 */
+    }
+
+    #challenge-scramble-top { top: auto; bottom: 20px; }
+}
+
+/* 打乱公式：脱离文档流，向分割线靠拢 */
+.challenge-scramble {
+    position: absolute;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    width: 90%;
+    color: var(--text-main);
+    z-index: 5;
+}
+
+/* 手机端翻转后，上半屏的 top 实际上是靠近分割线的方向 */
+#challenge-scramble-top { top: 20px; }
+#challenge-scramble-bottom { top: 20px; }
+
+.challenge-timer {
+    font-size: 110px;
+    font-weight: 900;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--text-main);
+    transition: color 0.15s ease;
+    margin: 0;
+}
+
+.challenge-timer.waiting { color: #e63946; }
+.challenge-timer.ready { color: #10b981; }
+
 @media (max-width: 768px) {
-    .timer-layout { flex-direction: column; height: auto; }
-    .timer-sidebar { width: 100%; height: 280px; }
-    .timer-display { font-size: 80px; margin-top: 80px; }
-    .scramble-container { position: relative; top: 0; padding: 0; margin-bottom: 20px; }
-    .timer-stats-panel { position: relative; left: 0; bottom: 0; margin-top: 20px; text-align: center; }
+    .challenge-timer { font-size: 95px; }
+    .challenge-scramble { font-size: 15px; }
+}
+
+/* 电脑端适配：取消翻转，重置排版 */
+@media (min-width: 769px) {
+    .top-half { transform: none; }
+    #challenge-score-top { transform: none; right: 50%; margin-right: 65px; }
+    /* 电脑端没翻转，上半屏靠近分割线的是 bottom */
+    #challenge-scramble-top { top: auto; bottom: 20px; }
 }
