@@ -265,7 +265,8 @@ def update_wca_data():
 
     # WCA 当前 Results Export 是 2.x
     if export_version:
-        major_version = str(export_version).split(".", 1)[0]
+        major_version = str(export_version).strip().lower().lstrip("v").split(".", 1)[0]
+
         if major_version != "2":
             raise RuntimeError(
                 f"检测到不支持的 WCA Export 主版本: {export_version}"
@@ -342,7 +343,8 @@ def update_wca_data():
             print(f"metadata date   : {actual_export_date}")
 
             if actual_version:
-                major_version = str(actual_version).split(".", 1)[0]
+                major_version = str(actual_version).strip().lower().lstrip("v").split(".", 1)[0]
+
                 if major_version != "2":
                     raise RuntimeError(
                         f"ZIP 内部 Export 主版本不是 2.x: {actual_version}"
@@ -947,4 +949,3 @@ def update_wca_data():
 
 if __name__ == "__main__":
     update_wca_data()
-    
