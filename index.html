@@ -66,6 +66,9 @@
             <button class="home-nav-btn" onclick="navigateTo('timer-page'); initTimer();">
                 <span>NB Timer 内测版</span>
             </button>
+            <button class="home-nav-btn" onclick="initChallenge(); navigateTo('challenge-page');" style="margin-top: 10px;">
+                <span>NB Challenge 内测版</span>
+            </button>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 35px;">作者：b站@泡芙老师k3</p>
     </div>
@@ -74,38 +77,36 @@
          NB Timer 计时器页面
     ========================================= -->
     <div id="timer-page" class="page-container">
-        <div class="page-header">
-            <!-- 修复：去掉多余的 class 和 ❮，让它继承全局统一的绝对定位毛玻璃按钮样式 -->
+        <!-- 移除了标题文字，保留返回按钮并限制最小高度，彻底解决横向挤压和滚轮问题 -->
+        <div class="page-header" style="z-index: 100; min-height: 44px; padding: 0;">
             <button onclick="goBack()">返回上一页</button>
-            <h2>NB Timer 内测版</h2>
         </div>
 
         <div class="timer-layout">
-            <!-- 左侧分组与成绩列表 -->
-            <div class="timer-sidebar card">
+            <!-- Tab 2: 成绩列表页 -->
+            <div class="timer-sidebar card" id="timer-tab-list">
                 <select id="timer-event-select" onchange="switchTimerEvent()" style="width: 100%; margin-bottom: 10px; background-color: #f8fafc; border: 1px solid var(--border-color);">
-                    <!-- 这里的选项将由 JS 自动读取你所有的 WCA 项目字典生成 -->
+                    <!-- 自动生成 -->
                 </select>
 
                 <div class="timer-history-header">
                     <span style="width: 15%;">#</span>
                     <span style="width: 40%;">成绩</span>
-                    <span style="width: 45%;">ao5</span>
+                    <span style="width: 45%; text-align: right; padding-right: 10px;">ao5</span>
                 </div>
                 <div id="timer-history-list" class="timer-history-container">
                     <!-- 成绩追加区域 -->
                 </div>
             </div>
 
-            <!-- 右侧主计时区域 -->
-            <div class="timer-main card" id="timer-main-area">
+            <!-- Tab 1: 主计时页 -->
+            <div class="timer-main card active-tab" id="timer-tab-main">
                 <div class="timer-stats-panel">
                     <div id="timer-stat-best">best: -</div>
                     <div id="timer-stat-ao5">ao5: -</div>
                 </div>
 
                 <div class="scramble-container">
-                    <!-- 放大标题，JS 中会自动注入 WCA - 前缀 -->
                     <div id="timer-event-title" style="font-size: 20px; font-weight: bold; color: var(--primary-color); margin-bottom: 12px; letter-spacing: 1px;">WCA - 三阶（3x3x3）</div>
                     <div style="display: flex; align-items: center; justify-content: center; width: 100%;">
                         <div id="scramble-text">R U R' U' ...</div>
@@ -113,11 +114,34 @@
                 </div>
 
                 <div id="timer-display" class="timer-display">0.00</div>
-                <!-- 统一提示文字的颜色、大小与字重，使其绝对协调 -->
-                <div style="color: var(--text-muted); font-size: 14px; font-weight: 500; margin-top: 30px; text-align: center; line-height: 1.8; opacity: 0.85;">
-                    长按空格键启动 · 任意键停止<br>
-                    点击 → 或向右滑动切换打乱
+                <!-- 动态终端提示文字 -->
+                <div class="timer-prompt-text">
+                    <span class="desktop-prompt">
+                        长按空格键启动 · 任意键停止<br>
+                        <span class="prompt-sub">点击 → 切换打乱</span>
+                    </span>
+                    <span class="mobile-prompt">
+                        长按屏幕启动<br>
+                        <span class="prompt-sub">向右滑动切换打乱</span>
+                    </span>
                 </div>
+            </div>
+        </div>
+
+        <!-- 移动端专属：底部毛玻璃导航栏 (仅保留纯图标) -->
+        <div class="timer-bottom-bar">
+            <div class="timer-tab-btn active" onclick="switchTimerTab('main')" id="btn-tab-main">
+                <span class="cubing-icon event-333" style="font-size: 28px;"></span>
+            </div>
+            <div class="timer-tab-btn" onclick="switchTimerTab('list')" id="btn-tab-list">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
             </div>
         </div>
     </div>
@@ -408,6 +432,34 @@
                     <tbody id="history-detail-tbody"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- NB Challenge 页面：必须和其他 page-container 是平级兄弟节点 -->
+    <div id="challenge-page" class="page-container" style="padding: 0; margin: 0; max-width: 100%; width: 100%;">
+        <!-- 玩家 A (上半屏) -->
+        <div class="challenge-half top-half" id="challenge-top-area">
+            <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
+            <div class="challenge-timer" id="challenge-timer-top">0.00</div>
+        </div>
+
+        <!-- 中间分割线与计分板 -->
+        <div class="challenge-divider">
+            <button class="challenge-back-btn" onclick="exitChallenge()">❮</button>
+            <div class="challenge-score" id="challenge-score-top">0</div>
+
+            <div class="challenge-event">
+                <span class="cubing-icon event-333" style="font-size: 20px;"></span>
+                <span style="font-size: 16px; font-weight: bold; margin-left: 5px;">三阶</span>
+            </div>
+
+            <div class="challenge-score" id="challenge-score-bottom">0</div>
+        </div>
+
+        <!-- 玩家 B (下半屏) -->
+        <div class="challenge-half bottom-half" id="challenge-bottom-area">
+            <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
+            <div class="challenge-timer" id="challenge-timer-bottom">0.00</div>
         </div>
     </div>
 
