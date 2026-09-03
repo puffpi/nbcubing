@@ -1,4 +1,21 @@
 /* =========================================
+   全局禁止文字选择，避免触屏操作产生文字选区
+   ========================================= */
+
+* {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+select {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* =========================================
    全局基调重置 (素雅泛灰极简风)
    ========================================= */
 :root {
@@ -868,7 +885,12 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     line-height: 1.8;
     opacity: 0.85;
 }
-.prompt-sub { font-size: 13px; opacity: 0.8; }
+
+.prompt-sub {
+    font-size: inherit;
+    opacity: 1;
+}
+
 .mobile-prompt { display: none; }
 .desktop-prompt { display: block; }
 
@@ -878,20 +900,66 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
    7. 移动端响应式布局 (Tab 单页模式)
    ========================================= */
 @media (max-width: 768px) {
-    .timer-layout {
-        flex-direction: column;
-        height: calc(100vh - 120px);
-        gap: 0;
+
+    /* =========================================
+       手机端 Timer：真正锁定为整块屏幕
+       ========================================= */
+
+    #timer-page,
+    #pk-page,
+    #pk-result-page {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+
+        /* 恢复手机端原本的左右留白 */
+        padding: 12px;
+        margin: 0;
+
+        box-sizing: border-box;
+        overflow: hidden;
+        touch-action: none;
     }
 
-    .timer-sidebar, .timer-main {
+    .timer-layout {
+        position: absolute;
+        top: 56px;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+
+        display: flex;
+        flex-direction: column;
+        width: auto;
+        height: auto;
+        gap: 0;
+
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .timer-sidebar,
+    .timer-main {
         display: none !important;
+
         width: 100%;
         height: 100%;
+
+        min-width: 0;
+        box-sizing: border-box;
+
         border: none;
         box-shadow: none;
         background: transparent;
         padding: 0 10px;
+
+        overflow: hidden;
+    }
+
+    #timer-tab-list {
+        padding: 30px 10px 0 !important;
+        box-sizing: border-box;
     }
 
     /* 包含切页丝滑淡入动画 */
@@ -909,11 +977,18 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
     .scramble-container {
         top: 10px;
+        left: 0;
+        width: 100%;
         padding: 0 10px;
+        box-sizing: border-box;
     }
+
     #scramble-text {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
         font-size: 16px;
-        max-width: 95%;
+        text-align: center;
     }
 
     .timer-display {
