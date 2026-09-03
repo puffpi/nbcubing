@@ -1,31 +1,32 @@
-name: Daily WCA Data Update
+name: Auto Update WCA Database
 
 on:
   schedule:
-    # 每天 UTC 时间 19:00 执行（对应北京时间凌晨 3:00）
-    - cron: '0 19 * * *'
-  workflow_dispatch: # 允许在 Actions 面板手动点击按钮运行
+    # 每天 UTC 时间凌晨 2 点（北京时间上午 10 点）自动执行
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 允许在 GitHub 网页上手动点击按钮触发
 
 jobs:
-  update-data:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: 检出仓库代码
         uses: actions/checkout@v3
-        
-      - name: Set up Python
+
+      - name: 配置 Python 环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          
-      - name: Run data fetch script
-        run: python update_data.py
-        
-      - name: Commit and push changes
+
+      - name: 安装运行依赖
+        run: pip install -r requirements.txt
+
+      - name: 执行 WCA 数据拉取与解析脚本
+        run: python update_wca.py
+
+      - name: 提交更新的 JSON 文件
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add wca_data.json
-          # 如果数据有更新则提交，没有更新则跳过
-          git commit -m "Auto-update WCA data [skip ci]" || echo "No changes to commit"
-          git push
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add wca_data.json history_data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update WCA data" && git push)
