@@ -87,24 +87,38 @@ def safe_int(value, default=0):
 
 def find_member(zip_file, filename):
     """
-    在 ZIP 内寻找指定 TSV。
-    兼容：
-      persons.tsv
-      某个目录/persons.tsv
-      WCA_export_Persons.tsv
+    在 WCA Export ZIP 内寻找指定 TSV。
+
+    当前 WCA Results Export v2 的实际文件名通常是：
+        WCA_export_persons.tsv
+        WCA_export_competitions.tsv
+        WCA_export_results.tsv
+        WCA_export_ranks_single.tsv
+        WCA_export_ranks_average.tsv
+        WCA_export_result_attempts.tsv
+
+    同时兼容不带 WCA_export_ 前缀的文件名。
     """
-    target = filename.lower()
+
+    target = filename.strip().lower()
+
+    possible_names = {
+        target,
+        f"wca_export_{target}"
+    }
 
     for member in zip_file.namelist():
-        basename = member.rsplit("/", 1)[-1].lower()
+        basename = member.rsplit("/", 1)[-1].strip().lower()
 
-        if basename == target:
+        if basename in possible_names:
             return member
 
     raise FileNotFoundError(
-        f"在 WCA Export 中找不到文件: {filename}\n"
-        f"当前 ZIP 内文件示例:\n"
-        + "\n".join(zip_file.namelist()[:50])
+        f"在 WCA Export 中找不到文件: {filename}\n\n"
+        f"尝试匹配的文件名:\n"
+        + "\n".join(sorted(possible_names))
+        + "\n\n当前 ZIP 内文件:\n"
+        + "\n".join(zip_file.namelist())
     )
 
 
