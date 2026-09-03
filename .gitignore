@@ -1,4 +1,10 @@
-.idea/
-WCA_export/
-WCA_export.tsv.zip
+# 忽略 Python 运行产生的缓存文件
 __pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略临时下载的 WCA 压缩包
+*.zip
+
+# 忽略解压出来的庞大官方数据库文件夹（极其重要）
+wca_export/
