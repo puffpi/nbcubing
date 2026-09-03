@@ -2,15 +2,15 @@ name: Auto Update WCA Database
 
 on:
   schedule:
-    # 每天 UTC 时间凌晨 2 点（北京时间上午 10 点）自动执行
-    - cron: '0 2 * * *'
-  workflow_dispatch: # 允许在 GitHub 网页上手动点击按钮触发
+    # 每天 UTC 时间 20:00 (北京时间凌晨 4:00) 自动执行
+    - cron: '0 20 * * *'
+  workflow_dispatch: # 允许你在 GitHub 网页上手动点击运行
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出仓库代码
+      - name: 检出代码
         uses: actions/checkout@v3
 
       - name: 配置 Python 环境
@@ -18,13 +18,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 安装运行依赖
+      - name: 安装依赖
         run: pip install -r requirements.txt
 
-      - name: 执行 WCA 数据拉取与解析脚本
-        run: python update_wca.py
+      - name: 执行数据更新脚本
+        run: python update_data.py
 
-      - name: 提交更新的 JSON 文件
+      - name: 提交并推送到仓库
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
