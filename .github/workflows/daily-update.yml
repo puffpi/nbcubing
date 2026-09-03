@@ -9,24 +9,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 赋予 GitHub Actions 推送代码到仓库的权限
+
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4 # 升级到 v4 解决 Node.js 弃用警告
 
-      - name: 配置 Python 环境
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5 # 升级到 v5 解决 Node.js 弃用警告
         with:
-          python-version: '3.10'
+          python-version: '3.10' # 可根据你的实际需求修改 Python 版本
 
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-
-      - name: 执行数据更新脚本
-        run: python update_data.py
-
-      - name: 提交并推送到仓库
+      - name: Install dependencies
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add wca_data.json history_data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update WCA data" && git push)
+          python -m pip install --upgrade pip
+          # 如果仓库根目录有 requirements.txt 则自动安装依赖
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Fetch and process WCA data
+        run: |
+          # 替换为你的实际执行命令
+          python main.py 
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          
+          # 关键修复：检查是否有文件变动。如果有变动则 commit 并 push，如果没有变动则优雅退出，避免触发 exit code 1
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update WCA database" && git push)
