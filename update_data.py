@@ -1,11 +1,29 @@
 import pandas as pd
 import requests, zipfile, io, json
 
-
 def update_wca_data():
-    print("Downloading WCA Export...")
-    url = "https://www.worldcubeassociation.org/results/misc/WCA_export.tsv.zip"
-    r = requests.get(url)
+    print("Fetching WCA Export URL...")
+    # 增加 User-Agent 请求头伪装，绕过 Cloudflare 防爬虫拦截
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    # 通过 WCA 官方 API 动态获取当天最新的数据包下载地址
+    api_url = "https://www.worldcubeassociation.org/api/v0/export/public"
+    api_res = requests.get(api_url, headers=headers)
+    
+    if api_res.status_code != 200:
+        print(f"获取下载链接失败，状态码: {api_res.status_code}")
+        return
+        
+    tsv_url = api_res.json().get("tsv_url")
+    print(f"Downloading WCA Export from: {tsv_url} ...")
+    
+    r = requests.get(tsv_url, headers=headers)
+    if r.status_code != 200:
+        print(f"下载压缩包失败，状态码: {r.status_code}")
+        return
+        
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         z.extractall("wca_export")
 
@@ -16,7 +34,6 @@ def update_wca_data():
     df_ranks_avg = pd.read_csv("wca_export/WCA_export_RanksAverage.tsv", sep='\t', low_memory=False)
     df_comps = pd.read_csv("wca_export/WCA_export_Competitions.tsv", sep='\t', low_memory=False)
 
-    # 宁波魔友名单直接内置
     nb_ids = [
         '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02',
         '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08',
@@ -43,8 +60,7 @@ def update_wca_data():
 
     print("Processing WCA Data...")
     nb_persons = df_persons[df_persons['id'].isin(nb_ids)].copy()
-
-    # 构造 wca_data.json
+    
     all_cubers_data = []
     for _, person in nb_persons.iterrows():
         wca_id = person['id']
@@ -57,12 +73,10 @@ def update_wca_data():
             },
             "personal_records": {}
         }
-
-        # 获取该选手的单次和平均排名记录
+        
         p_single = df_ranks_single[df_ranks_single['personId'] == wca_id]
         p_avg = df_ranks_avg[df_ranks_avg['personId'] == wca_id]
-
-        # 合并该选手参加过的所有项目
+        
         events = set(p_single['eventId'].tolist() + p_avg['eventId'].tolist())
         for ev in events:
             cuber_obj["personal_records"][ev] = {}
@@ -74,7 +88,7 @@ def update_wca_data():
                     "continent_rank": int(s_rec.iloc[0]['continentRank']),
                     "country_rank": int(s_rec.iloc[0]['countryRank'])
                 }
-
+            
             a_rec = p_avg[p_avg['eventId'] == ev]
             if not a_rec.empty:
                 cuber_obj["personal_records"][ev]["average"] = {
@@ -89,16 +103,14 @@ def update_wca_data():
         json.dump(all_cubers_data, f, ensure_ascii=False)
 
     print("Processing History Data...")
-    # 构造 history_data.json
     history_data = {}
     nb_results = df_results[df_results['personId'].isin(nb_ids)]
-
+    
     for wca_id, group in nb_results.groupby('personId'):
         history_data[wca_id] = {}
         for ev, ev_group in group.groupby('eventId'):
             records = []
             for _, row in ev_group.iterrows():
-                # 关联比赛日期
                 comp_info = df_comps[df_comps['id'] == row['competitionId']]
                 date_str = ""
                 if not comp_info.empty:
@@ -117,15 +129,13 @@ def update_wca_data():
                     "v4": int(row['value4']),
                     "v5": int(row['value5'])
                 })
-            # 按日期排序
             records.sort(key=lambda x: x['date'])
             history_data[wca_id][ev] = records
 
     with open("history_data.json", "w", encoding="utf-8") as f:
         json.dump(history_data, f, ensure_ascii=False)
-
+        
     print("Update Complete.")
-
 
 if __name__ == "__main__":
     update_wca_data()
