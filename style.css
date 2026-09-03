@@ -906,20 +906,30 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
        ========================================= */
 
     #timer-page,
-    #pk-page,
-    #pk-result-page {
+    #pk-page {
         position: fixed;
         inset: 0;
         width: 100vw;
         height: 100dvh;
-
-        /* 恢复手机端原本的左右留白 */
         padding: 12px;
         margin: 0;
-
         box-sizing: border-box;
         overflow: hidden;
         touch-action: none;
+    }
+
+    /* 手机端成绩 PK 结果页允许正常上下滚动 */
+    #pk-result-page {
+        position: relative;
+        inset: auto;
+        width: auto;
+        height: auto;
+        min-height: calc(100dvh - 24px);
+        padding: 12px;
+        margin: 0;
+        box-sizing: border-box;
+        overflow: visible;
+        touch-action: pan-y;
     }
 
     .timer-layout {
