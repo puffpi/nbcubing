@@ -1,18 +1,17 @@
 /* =========================================
-   全局禁止文字选择，避免触屏操作产生文字选区
+   全局禁止文字选择与点击蓝块防干扰
    ========================================= */
-
 * {
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent !important; /* 彻底干掉手机端点击时的蓝色/灰色闪烁背景 */
+    -webkit-touch-callout: none !important; /* 禁用长按弹出的系统菜单 */
+    -webkit-user-select: none !important; /* 禁用长按选中文字 */
+    user-select: none !important;
 }
 
-input,
-textarea,
-select {
-    -webkit-user-select: text;
-    user-select: text;
+/* 唯独放过输入框和选择框，保证正常打字和交互 */
+input, textarea, select {
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
 }
 
 /* =========================================
@@ -429,6 +428,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     background: rgba(0, 0, 0, 0.05);
     border-radius: 8px;
     padding: 3px;
+    box-sizing: border-box; /* 核心修复：防止加了 width:100% 后被 padding 撑出边界 */
 }
 .ios-segment-btn {
     padding: 4px 16px;
@@ -760,17 +760,84 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     min-height: 520px;
 }
 
-/* 2. 左侧成绩列表 (桌面端) */
+/* 2. 左侧栏排版升级 (加宽与顶部控制器) */
 .timer-sidebar {
-    width: 260px;
+    width: 310px; /* 显著加宽，防止长数字被挤压 */
     display: flex;
     flex-direction: column;
     margin-bottom: 0;
     padding: 20px;
+    position: relative;
+    padding-bottom: 75px !important; /* 给底部导航栏留出空间 */
 }
+
+/* 顶部选择器与更多按钮排版 */
+.sidebar-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative;
+}
+#timer-event-select {
+    width: 70%;
+    margin: 0;
+    padding: 8px 12px;
+    background-color: #f8fafc;
+    border: 1px solid var(--border-color);
+}
+.btn-more {
+    width: 25%;
+    padding: 8px 0;
+    font-size: 13px;
+}
+
+/* “更多”下拉菜单 */
+.timer-more-dropdown {
+    position: absolute;
+    top: 45px;
+    right: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    z-index: 100;
+    display: none;
+    overflow: hidden;
+}
+.timer-more-item {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #d87070; /* 调弱的柔和红色 */
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s ease;
+}
+.timer-more-item:hover {
+    background: #fdf5f5;
+}
+
+/* 侧边栏内部双视图动画切换 */
+.sidebar-view {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+.sidebar-view.active {
+    display: flex;
+    animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+/* =========================================
+   成绩列表 4 列等比例完美居中对齐
+   ========================================= */
 .timer-history-header {
     display: flex;
-    padding: 5px 16px 5px 10px;
+    padding: 5px 5px;
     border-bottom: 2px solid var(--border-color);
     font-size: 13px;
     font-weight: bold;
@@ -790,17 +857,133 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .timer-history-container::-webkit-scrollbar { width: 6px; }
 .timer-history-container::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 4px; }
 
-/* 左侧列表排版：确保 ao5 列固定不被挤压 */
 .timer-history-item {
     display: flex;
-    padding: 8px 10px;
+    padding: 8px 5px;
     border-bottom: 1px dashed var(--border-color);
     align-items: center;
 }
-.timer-history-item > span:nth-child(1) { width: 15%; flex-shrink: 0; color: var(--text-muted); font-size: 13px; font-weight: normal; }
-.timer-history-item > span:nth-child(2) { width: 40%; flex-shrink: 0; color: var(--text-main); font-weight: 600; }
-.timer-history-item > span:nth-child(3) { width: 45%; flex-shrink: 0; text-align: right; padding-right: 10px; color: #64748b; font-weight: 600; }
+.col-id   { width: 10%; flex-shrink: 0; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: normal; }
+.col-time { width: 30%; flex-shrink: 0; text-align: center; color: var(--text-main); font-weight: 600; }
+.col-stat { width: 30%; flex-shrink: 0; text-align: center; color: #64748b; font-weight: 600; }
 .timer-pb { color: #f59e0b !important; font-weight: 800 !important; }
+
+/* 可点击的单次成绩交互 */
+.clickable-time {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.clickable-time:hover { color: #2563eb !important; }
+
+/* =========================================
+   成绩编辑专属悬浮卡片 (毛玻璃质感)
+   ========================================= */
+.edit-score-popup {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+
+    /* 提高不透明度至 0.65，模糊半径增至 8px，质感会变得厚实柔和 */
+    background: rgba(248, 250, 252, 0.15);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    animation: pageFadeIn 0.2s ease forwards;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.edit-score-content {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+
+    /* 核心修改：宽度设为 100%，配合外层的 20px padding 实现两端完美贴齐 */
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+#edit-index { color: var(--text-muted); font-size: 14px; font-weight: 600; }
+#edit-time { font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums; }
+#edit-timestamp { color: var(--text-muted); font-size: 12px; margin-bottom: 16px; }
+
+.edit-btn-copy {
+    align-self: flex-start;
+    background: rgba(148, 163, 184, 0.15);
+    border: none; border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--text-main);
+    cursor: pointer; margin-bottom: 12px; transition: all 0.2s;
+}
+.edit-btn-copy:hover { background: rgba(148, 163, 184, 0.25); }
+
+#edit-scramble {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 13px; color: var(--text-main); text-align: center;
+    margin-bottom: 24px; line-height: 1.5; word-break: break-word;
+}
+.edit-popup-actions { display: flex; gap: 10px; width: 100%; justify-content: space-between; }
+.edit-popup-actions button {
+    flex: 1; padding: 10px 0; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    background: rgba(148, 163, 184, 0.15); color: var(--text-main);
+}
+.edit-popup-actions .edit-btn-del { color: #e63946; background: rgba(230, 57, 70, 0.1); }
+.edit-popup-actions .edit-btn-del:hover { background: rgba(230, 57, 70, 0.2); }
+.edit-popup-actions .edit-btn-cancel:hover { background: rgba(148, 163, 184, 0.25); }
+.edit-popup-actions .edit-btn-confirm { background: var(--primary-color); color: white; }
+.edit-popup-actions .edit-btn-confirm:hover { background: var(--primary-hover); }
+
+/* 统计设置页面排版 (iOS 风格) */
+.sidebar-settings-title {
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 20px;
+}
+.ios-setting-group { margin-bottom: 12px; }
+.ios-setting-group label {
+    display: block; font-size: 13px; color: var(--text-muted);
+    margin-bottom: 6px; font-weight: 500; padding-left: 4px;
+}
+.ios-input {
+    width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 14px;
+    border-radius: 8px; border: none; background: rgba(0,0,0,0.04);
+    color: var(--text-main); font-weight: 600; text-align: center;
+    outline: none; transition: background 0.2s;
+}
+.ios-input:focus { background: rgba(0,0,0,0.08); }
+
+/* 电脑端侧边栏药丸导航 */
+.desktop-sidebar-nav {
+    position: absolute;
+    bottom: 20px;
+    left: 0; right: 0; margin: 0 auto;
+    width: 130px;
+    height: 44px;
+    background: rgba(248, 250, 252, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    border-radius: 22px;
+    display: flex;
+    z-index: 10;
+}
+.desktop-sidebar-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: #94a3b8; cursor: pointer; transition: all 0.25s ease;
+}
+.desktop-sidebar-btn.active { color: #334155; }
+.desktop-sidebar-btn:active { transform: scale(0.9); }
 
 /* 3. 右侧主计时区 (桌面端) */
 .timer-main {
@@ -860,7 +1043,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 /* 5. 计时大屏数字 */
 .timer-display {
     font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 150px;
+    /* 使用 clamp 限制最大最小值，中间值随屏幕宽度 (vw) 自动伸缩 */
+    font-size: clamp(60px, 20vw, 95px) !important;
     font-weight: 900;
     color: var(--text-main);
     font-variant-numeric: tabular-nums;
@@ -900,311 +1084,186 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
    7. 移动端响应式布局 (Tab 单页模式)
    ========================================= */
 @media (max-width: 768px) {
+    .desktop-sidebar-nav { display: none !important; }
+    .timer-sidebar { padding-bottom: 0 !important; }
+    .sidebar-header-row .btn-more { display: none !important; }
+    #timer-event-select { width: 100% !important; }
 
-    /* =========================================
-       手机端 Timer：真正锁定为整块屏幕
-       ========================================= */
-
-    #timer-page,
-    #pk-page {
-        position: fixed;
-        inset: 0;
-        width: 100vw;
-        height: 100dvh;
-        padding: 12px;
-        margin: 0;
-        box-sizing: border-box;
-        overflow: hidden;
-        touch-action: none;
+    #timer-page, #pk-page {
+        position: fixed; inset: 0; width: 100vw; height: 100dvh;
+        padding: 12px; margin: 0; box-sizing: border-box;
+        overflow: hidden; touch-action: none;
     }
 
-    /* 手机端成绩 PK 结果页允许正常上下滚动 */
     #pk-result-page {
-        position: relative;
-        inset: auto;
-        width: auto;
-        height: auto;
-        min-height: calc(100dvh - 24px);
-        padding: 12px;
-        margin: 0;
-        box-sizing: border-box;
-        overflow: visible;
-        touch-action: pan-y;
+        position: relative; inset: auto; width: auto; height: auto;
+        min-height: calc(100dvh - 24px); padding: 12px; margin: 0;
+        box-sizing: border-box; overflow: visible; touch-action: pan-y;
     }
 
     .timer-layout {
-        position: absolute;
-        top: 56px;
-        left: 12px;
-        right: 12px;
-        bottom: 0;
-
-        display: flex;
-        flex-direction: column;
-        width: auto;
-        height: auto;
-        gap: 0;
-
-        overflow: hidden;
-        box-sizing: border-box;
+        position: absolute; top: 56px; left: 12px; right: 12px; bottom: 0;
+        display: flex; flex-direction: column; width: auto; height: auto; gap: 0;
+        overflow: hidden; box-sizing: border-box;
     }
 
-    .timer-sidebar,
-    .timer-main {
-        display: none !important;
-
-        width: 100%;
-        height: 100%;
-
-        min-width: 0;
-        box-sizing: border-box;
-
-        border: none;
-        box-shadow: none;
-        background: transparent;
-        padding: 0 10px;
-
-        overflow: hidden;
+    .timer-sidebar, .timer-main {
+        display: none !important; width: 100%; height: 100%;
+        min-width: 0; box-sizing: border-box; border: none; box-shadow: none;
+        background: transparent; padding: 0 10px; overflow: hidden;
     }
 
-    #timer-tab-list {
-        padding: 30px 10px 0 !important;
-        box-sizing: border-box;
-    }
-
-    /* 包含切页丝滑淡入动画 */
+    #timer-tab-list { padding: 30px 10px 0 !important; box-sizing: border-box; }
     #timer-tab-main.active-tab, #timer-tab-list.active-tab {
-        display: flex !important;
-        animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+        display: flex !important; animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
     }
+    #timer-tab-main.active-tab { flex-direction: column; align-items: center; justify-content: center; position: relative; }
 
-    #timer-tab-main.active-tab {
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-    }
+    .scramble-container { top: 10px; left: 0; width: 100%; padding: 0 10px; box-sizing: border-box; }
+    #scramble-text { width: 100%; max-width: 100%; box-sizing: border-box; font-size: 16px; text-align: center; }
 
-    .scramble-container {
-        top: 10px;
-        left: 0;
-        width: 100%;
-        padding: 0 10px;
-        box-sizing: border-box;
-    }
-
-    #scramble-text {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-        font-size: 16px;
-        text-align: center;
-    }
-
-    .timer-display {
-        font-size: 110px;
-        margin-top: 0;
-    }
-
-    /* 数据面板大幅下移 */
-    .timer-stats-panel {
-        left: 15px;
-        bottom: 75px;
-        margin: 0;
-    }
-
+    .timer-display { font-size: clamp(60px, 20vw, 85px) !important; margin-top: 0; }
+    .timer-stats-panel { left: 15px; bottom: 75px; margin: 0; }
     .mobile-prompt { display: block; margin-top: 15px; }
     .desktop-prompt { display: none; }
 
-    /* 底部导航栏大幅下移，并缩小胶囊宽度以匹配无字状态 */
     .timer-bottom-bar {
-        display: flex;
-        position: fixed;
-        bottom: 12px;
-        left: 0; right: 0; margin: 0 auto;
-        width: 150px;
-        height: 52px;
-        background: rgba(248, 250, 252, 0.85);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-        border-radius: 30px;
-        z-index: 1050;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
+        display: flex; position: fixed; bottom: 12px; left: 0; right: 0; margin: 0 auto;
+        width: 220px; height: 52px; background: rgba(248, 250, 252, 0.85);
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border-radius: 30px; z-index: 1050; -webkit-tap-highlight-color: transparent; user-select: none;
     }
-
-    /* 纯图标完美居中，引入颜色平滑过渡和点击缩放反馈 */
     .timer-tab-btn {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #94a3b8; /* 未选中时的浅灰色 */
-        cursor: pointer;
-        transition: color 0.25s ease, transform 0.2s ease;
+        flex: 1; display: flex; align-items: center; justify-content: center;
+        color: #94a3b8; cursor: pointer; transition: color 0.25s ease, transform 0.2s ease;
         -webkit-tap-highlight-color: transparent;
     }
+    .timer-tab-btn.active { color: #334155; }
+    .timer-tab-btn:active { transform: scale(0.85); }
 
-    /* 选中状态变深 */
-    .timer-tab-btn.active {
-        color: #334155;
+    .edit-score-popup {
+        padding: 0 15px !important; justify-content: center !important; align-items: center !important;
     }
-
-    .timer-tab-btn:active {
-        transform: scale(0.85);
-    }
-}
+} /* ⬅️ 核心修复：这个大括号找回来了，完美闭合了手机端代码！ */
 
 /* =========================================
-   NB Challenge 专属样式 (电脑端不翻转 & 完美居中版)
+   NB Challenge 专属样式 (跨平台完美适配版)
    ========================================= */
-#challenge-page {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    margin: 0;
-    padding: 0;
-    background: #f8fafc;
-    overflow: hidden;
-    z-index: 2000;
-    display: none;
-}
+#challenge-page { display: none; }
+#challenge-page.active { display: block; }
 
-#challenge-page.active {
-    display: flex;
-    flex-direction: column;
+.chal-pc-header { display: flex; }
+.chal-mobile-back { display: none; }
+
+.challenge-wrapper {
+    display: flex; flex-direction: column; width: 100%; height: 68vh; min-height: 520px;
+    background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative; overflow: hidden;
 }
 
 .challenge-half {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center; /* 确保计时器永远死死固定在半屏正中心 */
-    position: relative;
-    padding: 0;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: none;
-    cursor: pointer;
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; padding: 0; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none;
 }
 
-/* 手机端默认翻转上半部分 */
-.top-half { transform: rotate(180deg); }
-
+/* 恢复了你最喜欢的灰蓝底色和无边框设计 */
 .challenge-divider {
     height: 52px;
     background: #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    box-shadow: 0 0 15px rgba(0,0,0,0.05);
-    z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.05); z-index: 10;
 }
 
 .challenge-back-btn {
     position: absolute;
     left: 15px;
-    background: transparent;
-    border: none;
-    font-size: 22px;
-    font-weight: bold;
-    color: var(--text-main);
-    cursor: pointer;
-    padding: 10px;
-    display: flex;
-    align-items: center;
+    top: 50%; /* 核心修改：绝对定位垂直居中 */
+    transform: translateY(-50%);
+    background: transparent; border: none;
+    font-size: 22px; font-weight: bold; color: var(--text-main); cursor: pointer;
+    padding: 10px; display: flex; align-items: center; transition: opacity 0.2s;
+}
+.challenge-back-btn:hover { opacity: 0.7; }
+/* 右侧对称的更多按钮 - 加入微弱的毛玻璃质感，融入整体泛灰风格 */
+.chal-more-btn {
+    left: auto; right: 15px;
+    font-size: 14px;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-weight: 600;
+}
+.chal-more-btn:hover {
+    background: rgba(148, 163, 184, 0.25);
+    opacity: 1; /* 覆盖原本的 hover 透明度 */
 }
 
 .challenge-event {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-main);
+    display: flex; align-items: center; justify-content: center; color: var(--text-main);
+    cursor: pointer; padding: 6px 20px; border-radius: 20px; transition: background 0.2s ease;
 }
+.challenge-event:hover { background: rgba(0, 0, 0, 0.05); }
 
-/* 修改此处的 font-size 即可调整手机端和电脑端的比分字体大小 */
-.challenge-score {
-    position: absolute;
-    font-size: 19px; /* ⬅️ 已为你调大，你可以随时修改这个数值 */
-    font-weight: 900;
-    color: var(--primary-color);
-}
-
-/* 完美对称设计：强制固定在距离中轴线左右两侧，不再翻转 */
-#challenge-score-top {
-    right: 50%;
-    margin-right: 55px; /* 手机端左侧比分距离中心的距离 */
-    transform: none;
-}
-#challenge-score-bottom {
-    left: 50%;
-    margin-left: 55px; /* 手机端右侧比分距离中心的距离 */
-}
-
-/* 电脑端适配补充调整，彻底解决不对称问题 */
-@media (min-width: 769px) {
-    .top-half { transform: none; }
-
-    /* 核心修复：在电脑端强制重新定义左右距离，确保绝对对称 */
-    #challenge-score-top {
-        transform: none;
-        right: 50%;
-        margin-right: 65px; /* ⬅️ 缩小此数值可让左边比分向中间靠拢 */
-    }
-    #challenge-score-bottom {
-        left: 50%;
-        margin-left: 65px;  /* ⬅️ 确保和 margin-right 数值一模一样即可完美对称 */
-    }
-
-    #challenge-scramble-top { top: auto; bottom: 20px; }
-}
-
-/* 打乱公式：脱离文档流，向分割线靠拢 */
-.challenge-scramble {
-    position: absolute;
-    font-size: 16px;
-    font-weight: bold;
-    text-align: center;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    width: 90%;
-    color: var(--text-main);
-    z-index: 5;
-}
-
-/* 手机端翻转后，上半屏的 top 实际上是靠近分割线的方向 */
-#challenge-scramble-top { top: 20px; }
+.challenge-score { position: absolute; font-size: 20px; font-weight: 900; color: var(--primary-color); }
+.top-half { transform: none; }
+#challenge-score-top { transform: none; right: 50%; margin-right: 75px; }
+#challenge-score-bottom { left: 50%; margin-left: 75px; }
+#challenge-scramble-top { top: auto; bottom: 20px; }
 #challenge-scramble-bottom { top: 20px; }
 
-.challenge-timer {
-    font-size: 110px;
-    font-weight: 900;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    color: var(--text-main);
-    transition: color 0.15s ease;
-    margin: 0;
+.challenge-scramble {
+    position: absolute; font-size: 15px; font-weight: bold; text-align: center;
+    font-family: 'SFMono-Regular', Consolas, monospace; width: 90%; color: var(--text-main); z-index: 5;
 }
 
+.challenge-timer {
+    font-size: clamp(65px, 12vw, 90px) !important; font-weight: 900;
+    font-family: 'SFMono-Regular', Consolas, monospace; font-variant-numeric: tabular-nums;
+    line-height: 1; color: var(--text-main); transition: color 0.15s ease; margin: 0;
+}
 .challenge-timer.waiting { color: #e63946; }
 .challenge-timer.ready { color: #10b981; }
 
+.chal-event-content { max-width: 450px !important; }
+.chal-event-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    width: 100%; max-height: 50vh; overflow-y: auto;
+}
+.chal-event-item {
+    display: flex; flex-direction: column; align-items: center; padding: 10px 5px;
+    border-radius: 10px; cursor: pointer; background: rgba(0,0,0,0.03); color: var(--text-main); transition: all 0.2s;
+}
+.chal-event-item:hover { background: rgba(0,0,0,0.08); }
+.chal-event-item.active { background: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
 @media (max-width: 768px) {
-    .challenge-timer { font-size: 95px; }
-    .challenge-scramble { font-size: 15px; }
+    #challenge-page.active {
+        position: fixed; inset: 0; z-index: 2000; display: flex;
+        flex-direction: column; background: #f8fafc; padding: 0;
+    }
+    .chal-pc-header { display: none !important; }
+    .chal-mobile-back { display: block; }
+    .challenge-wrapper { height: 100%; margin: 0; border-radius: 0; border: none; box-shadow: none; }
+    .top-half { transform: rotate(180deg); }
+    #challenge-score-top { transform: none; right: 50%; margin-right: 60px; }
+    #challenge-score-bottom { left: 50%; margin-left: 60px; }
+    #challenge-scramble-top { top: 20px; bottom: auto; }
+    .chal-event-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* 电脑端适配：取消翻转，重置排版 */
-@media (min-width: 769px) {
-    .top-half { transform: none; }
-    #challenge-score-top { transform: none; right: 50%; margin-right: 65px; }
-    /* 电脑端没翻转，上半屏靠近分割线的是 bottom */
-    #challenge-scramble-top { top: auto; bottom: 20px; }
+/* =========================================
+   弹窗通用消失动画
+   ========================================= */
+.popup-fade-out {
+    animation: popupFadeOut 0.2s ease-out forwards !important;
+}
+
+@keyframes popupFadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 }
