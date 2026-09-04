@@ -1338,9 +1338,6 @@ function animateRankingColumns(oldPositions) {
 }
 
 // =========================================
-// 全局智能悬浮导航拖拽逻辑
-// =========================================
-// =========================================
 // 全局智能悬浮导航拖拽逻辑 (仅左右半圆版)
 // =========================================
 function setupDraggableNav() {
@@ -1433,35 +1430,295 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // =========================================
-// NB Timer 核心逻辑 (多项目支持 + Ao5 + 滚动 PB)
+// NB Timer 核心逻辑 (完整重构引擎：支持惩罚、Mo/Ao及动态修改)
 // =========================================
 let timerState = 'IDLE';
 let timerHoldTimeout = null;
 let solveStartTime = 0;
 let requestAnimFrameId = null;
 
-// { '333': [ { ms: 1230, time: '12.30', ao5: '13.00', isPb: true } ], ... }
 let timerHistoryData = {};
 let currentTimerEvent = '333';
 let currentSessionBestMs = Infinity;
-let currentSessionBestAo5Ms = Infinity; // 新增：记录当前项目的 Ao5 PB
 
-// 新增：移动端计时器底部 Tab 切换逻辑
+let stat1 = { type: 'ao', count: 5 };
+let stat2 = { type: 'ao', count: 12 };
+let currentSessionBestStat1Ms = Infinity;
+let currentSessionBestStat2Ms = Infinity;
+
+let editScoreIndex = -1;
+let currentEditPenalty = '';
+
+function getNowFormatted() {
+    const d = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function toggleTimerMoreMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('timer-more-dropdown');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('timer-more-dropdown');
+    if (menu && menu.style.display === 'block' && !e.target.closest('.sidebar-header-row')) {
+        menu.style.display = 'none';
+    }
+});
+
+function clearCurrentSession() {
+    timerHistoryData[currentTimerEvent] = [];
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+    recalculateSessionStats();
+}
+
+function switchSidebarTab(tab) {
+    document.querySelectorAll('.sidebar-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.desktop-sidebar-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`sidebar-view-${tab}`).classList.add('active');
+    document.getElementById(`btn-sidebar-${tab}`).classList.add('active');
+}
+
+function setStatType(statNum, type) {
+    if (statNum === 1) stat1.type = type;
+    if (statNum === 2) stat2.type = type;
+    document.getElementById(`btn-stat${statNum}-ao`).classList.remove('active');
+    document.getElementById(`btn-stat${statNum}-mo`).classList.remove('active');
+    document.getElementById(`btn-stat${statNum}-${type}`).classList.add('active');
+    recalculateSessionStats();
+}
+
+function setStatCount(statNum, count) {
+    let val = parseInt(count);
+    if (isNaN(val) || val < 1) val = 1;
+    if (statNum === 1) stat1.count = val;
+    if (statNum === 2) stat2.count = val;
+    recalculateSessionStats();
+}
+
+function calculateStat(slice, type, count) {
+    if (slice.length < count) return { str: '-', ms: Infinity };
+    let vals = slice.map(r => r.effectiveMs);
+
+    if (type === 'mo') {
+        if (vals.includes(Infinity)) return { str: 'DNF', ms: Infinity };
+        let sum = vals.reduce((a,b) => a+b, 0);
+        let avgMs = Math.floor(sum / count);
+        return { str: formatTimerOutput(avgMs), ms: avgMs };
+    } else {
+        if (count < 3) {
+            if (vals.includes(Infinity)) return { str: 'DNF', ms: Infinity };
+            let sum = vals.reduce((a,b) => a+b, 0);
+            let avgMs = Math.floor(sum / count);
+            return { str: formatTimerOutput(avgMs), ms: avgMs };
+        }
+        vals.sort((a, b) => a - b);
+        let sum = 0;
+        let hasDNF = false;
+        for (let i = 1; i < count - 1; i++) {
+            if (vals[i] === Infinity) hasDNF = true;
+            sum += vals[i];
+        }
+        if (hasDNF) return { str: 'DNF', ms: Infinity };
+        let avgMs = Math.floor(sum / (count - 2));
+        return { str: formatTimerOutput(avgMs), ms: avgMs };
+    }
+}
+
+function recalculateSessionStats() {
+    const sessionArr = timerHistoryData[currentTimerEvent] || [];
+    currentSessionBestMs = Infinity;
+    currentSessionBestStat1Ms = Infinity;
+    currentSessionBestStat2Ms = Infinity;
+
+    for (let i = 0; i < sessionArr.length; i++) {
+        let r = sessionArr[i];
+        if (r.penalty === '+2') {
+            r.effectiveMs = r.rawMs + 2000;
+            r.displayTime = formatTimerOutput(r.effectiveMs) + '+';
+        } else if (r.penalty === 'DNF') {
+            r.effectiveMs = Infinity;
+            r.displayTime = 'DNF';
+        } else {
+            r.effectiveMs = r.rawMs;
+            r.displayTime = formatTimerOutput(r.effectiveMs);
+        }
+    }
+
+    for (let i = sessionArr.length - 1; i >= 0; i--) {
+        sessionArr[i].isPb = false;
+        if (sessionArr[i].effectiveMs !== Infinity && sessionArr[i].effectiveMs < currentSessionBestMs) {
+            currentSessionBestMs = sessionArr[i].effectiveMs;
+            sessionArr[i].isPb = true;
+        }
+
+        let slice1 = sessionArr.slice(i, i + stat1.count);
+        let s1 = calculateStat(slice1, stat1.type, stat1.count);
+        sessionArr[i].stat1Str = s1.str;
+        sessionArr[i].stat1Ms = s1.ms;
+        sessionArr[i].isStat1Pb = false;
+        if (s1.ms !== Infinity && s1.ms <= currentSessionBestStat1Ms) {
+            currentSessionBestStat1Ms = s1.ms;
+            sessionArr[i].isStat1Pb = true;
+        }
+
+        let slice2 = sessionArr.slice(i, i + stat2.count);
+        let s2 = calculateStat(slice2, stat2.type, stat2.count);
+        sessionArr[i].stat2Str = s2.str;
+        sessionArr[i].stat2Ms = s2.ms;
+        sessionArr[i].isStat2Pb = false;
+        if (s2.ms !== Infinity && s2.ms <= currentSessionBestStat2Ms) {
+            currentSessionBestStat2Ms = s2.ms;
+            sessionArr[i].isStat2Pb = true;
+        }
+    }
+
+    document.getElementById('header-stat1').innerText = `${stat1.type}${stat1.count}`;
+    document.getElementById('header-stat2').innerText = `${stat2.type}${stat2.count}`;
+    renderTimerHistory();
+}
+
+function stopTimer() {
+    timerState = 'IDLE';
+    cancelAnimationFrame(requestAnimFrameId);
+
+    let elapsed = Math.floor(performance.now() - solveStartTime);
+    let finalTimeStr = formatTimerOutput(elapsed);
+    document.getElementById('timer-display').innerText = finalTimeStr;
+
+    timerHistoryData[currentTimerEvent].unshift({
+        rawMs: elapsed,
+        penalty: "",
+        timestamp: getNowFormatted(),
+        scramble: document.getElementById('scramble-text').innerText
+    });
+
+    recalculateSessionStats();
+    generateScramble();
+}
+
+function renderTimerHistory() {
+    const list = document.getElementById('timer-history-list');
+    list.innerHTML = '';
+    const records = timerHistoryData[currentTimerEvent] || [];
+
+    records.forEach((r, index) => {
+        const div = document.createElement('div');
+        div.className = 'timer-history-item';
+        let displayCount = records.length - index;
+
+        div.innerHTML = `
+            <span class="col-id">${displayCount}</span>
+            <span class="col-time clickable-time ${r.isPb ? 'timer-pb' : ''}" onclick="openEditPopup(${index})">${r.displayTime}</span>
+            <span class="col-stat ${r.isStat1Pb ? 'timer-pb' : ''}">${r.stat1Str}</span>
+            <span class="col-stat ${r.isStat2Pb ? 'timer-pb' : ''}">${r.stat2Str}</span>
+        `;
+        list.appendChild(div);
+    });
+
+    if (records.length > 0) {
+        document.getElementById('timer-stat-best').innerText = `best: ` + (currentSessionBestMs !== Infinity ? formatTimerOutput(currentSessionBestMs) : 'DNF');
+        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? formatTimerOutput(currentSessionBestStat1Ms) : '-');
+        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? formatTimerOutput(currentSessionBestStat2Ms) : '-');
+    } else {
+        document.getElementById('timer-stat-best').innerText = `best: -`;
+        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: -`;
+        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: -`;
+    }
+}
+
+// ================= 编辑成绩弹窗交互逻辑 =================
+function openEditPopup(index) {
+    // 核心修改：删除了 if (window.innerWidth <= 768) return; 彻底向手机端开放卡片
+    editScoreIndex = index;
+    const records = timerHistoryData[currentTimerEvent];
+    const r = records[index];
+    currentEditPenalty = r.penalty;
+
+    document.getElementById('edit-index').innerText = `#${records.length - index}`;
+    document.getElementById('edit-time').innerText = r.displayTime;
+    document.getElementById('edit-timestamp').innerText = r.timestamp;
+    document.getElementById('edit-scramble').innerText = r.scramble;
+
+    setEditPenalty(currentEditPenalty, false);
+    document.getElementById('edit-score-popup').style.display = 'flex';
+}
+
+function closeEditPopup() {
+    document.getElementById('edit-score-popup').style.display = 'none';
+}
+
+function setEditPenalty(pen, updateDisplay = true) {
+    currentEditPenalty = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`edit-pen-${id}`).classList.remove('active'));
+
+    if (pen === '') document.getElementById('edit-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('edit-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('edit-pen-dnf').classList.add('active');
+
+    if (updateDisplay) {
+        const r = timerHistoryData[currentTimerEvent][editScoreIndex];
+        let simDisp = "";
+        if (pen === '+2') simDisp = formatTimerOutput(r.rawMs + 2000) + '+';
+        else if (pen === 'DNF') simDisp = 'DNF';
+        else simDisp = formatTimerOutput(r.rawMs);
+        document.getElementById('edit-time').innerText = simDisp;
+    }
+}
+
+function confirmEditScore() {
+    timerHistoryData[currentTimerEvent][editScoreIndex].penalty = currentEditPenalty;
+    closeEditPopup();
+    recalculateSessionStats();
+}
+
+function deleteEditScore() {
+    timerHistoryData[currentTimerEvent].splice(editScoreIndex, 1);
+    closeEditPopup();
+    recalculateSessionStats();
+}
+
+function copyEditScramble() {
+    const text = document.getElementById('edit-scramble').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.edit-btn-copy');
+        const oldText = btn.innerText;
+        btn.innerText = '✔️ 已复制';
+        setTimeout(() => btn.innerText = oldText, 1500);
+    });
+}
+
+// 移动端切换 (新增设置选项卡与子视图双重丝滑联动)
 function switchTimerTab(tabName) {
-    if (window.innerWidth > 768) return; // 桌面端不触发 Tab 切换
+    // 核心新增：只要不是空闲状态（正在长按或计时中），一律禁止切换栏目
+    if (timerState !== 'IDLE') return;
 
-    // 移除所有激活状态
+    if (window.innerWidth > 768) return;
+
+    // 移除所有大 Tab 和底部按钮的激活状态
     document.getElementById('timer-tab-main').classList.remove('active-tab');
     document.getElementById('timer-tab-list').classList.remove('active-tab');
     document.getElementById('btn-tab-main').classList.remove('active');
     document.getElementById('btn-tab-list').classList.remove('active');
+    document.getElementById('btn-tab-settings').classList.remove('active');
 
-    // 激活对应的 Tab 和图标
-    document.getElementById(`timer-tab-${tabName}`).classList.add('active-tab');
-    document.getElementById(`btn-tab-${tabName}`).classList.add('active');
+    // 智能调度：如果是成绩或设置，强制召唤 timer-tab-list 并切换其内部动画视图
+    if (tabName === 'main') {
+        document.getElementById('timer-tab-main').classList.add('active-tab');
+        document.getElementById('btn-tab-main').classList.add('active');
+    } else if (tabName === 'list') {
+        document.getElementById('timer-tab-list').classList.add('active-tab');
+        document.getElementById('btn-tab-list').classList.add('active');
+        switchSidebarTab('history'); // 强制左侧栏切换到列表视图
+    } else if (tabName === 'settings') {
+        document.getElementById('timer-tab-list').classList.add('active-tab');
+        document.getElementById('btn-tab-settings').classList.add('active');
+        switchSidebarTab('settings'); // 强制左侧栏切换到设置视图
+    }
 }
 
-// 替换原有 initTimer：记录项目状态，强制进入计时视图
 function initTimer() {
     const select = document.getElementById('timer-event-select');
     if (select.children.length === 0) {
@@ -1477,22 +1734,16 @@ function initTimer() {
         select.value = '333';
         switchTimerEvent();
     } else {
-        // 项目已经存在，说明是二次进入。保留原有的 select 选项，只需刷新打乱公式即可
         generateScramble();
     }
-
-    // 每次从主页点进来，不论上次停在哪，都强制切回第一个计时 Tab
     switchTimerTab('main');
 }
 
 function switchTimerEvent() {
     const select = document.getElementById('timer-event-select');
     currentTimerEvent = select.value;
-
-    // 核心修复：强制下拉框失去焦点，防止后续按方向键时意外拨动菜单
     select.blur();
 
-    // 更新标题并拼接 "WCA - " 前缀
     const evName = select.options[select.selectedIndex].text;
     document.getElementById('timer-event-title').innerText = "WCA - " + formatName(evName);
 
@@ -1500,14 +1751,7 @@ function switchTimerEvent() {
         timerHistoryData[currentTimerEvent] = [];
     }
 
-    currentSessionBestMs = Infinity;
-    currentSessionBestAo5Ms = Infinity;
-    timerHistoryData[currentTimerEvent].forEach(record => {
-        if (record.ms < currentSessionBestMs) currentSessionBestMs = record.ms;
-        if (record.ao5Ms && record.ao5Ms < currentSessionBestAo5Ms) currentSessionBestAo5Ms = record.ao5Ms;
-    });
-
-    renderTimerHistory();
+    recalculateSessionStats();
     generateScramble();
 }
 
@@ -1522,101 +1766,6 @@ function formatTimerOutput(ms) {
     }
     return `${sec}.${centi}`;
 }
-
-// 自动计算最近 5 次的 Ao5 (去头去尾取平均)
-function calculateAo5(historyList) {
-    if (historyList.length < 5) return { str: '-', ms: Infinity };
-    let last5 = historyList.slice(0, 5).map(r => r.ms);
-    last5.sort((a, b) => a - b);
-    let sum = last5[1] + last5[2] + last5[3];
-    let avgMs = Math.floor(sum / 3);
-    return { str: formatTimerOutput(avgMs), ms: avgMs };
-}
-
-function renderTimerHistory() {
-    const list = document.getElementById('timer-history-list');
-    list.innerHTML = '';
-
-    const records = timerHistoryData[currentTimerEvent];
-
-    records.forEach((r, index) => {
-        const div = document.createElement('div');
-        div.className = 'timer-history-item';
-
-        let timeClass = r.isPb ? 'timer-pb' : '';
-        let ao5Class = r.isAo5Pb ? 'timer-pb' : ''; // 新增：判定 Ao5 是否该高亮
-        let displayCount = records.length - index;
-
-        div.innerHTML = `
-            <span>${displayCount}</span>
-            <span class="${timeClass}">${r.time}</span>
-            <span class="${ao5Class}">${r.ao5}</span>
-        `;
-        list.appendChild(div);
-    });
-
-    // 更新左下角数据榜
-    if (records.length > 0) {
-        document.getElementById('timer-stat-best').innerText = `best: ${formatTimerOutput(currentSessionBestMs)}`;
-        document.getElementById('timer-stat-ao5').innerText = `ao5: ${records[0].ao5}`;
-    } else {
-        document.getElementById('timer-stat-best').innerText = `best: -`;
-        document.getElementById('timer-stat-ao5').innerText = `ao5: -`;
-    }
-}
-
-// ================= 空格键与右键监听控制 =================
-document.addEventListener('keydown', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (!activePage || activePage.id !== 'timer-page') return;
-
-    if (timerState === 'IDLE') {
-        // 严格限定：只有向右方向键才能切换打乱，并拦截页面的默认横向滚动
-        if (e.code === 'ArrowRight') {
-            e.preventDefault();
-            generateScramble();
-            return;
-        }
-
-        // 启动计时的逻辑
-        if (e.code === 'Space') {
-            e.preventDefault(); // 拦截空格键导致的页面下滚
-
-            // 再次做全局安全排查：如果焦点残留在了任何按钮或输入框上，强制剥离
-            if (document.activeElement) document.activeElement.blur();
-
-            if (e.repeat) return;
-            timerState = 'WAITING';
-            const display = document.getElementById('timer-display');
-            display.classList.add('waiting');
-            timerHoldTimeout = setTimeout(() => {
-                if (timerState === 'WAITING') {
-                    timerState = 'READY';
-                    display.classList.remove('waiting');
-                    display.classList.add('ready');
-                }
-            }, 350);
-        }
-    } else if (timerState === 'RUNNING') {
-        e.preventDefault(); // 运行状态下拦截任何按键的默认网页行为
-        stopTimer();
-    }
-});
-
-document.addEventListener('keyup', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (!activePage || activePage.id !== 'timer-page') return;
-    if (e.code === 'Space') {
-        const display = document.getElementById('timer-display');
-        if (timerState === 'WAITING') {
-            clearTimeout(timerHoldTimeout);
-            timerState = 'IDLE';
-            display.classList.remove('waiting');
-        } else if (timerState === 'READY') {
-            startTimer();
-        }
-    }
-});
 
 function startTimer() {
     timerState = 'RUNNING';
@@ -1633,44 +1782,9 @@ function startTimer() {
     requestAnimationFrame(update);
 }
 
-function stopTimer() {
-    timerState = 'IDLE';
-    cancelAnimationFrame(requestAnimFrameId);
-
-    let elapsed = Math.floor(performance.now() - solveStartTime);
-    let finalTimeStr = formatTimerOutput(elapsed);
-    document.getElementById('timer-display').innerText = finalTimeStr;
-
-    // 判定单次 PB
-    let isPb = false;
-    if (elapsed < currentSessionBestMs) {
-        isPb = true;
-        currentSessionBestMs = elapsed;
-    }
-
-    const sessionArr = timerHistoryData[currentTimerEvent];
-    let newRecord = { ms: elapsed, time: finalTimeStr, isPb: isPb, ao5: '-', ao5Ms: Infinity, isAo5Pb: false };
-    sessionArr.unshift(newRecord);
-
-    // 算出 Ao5 后回填，并同步判定 Ao5 PB
-    let ao5Result = calculateAo5(sessionArr);
-    newRecord.ao5 = ao5Result.str;
-    newRecord.ao5Ms = ao5Result.ms;
-
-    if (newRecord.ao5Ms !== Infinity && newRecord.ao5Ms < currentSessionBestAo5Ms) {
-        newRecord.isAo5Pb = true;
-        currentSessionBestAo5Ms = newRecord.ao5Ms;
-    }
-
-    renderTimerHistory();
-    generateScramble();
-}
-
-// ================= 全项目随机打乱引擎 =================
-function generateScramble() {
-    const ev = currentTimerEvent;
+// 提取通用的打乱引擎
+function getScrambleByEvent(ev) {
     let scramble = "";
-
     if (ev === '222') {
         scramble = getRandomMoves(["R", "U", "F"], 11);
     } else if (['333', '333oh', '333bf', '333fm', '333mbf', '333ft'].includes(ev)) {
@@ -1710,8 +1824,11 @@ function generateScramble() {
     } else {
         scramble = "无打乱规则";
     }
+    return scramble;
+}
 
-    document.getElementById('scramble-text').innerHTML = scramble;
+function generateScramble() {
+    document.getElementById('scramble-text').innerHTML = getScrambleByEvent(currentTimerEvent);
 }
 
 function getRandomMoves(moves, length) {
@@ -1727,6 +1844,54 @@ function getRandomMoves(moves, length) {
     return scramble.join(" ");
 }
 
+// ================= 空格键与右键监听控制 =================
+document.addEventListener('keydown', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+
+    if (timerState === 'IDLE') {
+        if (e.code === 'ArrowRight') {
+            e.preventDefault();
+            generateScramble();
+            return;
+        }
+
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (document.activeElement) document.activeElement.blur();
+            if (e.repeat) return;
+            timerState = 'WAITING';
+            const display = document.getElementById('timer-display');
+            display.classList.add('waiting');
+            timerHoldTimeout = setTimeout(() => {
+                if (timerState === 'WAITING') {
+                    timerState = 'READY';
+                    display.classList.remove('waiting');
+                    display.classList.add('ready');
+                }
+            }, 350);
+        }
+    } else if (timerState === 'RUNNING') {
+        e.preventDefault();
+        stopTimer();
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'timer-page') return;
+    if (e.code === 'Space') {
+        const display = document.getElementById('timer-display');
+        if (timerState === 'WAITING') {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'IDLE';
+            display.classList.remove('waiting');
+        } else if (timerState === 'READY') {
+            startTimer();
+        }
+    }
+});
+
 // =======================================================
 // 手机端：限定区域内的滑动切打乱与长按屏幕计时逻辑
 // =======================================================
@@ -1737,20 +1902,17 @@ document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
 
-    // 核心边界限制：仅当手指落在计时器主区域（#timer-main-area）时，才触发计时或滑动
     const isTimerArea = e.target.closest('#timer-tab-main');
     if (!isTimerArea) return;
 
     touchStartX = e.changedTouches[0].screenX;
 
-    // 运行中触摸屏幕直接停止
     if (timerState === 'RUNNING') {
         if(e.cancelable) e.preventDefault();
         stopTimer();
         return;
     }
 
-    // 空闲时触摸屏幕，进入 0.35 秒长按变色判定
     if (timerState === 'IDLE') {
         timerState = 'WAITING';
         const display = document.getElementById('timer-display');
@@ -1769,7 +1931,6 @@ document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
 
-    // 核心体验保护：长按准备期间（红字/绿字阶段），拦截屏幕滚动，防止画面随手指乱跑
     const isTimerArea = e.target.closest('#timer-tab-main');
     if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY')) {
         if(e.cancelable) e.preventDefault();
@@ -1782,7 +1943,6 @@ document.addEventListener('touchend', (e) => {
 
     const isTimerArea = e.target.closest('#timer-tab-main');
     if (!isTimerArea) {
-        // 如果手指不小心滑动到了下方成绩列表区域再松开，立刻安全重置状态
         if (timerState === 'WAITING' || timerState === 'READY') {
             clearTimeout(timerHoldTimeout);
             timerState = 'IDLE';
@@ -1793,7 +1953,6 @@ document.addEventListener('touchend', (e) => {
 
     touchEndX = e.changedTouches[0].screenX;
 
-    // 判定滑动切打乱：处于空闲或刚按下一会，且在计时区域内右滑距离大于 50px，执行刷新
     if (timerState === 'WAITING' || timerState === 'IDLE') {
         if (touchEndX - touchStartX > 50) {
             clearTimeout(timerHoldTimeout);
@@ -1804,15 +1963,12 @@ document.addEventListener('touchend', (e) => {
         }
     }
 
-    // 正常长按松开判定
     const display = document.getElementById('timer-display');
     if (timerState === 'WAITING') {
-        // 未超过 0.35 秒松开（红字状态），取消启动，恢复灰色
         clearTimeout(timerHoldTimeout);
         timerState = 'IDLE';
         display.classList.remove('waiting');
     } else if (timerState === 'READY') {
-        // 绿字状态松手，正式启动高精度计时
         if(e.cancelable) e.preventDefault();
         startTimer();
     }
@@ -1825,23 +1981,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const nav = document.getElementById('floating-nav');
     const mainBtn = document.getElementById('nav-main-btn');
 
+    if(nav) {
+        // 核心新增：终极防御机制。在“捕获阶段”拦截事件，一旦正在计时，悬浮窗彻底“石化”
+        const blockNavIfTiming = (e) => {
+            if (typeof timerState !== 'undefined' && timerState !== 'IDLE') {
+                e.preventDefault();             // 阻止浏览器默认行为（包括手机端的悬浮弹出）
+                e.stopImmediatePropagation();   // 强制切断该元素上的所有其他监听器（包括拖拽代码）
+            }
+        };
+        // capture: true 是关键，确保这道防火墙比任何点击和拖拽事件都更早触发
+        nav.addEventListener('touchstart', blockNavIfTiming, { capture: true, passive: false });
+        nav.addEventListener('mousedown', blockNavIfTiming, { capture: true, passive: false });
+        nav.addEventListener('click', blockNavIfTiming, { capture: true });
+    }
+
     if(nav && mainBtn) {
-        // 1. 点击主按钮触发展开/收起
         mainBtn.addEventListener('click', (e) => {
+            // 第二道防线
+            if (typeof timerState !== 'undefined' && timerState !== 'IDLE') return;
+
             if (window.innerWidth <= 650 || ('ontouchstart' in window)) {
                 nav.classList.toggle('touch-expanded');
-                e.stopPropagation(); // 阻止事件冒泡，防止立刻触发下方的 document 点击关闭
+                e.stopPropagation();
             }
         });
 
-        // 2. 点击页面其他任意位置，缩回菜单
         document.addEventListener('click', (e) => {
             if (!nav.contains(e.target)) {
                 nav.classList.remove('touch-expanded');
             }
         });
 
-        // 3. 点击三个小选项执行功能后，也自动缩回
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 nav.classList.remove('touch-expanded');
@@ -1851,7 +2021,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================
-// NB Challenge 核心逻辑引擎 (完整键鼠+触屏适配版)
+// NB Challenge 核心逻辑引擎 (含独立赛点/胜利特写系统)
 // =========================================
 let chalScoreTop = 0;
 let chalScoreBottom = 0;
@@ -1865,28 +2035,33 @@ let chalStartTime = 0;
 let chalAnimFrame = null;
 let chalTopTime = 0;
 let chalBottomTime = 0;
+let chalCurrentEvent = '333';
+let chalHasInit = false;
+
+// 游戏规则参数 (独立赛点与胜利标记)
+let chalWinScore = 11;
+let chalHasWinner = false;
+let matchPointShownTop = false;
+let matchPointShownBottom = false;
+let chalAlertTimer = null;
 
 function initChallenge() {
-    // 移除了 chalScoreTop = 0 和 chalScoreBottom = 0，从而保留历史比分
-    updateChallengeScores();
-    resetChallengeTimer();
-    generateChallengeScramble();
-
+    if (!chalHasInit) {
+        updateChallengeScores();
+        generateChallengeScramble();
+        chalHasInit = true;
+    }
     const nav = document.getElementById('floating-nav');
     if (nav) nav.style.display = 'none';
 }
 
 function exitChallenge() {
-    // 如果正在计时中，拦截点击，不允许返回上一页
     if (chalState === 'RUNNING') return;
-
     goBack();
-    // 核心修复：删除了 nav.style.display = 'block';
-    // 页面切换后的悬浮窗显隐已经由 showPage() 统一智能接管，不再强制显示
 }
 
 function generateChallengeScramble() {
-    let scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20);
+    let scramble = getScrambleByEvent(chalCurrentEvent);
     document.getElementById('challenge-scramble-top').innerHTML = scramble;
     document.getElementById('challenge-scramble-bottom').innerHTML = scramble;
 }
@@ -1896,24 +2071,232 @@ function updateChallengeScores() {
     document.getElementById('challenge-score-bottom').innerText = chalScoreBottom;
 }
 
-function resetChallengeTimer() {
-    chalState = 'IDLE';
-    chalTopState = 'IDLE';
-    chalBottomState = 'IDLE';
-    chalTopPressed = false;
-    chalBottomPressed = false;
-
-    const tTop = document.getElementById('challenge-timer-top');
-    const tBot = document.getElementById('challenge-timer-bottom');
-    tTop.innerText = '0.00';
-    tBot.innerText = '0.00';
-    tTop.className = 'challenge-timer';
-    tBot.className = 'challenge-timer';
-
-    cancelAnimationFrame(chalAnimFrame);
+// ============== 更多下拉菜单逻辑 ==============
+function toggleChalMore(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('chal-more-dropdown');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
 }
 
+document.addEventListener('click', (e) => {
+    const timerMenu = document.getElementById('timer-more-dropdown');
+    if (timerMenu && timerMenu.style.display === 'block' && !e.target.closest('.sidebar-header-row')) {
+        timerMenu.style.display = 'none';
+    }
+    const chalMenu = document.getElementById('chal-more-dropdown');
+    if (chalMenu && chalMenu.style.display === 'block' && !e.target.closest('.challenge-divider')) {
+        chalMenu.style.display = 'none';
+    }
+});
+
+// ============== 弹窗设置面板 ==============
+function openChalSettingsModal(type) {
+    document.getElementById('chal-more-dropdown').style.display = 'none';
+    const titleEl = document.getElementById('chal-settings-title');
+    const bodyEl = document.getElementById('chal-settings-body');
+    const confirmBtn = document.getElementById('chal-settings-confirm');
+
+    if (type === 'clear') {
+        titleEl.innerText = '清空比分';
+        bodyEl.innerHTML = '<p style="margin: 10px 0; color: var(--text-main); font-size: 15px; text-align: center;">是否确认清空当前比分？</p>';
+        confirmBtn.onclick = () => {
+            chalScoreTop = 0; chalScoreBottom = 0;
+            // 核心修复：清空比分时重置所有状态
+            chalHasWinner = false;
+            matchPointShownTop = false;
+            matchPointShownBottom = false;
+            updateChallengeScores();
+            closeChalSettings();
+        };
+    } else if (type === 'winScore') {
+        titleEl.innerText = '设置胜利得分';
+        bodyEl.innerHTML = `
+            <div class="ios-setting-group" style="text-align: center;">
+                <input type="number" id="chal-input-winscore" class="ios-input" value="${chalWinScore}" style="width: 120px; font-size: 24px; padding: 12px;">
+            </div>`;
+        confirmBtn.onclick = () => {
+            let val = parseInt(document.getElementById('chal-input-winscore').value);
+            if (!isNaN(val) && val > 0) chalWinScore = val;
+            checkChalWinCondition();
+            closeChalSettings();
+        };
+    } else if (type === 'adjust') {
+        titleEl.innerText = '手动调整比分';
+        bodyEl.innerHTML = `
+            <div style="display: flex; justify-content: space-around; align-items: center; margin-top: 10px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">上屏玩家</label>
+                    <input type="number" id="chal-input-top" class="ios-input" value="${chalScoreTop}" style="width: 80px; font-size: 22px;">
+                </div>
+                <div style="font-size: 20px; font-weight: bold; color: var(--border-color);">:</div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">下屏玩家</label>
+                    <input type="number" id="chal-input-bot" class="ios-input" value="${chalScoreBottom}" style="width: 80px; font-size: 22px;">
+                </div>
+            </div>`;
+        confirmBtn.onclick = () => {
+            let t = parseInt(document.getElementById('chal-input-top').value);
+            let b = parseInt(document.getElementById('chal-input-bot').value);
+            if (!isNaN(t) && t >= 0) chalScoreTop = t;
+            if (!isNaN(b) && b >= 0) chalScoreBottom = b;
+            updateChallengeScores();
+            checkChalWinCondition();
+            closeChalSettings();
+        };
+    }
+    document.getElementById('chal-settings-modal').style.display = 'flex';
+}
+
+function closeChalSettings() {
+    document.getElementById('chal-settings-modal').style.display = 'none';
+}
+
+// ============== 赛点与胜利判定特效 (独立逻辑引擎) ==============
+function checkChalWinCondition() {
+    // 逻辑一：如果因为调比分退出了胜利线，恢复游戏状态
+    if (chalScoreTop < chalWinScore && chalScoreBottom < chalWinScore) {
+        chalHasWinner = false;
+    }
+
+    // 逻辑二：一旦有人获胜过，不再弹任何提示（哪怕另一方追上来）
+    if (chalHasWinner) return;
+
+    // 逻辑三：判定是否有人获胜
+    if (chalScoreTop >= chalWinScore || chalScoreBottom >= chalWinScore) {
+        chalHasWinner = true;
+        let winner = chalScoreTop >= chalWinScore ? "上屏玩家" : "下屏玩家";
+        showChalAlert('🎉', '比赛结束', `${winner} 获胜！`);
+        return;
+    }
+
+    // 逻辑四：只要无人获胜，谁到了赛点（且没弹过），就弹一次赛点
+    if (chalScoreTop === chalWinScore - 1 && !matchPointShownTop) {
+        matchPointShownTop = true;
+        showChalAlert('✨', '赛 点', `上屏玩家距离胜利仅差一分`);
+    } else if (chalScoreTop < chalWinScore - 1) {
+        matchPointShownTop = false; // 分数掉下去后解冻，允许下次再触发
+    }
+
+    if (chalScoreBottom === chalWinScore - 1 && !matchPointShownBottom) {
+        matchPointShownBottom = true;
+        showChalAlert('✨', '赛 点', `下屏玩家距离胜利仅差一分`);
+    } else if (chalScoreBottom < chalWinScore - 1) {
+        matchPointShownBottom = false;
+    }
+}
+
+function showChalAlert(icon, title, desc) {
+    document.getElementById('chal-alert-icon').innerText = icon;
+    document.getElementById('chal-alert-title').innerText = title;
+    document.getElementById('chal-alert-desc').innerText = desc;
+    const modal = document.getElementById('chal-alert-modal');
+
+    // 移除可能残留的消失动画，确保卡片能正常弹出
+    modal.classList.remove('popup-fade-out');
+    modal.style.display = 'flex';
+
+    clearTimeout(chalAlertTimer);
+    chalAlertTimer = setTimeout(() => {
+        closeChalAlert();
+    }, 3000);
+}
+
+function closeChalAlert() {
+    const modal = document.getElementById('chal-alert-modal');
+    if (modal.style.display === 'none') return;
+
+    // 增加消失动画类名，延迟 200 毫秒后再真正隐藏元素
+    modal.classList.add('popup-fade-out');
+    clearTimeout(chalAlertTimer);
+
+    setTimeout(() => {
+        modal.style.display = 'none';
+        modal.classList.remove('popup-fade-out');
+    }, 200);
+}
+
+// ============== 项目选择悬浮窗逻辑 ==============
+let chalTempEvent = '333'; // 新增：用于暂存点击选中、但还未确定的项目
+
+function openChalEventPopup() {
+    document.getElementById('chal-more-dropdown').style.display = 'none';
+    chalTempEvent = chalCurrentEvent; // 每次打开时，将暂存值同步为当前真实项目
+    renderChalEventGrid();
+
+    const popup = document.getElementById('chal-event-popup');
+    popup.classList.remove('popup-fade-out');
+    popup.style.display = 'flex';
+}
+
+// 抽离出的独立渲染函数，只管渲染高亮，不碰真实的打乱和计分板
+function renderChalEventGrid() {
+    const grid = document.getElementById('chal-event-grid');
+    grid.innerHTML = '';
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+
+    eventDict.forEach(ev => {
+        if (!excludedEvents.includes(ev.id)) {
+            let isActive = chalTempEvent === ev.id ? 'active' : '';
+            let btn = document.createElement('div');
+            btn.className = `chal-event-item ${isActive}`;
+            btn.innerHTML = `<span class="cubing-icon event-${ev.id}" style="font-size: 24px; display:block; margin-bottom:5px;"></span><span style="font-size:12px; font-weight:600;">${ev.name}</span>`;
+
+            // 点击时只更新暂存变量，并刷新界面的高亮效果，坚决不触发真正的数据变更
+            btn.onclick = () => {
+                chalTempEvent = ev.id;
+                renderChalEventGrid();
+            };
+            grid.appendChild(btn);
+        }
+    });
+}
+
+// 点击“确定”按钮时执行的终极确认函数
+function confirmChalEvent() {
+    // 只有当用户确实换了新项目时，才触发清零和打乱
+    if (chalTempEvent !== chalCurrentEvent) {
+        if (chalScoreTop > 0 || chalScoreBottom > 0) {
+            chalScoreTop = 0;
+            chalScoreBottom = 0;
+            chalHasWinner = false;
+            matchPointShownTop = false;
+            matchPointShownBottom = false;
+            updateChallengeScores();
+        }
+
+        chalCurrentEvent = chalTempEvent;
+
+        // 从字典中取出全名
+        let evObj = eventDict.find(e => e.id === chalCurrentEvent);
+        let evName = evObj ? evObj.name : '未知';
+
+        document.getElementById('chal-event-icon').className = `cubing-icon event-${chalCurrentEvent}`;
+        document.getElementById('chal-event-name').innerText = evName;
+        generateChallengeScramble();
+    }
+
+    // 执行完毕后关闭弹窗
+    closeChalEventPopup();
+}
+
+function closeChalEventPopup(e) {
+    if (e && e.target.id !== 'chal-event-popup') return;
+    const popup = document.getElementById('chal-event-popup');
+    if (popup.style.display === 'none') return;
+
+    popup.classList.add('popup-fade-out');
+    setTimeout(() => {
+        popup.style.display = 'none';
+        popup.classList.remove('popup-fade-out');
+    }, 200);
+}
+
+// ============== 计时核心逻辑 ==============
 function handleChalPress(player) {
+    // 核心新增：如果“更多”菜单在开着，强制拦截触摸/点击，必须关了才能按计时器
+    const chalMore = document.getElementById('chal-more-dropdown');
+    if (chalMore && chalMore.style.display === 'block') return;
+
     if (chalState === 'DONE') {
         chalState = 'IDLE';
         chalTopState = 'IDLE';
@@ -1936,18 +2319,15 @@ function handleChalPress(player) {
         return;
     }
 
-    // 只要有手放上去，立即清零并变红
     if (player === 'top') {
         chalTopPressed = true;
         const topEl = document.getElementById('challenge-timer-top');
-        topEl.innerText = '0.00';
         topEl.classList.add('waiting');
         topEl.classList.remove('ready');
     }
     if (player === 'bottom') {
         chalBottomPressed = true;
         const botEl = document.getElementById('challenge-timer-bottom');
-        botEl.innerText = '0.00';
         botEl.classList.add('waiting');
         botEl.classList.remove('ready');
     }
@@ -2019,9 +2399,8 @@ function checkChallengeFinish() {
             chalScoreBottom++;
         }
         updateChallengeScores();
-
-        // 双方完成直接刷新打乱，保留成绩不重置
         generateChallengeScramble();
+        checkChalWinCondition();
     }
 }
 
@@ -2029,9 +2408,8 @@ function checkChallengeFinish() {
 const isChalActive = () => document.querySelector('.page-container.active')?.id === 'challenge-page';
 
 document.addEventListener('touchstart', (e) => {
-    // 核心修复：移除了 || chalState === 'DONE'，允许结算后再次触发按下事件
     if (!isChalActive()) return;
-    if (e.target.closest('.challenge-divider')) return;
+    if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
     if (e.cancelable) e.preventDefault();
 
     for (let i = 0; i < e.changedTouches.length; i++) {
@@ -2051,9 +2429,8 @@ document.addEventListener('touchend', (e) => {
 });
 
 document.addEventListener('mousedown', (e) => {
-    // 核心修复：移除了 || chalState === 'DONE'
     if (!isChalActive()) return;
-    if (e.target.closest('.challenge-divider')) return;
+    if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
 
     if (e.target.closest('#challenge-top-area')) handleChalPress('top');
     if (e.target.closest('#challenge-bottom-area')) handleChalPress('bottom');
@@ -2065,15 +2442,13 @@ document.addEventListener('mouseup', (e) => {
     if (e.target.closest('#challenge-bottom-area')) handleChalRelease('bottom');
 });
 
-/* ================= 键盘事件绑定 (WASD & 方向键) ================= */
+/* ================= 键盘事件绑定 ================= */
 const topKeys = ['w', 'a', 's', 'd'];
 const bottomKeys = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
 
 document.addEventListener('keydown', (e) => {
-    // 核心修复：移除了 || chalState === 'DONE'
     if (!isChalActive() || e.repeat) return;
     const key = e.key.toLowerCase();
-
     if (topKeys.includes(key)) { e.preventDefault(); handleChalPress('top'); }
     if (bottomKeys.includes(key)) { e.preventDefault(); handleChalPress('bottom'); }
 });
@@ -2081,7 +2456,6 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     if (!isChalActive()) return;
     const key = e.key.toLowerCase();
-
     if (topKeys.includes(key)) { e.preventDefault(); handleChalRelease('top'); }
     if (bottomKeys.includes(key)) { e.preventDefault(); handleChalRelease('bottom'); }
 });
