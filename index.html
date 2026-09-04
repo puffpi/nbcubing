@@ -83,19 +83,106 @@
         </div>
 
         <div class="timer-layout">
-            <!-- Tab 2: 成绩列表页 -->
+            <!-- 左侧栏 (包含历史成绩与设置双视图) -->
             <div class="timer-sidebar card" id="timer-tab-list">
-                <select id="timer-event-select" onchange="switchTimerEvent()" style="width: 100%; margin-bottom: 10px; background-color: #f8fafc; border: 1px solid var(--border-color);">
-                    <!-- 自动生成 -->
-                </select>
 
-                <div class="timer-history-header">
-                    <span style="width: 15%;">#</span>
-                    <span style="width: 40%;">成绩</span>
-                    <span style="width: 45%; text-align: right; padding-right: 10px;">ao5</span>
+                <!-- 新增：顶部功能区，包含项目选择与“更多”下拉菜单 -->
+                <div class="sidebar-header-row">
+                    <select id="timer-event-select" onchange="switchTimerEvent()"></select>
+                    <button class="btn btn-outline btn-more" onclick="toggleTimerMoreMenu(event)">更多</button>
+
+                    <!-- 更多下拉悬浮窗 -->
+                    <div id="timer-more-dropdown" class="timer-more-dropdown">
+                        <div class="timer-more-item" onclick="clearCurrentSession()">清空成绩</div>
+                    </div>
                 </div>
-                <div id="timer-history-list" class="timer-history-container">
-                    <!-- 成绩追加区域 -->
+
+                <!-- 视图 1：历史成绩 -->
+                <div id="sidebar-view-history" class="sidebar-view active">
+                    <div class="timer-history-header">
+                        <span class="col-id">#</span>
+                        <span class="col-time">成绩</span>
+                        <span class="col-stat" id="header-stat1">ao5</span>
+                        <span class="col-stat" id="header-stat2">ao12</span>
+                    </div>
+                    <div id="timer-history-list" class="timer-history-container">
+                        <!-- 成绩追加区域 -->
+                    </div>
+                </div>
+
+                <!-- 成绩编辑专属悬浮卡片 (默认隐藏) -->
+                <div id="edit-score-popup" class="edit-score-popup">
+                    <div class="edit-score-content">
+                        <div id="edit-index">#1</div>
+                        <div id="edit-time">10.32</div>
+                        <div id="edit-timestamp">2026-09-04 14:18:30</div>
+
+                        <button class="edit-btn-copy" onclick="copyEditScramble()">复制打乱</button>
+                        <div id="edit-scramble">R U R' U' ...</div>
+
+                        <!-- 惩罚状态滑块 -->
+                        <div class="ios-segment-control" style="width: 80%; max-width: 220px; margin: 0 auto 20px auto; display: flex;">
+                            <div class="ios-segment-btn active" style="flex:1; text-align:center;" id="edit-pen-none" onclick="setEditPenalty('')">无惩罚</div>
+                            <div class="ios-segment-btn" style="flex:1; text-align:center;" id="edit-pen-plus2" onclick="setEditPenalty('+2')">+2</div>
+                            <div class="ios-segment-btn" style="flex:1; text-align:center;" id="edit-pen-dnf" onclick="setEditPenalty('DNF')">DNF</div>
+                        </div>
+
+                        <!-- 底部三操作按钮 -->
+                        <div class="edit-popup-actions">
+                            <button class="edit-btn-del" onclick="deleteEditScore()">删除</button>
+                            <button class="edit-btn-cancel" onclick="closeEditPopup()">取消</button>
+                            <button class="edit-btn-confirm" onclick="confirmEditScore()">确定</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 视图 2：统计设置 (电脑端专属) -->
+                <div id="sidebar-view-settings" class="sidebar-view">
+                    <div class="sidebar-settings-title">统计</div>
+
+                    <div class="ios-setting-group">
+                        <label>平均类型-1</label>
+                        <div class="ios-segment-control" style="width: 100%;">
+                            <div class="ios-segment-btn active" style="flex:1; text-align:center;" onclick="setStatType(1, 'ao')" id="btn-stat1-ao">Average of x</div>
+                            <div class="ios-segment-btn" style="flex:1; text-align:center;" onclick="setStatType(1, 'mo')" id="btn-stat1-mo">Mean of x</div>
+                        </div>
+                    </div>
+                    <div class="ios-setting-group">
+                        <label>滚动平均次数</label>
+                        <input type="number" class="ios-input" id="input-stat1-count" value="5" onchange="setStatCount(1, this.value)">
+                    </div>
+
+                    <div class="ios-setting-group" style="margin-top: 20px;">
+                        <label>平均类型-2</label>
+                        <div class="ios-segment-control" style="width: 100%;">
+                            <div class="ios-segment-btn active" style="flex:1; text-align:center;" onclick="setStatType(2, 'ao')" id="btn-stat2-ao">Average of x</div>
+                            <div class="ios-segment-btn" style="flex:1; text-align:center;" onclick="setStatType(2, 'mo')" id="btn-stat2-mo">Mean of x</div>
+                        </div>
+                    </div>
+                    <div class="ios-setting-group">
+                        <label>滚动平均次数</label>
+                        <input type="number" class="ios-input" id="input-stat2-count" value="12" onchange="setStatCount(2, this.value)">
+                    </div>
+                </div>
+
+                <!-- 电脑端专属：侧边栏底部毛玻璃导航栏 -->
+                <div class="desktop-sidebar-nav">
+                    <div class="desktop-sidebar-btn active" onclick="switchSidebarTab('history')" id="btn-sidebar-history">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                    </div>
+                    <div class="desktop-sidebar-btn" onclick="switchSidebarTab('settings')" id="btn-sidebar-settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
@@ -103,7 +190,8 @@
             <div class="timer-main card active-tab" id="timer-tab-main">
                 <div class="timer-stats-panel">
                     <div id="timer-stat-best">best: -</div>
-                    <div id="timer-stat-ao5">ao5: -</div>
+                    <div id="timer-stat-stat1">ao5: -</div>
+                    <div id="timer-stat-stat2">ao12: -</div>
                 </div>
 
                 <div class="scramble-container">
@@ -128,7 +216,7 @@
             </div>
         </div>
 
-        <!-- 移动端专属：底部毛玻璃导航栏 (仅保留纯图标) -->
+        <!-- 移动端专属：底部毛玻璃导航栏 (新增设置入口) -->
         <div class="timer-bottom-bar">
             <div class="timer-tab-btn active" onclick="switchTimerTab('main')" id="btn-tab-main">
                 <span class="cubing-icon event-333" style="font-size: 28px;"></span>
@@ -141,6 +229,13 @@
                     <line x1="3" y1="6" x2="3.01" y2="6"></line>
                     <line x1="3" y1="12" x2="3.01" y2="12"></line>
                     <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+            </div>
+            <!-- 新增：第三个设置选项按钮 -->
+            <div class="timer-tab-btn" onclick="switchTimerTab('settings')" id="btn-tab-settings">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
             </div>
         </div>
@@ -435,31 +530,81 @@
         </div>
     </div>
 
-    <!-- NB Challenge 页面：必须和其他 page-container 是平级兄弟节点 -->
-    <div id="challenge-page" class="page-container" style="padding: 0; margin: 0; max-width: 100%; width: 100%;">
-        <!-- 玩家 A (上半屏) -->
-        <div class="challenge-half top-half" id="challenge-top-area">
-            <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
-            <div class="challenge-timer" id="challenge-timer-top">0.00</div>
+    <!-- NB Challenge 页面 -->
+    <div id="challenge-page" class="page-container">
+        <!-- 电脑端专属顶部导航栏 -->
+        <div class="page-header chal-pc-header" style="z-index: 100; min-height: 44px; padding: 0;">
+            <button onclick="exitChallenge()">返回上一页</button>
         </div>
 
-        <!-- 中间分割线与计分板 -->
-        <div class="challenge-divider">
-            <button class="challenge-back-btn" onclick="exitChallenge()">❮</button>
-            <div class="challenge-score" id="challenge-score-top">0</div>
-
-            <div class="challenge-event">
-                <span class="cubing-icon event-333" style="font-size: 20px;"></span>
-                <span style="font-size: 16px; font-weight: bold; margin-left: 5px;">三阶</span>
+        <div class="challenge-wrapper">
+            <!-- 玩家 A (上半屏) -->
+            <div class="challenge-half top-half" id="challenge-top-area">
+                <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
+                <div class="challenge-timer" id="challenge-timer-top">0.00</div>
             </div>
 
-            <div class="challenge-score" id="challenge-score-bottom">0</div>
-        </div>
+            <!-- 中间分割线与计分板 -->
+            <div class="challenge-divider">
+                <button class="challenge-back-btn chal-mobile-back" onclick="exitChallenge()">❮</button>
+                <div class="challenge-score" id="challenge-score-top">0</div>
 
-        <!-- 玩家 B (下半屏) -->
-        <div class="challenge-half bottom-half" id="challenge-bottom-area">
-            <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
-            <div class="challenge-timer" id="challenge-timer-bottom">0.00</div>
+                <div class="challenge-event" onclick="openChalEventPopup()" title="点击切换挑战项目">
+                    <span id="chal-event-icon" class="cubing-icon event-333" style="font-size: 20px;"></span>
+                    <span id="chal-event-name" style="font-size: 16px; font-weight: bold; margin-left: 5px;">三阶</span>
+                </div>
+
+                <div class="challenge-score" id="challenge-score-bottom">0</div>
+                <!-- 新增：右侧对称的更多按钮 -->
+                <button class="challenge-back-btn chal-more-btn" onclick="toggleChalMore(event)">更多</button>
+
+                <!-- 新增：更多下拉菜单 -->
+                <div id="chal-more-dropdown" class="timer-more-dropdown" style="top: 50px; right: 15px;">
+                    <div class="timer-more-item" onclick="openChalSettingsModal('clear')">清空比分</div>
+                    <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('winScore')">设置胜利得分</div>
+                    <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('adjust')">手动调整比分</div>
+                </div>
+            </div>
+
+            <!-- 玩家 B (下半屏) -->
+            <div class="challenge-half bottom-half" id="challenge-bottom-area">
+                <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
+                <div class="challenge-timer" id="challenge-timer-bottom">0.00</div>
+            </div>
+
+            <!-- 挑战项目选择卡片 -->
+            <div id="chal-event-popup" class="edit-score-popup" onclick="closeChalEventPopup(event)">
+                <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
+                    <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择挑战项目</h3>
+                    <div id="chal-event-grid" class="chal-event-grid"></div>
+                    <div class="edit-popup-actions" style="margin-top: 15px;">
+                        <!-- 核心修改：将原本的 close 换成了专门的 confirm 确认函数 -->
+                        <button class="edit-btn-confirm" onclick="confirmChalEvent()">确定</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置与修改比分卡片 -->
+            <div id="chal-settings-modal" class="edit-score-popup" onclick="closeChalSettings()">
+                <div class="edit-score-content" onclick="event.stopPropagation()" style="max-width: 320px;">
+                    <h3 id="chal-settings-title" style="margin-top: 0; margin-bottom: 20px; font-size: 16px;"></h3>
+                    <div id="chal-settings-body" style="width: 100%; margin-bottom: 20px;"></div>
+                    <div class="edit-popup-actions">
+                        <button class="edit-btn-cancel" onclick="closeChalSettings()">取消</button>
+                        <button class="edit-btn-confirm" id="chal-settings-confirm">确定</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 赛点/胜利动画卡片 -->
+            <div id="chal-alert-modal" class="edit-score-popup" style="z-index: 2500;" onclick="closeChalAlert()">
+                <div class="edit-score-content" onclick="event.stopPropagation()" style="text-align: center; max-width: 280px; background: rgba(255,255,255,0.92); border:none;">
+                    <div id="chal-alert-icon" style="font-size: 55px; margin-bottom: 10px; line-height: 1;">✨</div>
+                    <!-- 核心修改：将 color 从红色换为原站的主题沉稳蓝色 -->
+                    <h2 id="chal-alert-title" style="margin: 0 0 10px 0; color: var(--primary-color); font-weight: 900;">赛 点</h2>
+                    <p id="chal-alert-desc" style="color: var(--text-main); margin: 0; font-weight: 600;">距离胜利仅差一分</p>
+                </div>
+            </div>
         </div>
     </div>
 
