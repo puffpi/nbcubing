@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 核心新增：引入 WCA 官方的 2D/3D 魔方渲染组件库 -->
+    <script type="module" src="https://cdn.cubing.net/js/cubing/twisty"></script>
 </head>
 <body>
 
@@ -64,10 +66,10 @@
             <button class="home-nav-btn" onclick="openPkPage()">选手成绩 PK</button>
             <!-- 插入的 NB Timer 入口 -->
             <button class="home-nav-btn" onclick="navigateTo('timer-page'); initTimer();">
-                <span>NB Timer 内测版</span>
+                <span>NB Timer</span>
             </button>
             <button class="home-nav-btn" onclick="initChallenge(); navigateTo('challenge-page');" style="margin-top: 10px;">
-                <span>NB Challenge 内测版</span>
+                <span>NB Challenge</span>
             </button>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 35px;">作者：b站@泡芙老师k3</p>
@@ -86,14 +88,30 @@
             <!-- 左侧栏 (包含历史成绩与设置双视图) -->
             <div class="timer-sidebar card" id="timer-tab-list">
 
-                <!-- 新增：顶部功能区，包含项目选择与“更多”下拉菜单 -->
+                <!-- 顶部功能区，包含定制化的项目选择器与“更多”下拉菜单 -->
                 <div class="sidebar-header-row">
-                    <select id="timer-event-select" onchange="switchTimerEvent()"></select>
+                    <!-- 替换原生 select，改为高级 UI 按钮 -->
+                    <div id="timer-event-selector" class="timer-event-selector" onclick="openTimerEventPopup()">
+                        <span id="timer-event-icon" class="cubing-icon event-333" style="font-size: 18px;"></span>
+                        <span id="timer-event-name">三阶</span>
+                        <span style="margin-left: auto; font-size: 12px; color: var(--text-muted);">▼</span>
+                    </div>
                     <button class="btn btn-outline btn-more" onclick="toggleTimerMoreMenu(event)">更多</button>
 
                     <!-- 更多下拉悬浮窗 -->
                     <div id="timer-more-dropdown" class="timer-more-dropdown">
                         <div class="timer-more-item" onclick="clearCurrentSession()">清空成绩</div>
+                    </div>
+                </div>
+
+                <!-- 计时器项目选择悬浮卡片 -->
+                <div id="timer-event-popup" class="edit-score-popup" onclick="closeTimerEventPopup(event)">
+                    <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
+                        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时项目</h3>
+                        <div id="timer-event-grid" class="chal-event-grid"></div>
+                        <div class="edit-popup-actions" style="margin-top: 15px;">
+                            <button class="edit-btn-confirm" onclick="confirmTimerEvent()">确定</button>
+                        </div>
                     </div>
                 </div>
 
@@ -119,6 +137,11 @@
 
                         <button class="edit-btn-copy" onclick="copyEditScramble()">复制打乱</button>
                         <div id="edit-scramble">R U R' U' ...</div>
+
+                        <!-- 成绩详情卡片内的打乱图 -->
+                        <div style="display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; margin-bottom: 20px;">
+                            <twisty-player id="edit-scramble-display" visualization="2D" control-panel="none" background="none" style="width: 210px; height: 155px;"></twisty-player>
+                        </div>
 
                         <!-- 惩罚状态滑块 -->
                         <div class="ios-segment-control" style="width: 80%; max-width: 220px; margin: 0 auto 20px auto; display: flex;">
@@ -212,6 +235,11 @@
                         长按屏幕启动<br>
                         <span class="prompt-sub">向右滑动切换打乱</span>
                     </span>
+                </div>
+
+                <!-- 右下角打乱图展示面板 (毛玻璃组件) -->
+                <div class="timer-scramble-draw-panel" id="timer-scramble-draw-panel">
+                    <twisty-player id="timer-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
                 </div>
             </div>
         </div>
