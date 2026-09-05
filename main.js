@@ -181,8 +181,8 @@ function showPage(pageId) {
 
     const floatingNav = document.getElementById('floating-nav');
     if (floatingNav) {
-        // 在主页和挑战页面均隐藏悬浮导航
-        floatingNav.style.display = (pageId === 'home-page' || pageId === 'challenge-page') ? 'none' : 'block';
+        // 核心修改：在主页、挑战页面以及计时器页面均隐藏悬浮导航
+        floatingNav.style.display = (pageId === 'home-page' || pageId === 'challenge-page' || pageId === 'timer-page') ? 'none' : 'block';
     }
 }
 
@@ -1472,6 +1472,7 @@ function clearCurrentSession() {
     timerHistoryData[currentTimerEvent] = [];
     document.getElementById('timer-more-dropdown').style.display = 'none';
     recalculateSessionStats();
+    saveTimerData(); // 核心新增：清空后存档
 }
 
 function switchSidebarTab(tab) {
@@ -1488,6 +1489,7 @@ function setStatType(statNum, type) {
     document.getElementById(`btn-stat${statNum}-mo`).classList.remove('active');
     document.getElementById(`btn-stat${statNum}-${type}`).classList.add('active');
     recalculateSessionStats();
+    saveTimerData(); // 核心新增
 }
 
 function setStatCount(statNum, count) {
@@ -1496,6 +1498,7 @@ function setStatCount(statNum, count) {
     if (statNum === 1) stat1.count = val;
     if (statNum === 2) stat2.count = val;
     recalculateSessionStats();
+    saveTimerData(); // 核心新增
 }
 
 function calculateStat(slice, type, count) {
@@ -1596,6 +1599,7 @@ function stopTimer() {
     });
 
     recalculateSessionStats();
+    saveTimerData(); // 核心新增：每次计时结束自动存档
     generateScramble();
 }
 
@@ -1631,7 +1635,6 @@ function renderTimerHistory() {
 
 // ================= 编辑成绩弹窗交互逻辑 =================
 function openEditPopup(index) {
-    // 核心修改：删除了 if (window.innerWidth <= 768) return; 彻底向手机端开放卡片
     editScoreIndex = index;
     const records = timerHistoryData[currentTimerEvent];
     const r = records[index];
@@ -1641,6 +1644,22 @@ function openEditPopup(index) {
     document.getElementById('edit-time').innerText = r.displayTime;
     document.getElementById('edit-timestamp').innerText = r.timestamp;
     document.getElementById('edit-scramble').innerText = r.scramble;
+
+    // 核心新增：渲染卡片内部的打乱图并应用缩放补偿
+    const editDisplayEl = document.getElementById('edit-scramble-display');
+    if (editDisplayEl) {
+        let cleanScramble = r.scramble.replace(/<br>/g, ' ');
+        editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(currentTimerEvent));
+        editDisplayEl.setAttribute('alg', cleanScramble);
+
+        editDisplayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
+        editDisplayEl.style.transform = `scale(${getScrambleZoom(currentTimerEvent)})`;
+
+        // 瞬间跳转到打乱最终态
+        setTimeout(() => {
+            editDisplayEl.timestamp = "end";
+        }, 10);
+    }
 
     setEditPenalty(currentEditPenalty, false);
     document.getElementById('edit-score-popup').style.display = 'flex';
@@ -1672,12 +1691,14 @@ function confirmEditScore() {
     timerHistoryData[currentTimerEvent][editScoreIndex].penalty = currentEditPenalty;
     closeEditPopup();
     recalculateSessionStats();
+    saveTimerData(); // 核心新增：改判后存档
 }
 
 function deleteEditScore() {
     timerHistoryData[currentTimerEvent].splice(editScoreIndex, 1);
     closeEditPopup();
     recalculateSessionStats();
+    saveTimerData(); // 核心新增：删除后存档
 }
 
 function copyEditScramble() {
@@ -1719,33 +1740,18 @@ function switchTimerTab(tabName) {
     }
 }
 
+// ================= 计时器项目选择悬浮窗逻辑 =================
+let timerTempEvent = '333';
+
 function initTimer() {
-    const select = document.getElementById('timer-event-select');
-    if (select.children.length === 0) {
-        const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
-        eventDict.forEach(ev => {
-            if (!excludedEvents.includes(ev.id)) {
-                let option = document.createElement('option');
-                option.value = ev.id;
-                option.text = ev.name;
-                select.appendChild(option);
-            }
-        });
-        select.value = '333';
-        switchTimerEvent();
-    } else {
-        generateScramble();
+    loadTimerData(); // 核心新增：启动时立刻读取本地硬盘数据
+
+    let evObj = eventDict.find(e => e.id === currentTimerEvent);
+    if (evObj) {
+        document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
+        document.getElementById('timer-event-name').innerText = evObj.name;
+        document.getElementById('timer-event-title').innerText = "WCA - " + evObj.name;
     }
-    switchTimerTab('main');
-}
-
-function switchTimerEvent() {
-    const select = document.getElementById('timer-event-select');
-    currentTimerEvent = select.value;
-    select.blur();
-
-    const evName = select.options[select.selectedIndex].text;
-    document.getElementById('timer-event-title').innerText = "WCA - " + formatName(evName);
 
     if (!timerHistoryData[currentTimerEvent]) {
         timerHistoryData[currentTimerEvent] = [];
@@ -1753,6 +1759,72 @@ function switchTimerEvent() {
 
     recalculateSessionStats();
     generateScramble();
+    switchTimerTab('main');
+}
+
+function openTimerEventPopup() {
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+    timerTempEvent = currentTimerEvent;
+    renderTimerEventGrid();
+
+    const popup = document.getElementById('timer-event-popup');
+    popup.classList.remove('popup-fade-out');
+    popup.style.display = 'flex';
+}
+
+function renderTimerEventGrid() {
+    const grid = document.getElementById('timer-event-grid');
+    grid.innerHTML = '';
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+
+    eventDict.forEach(ev => {
+        if (!excludedEvents.includes(ev.id)) {
+            let isActive = timerTempEvent === ev.id ? 'active' : '';
+            let btn = document.createElement('div');
+            btn.className = `chal-event-item ${isActive}`;
+            btn.innerHTML = `<span class="cubing-icon event-${ev.id}" style="font-size: 24px; display:block; margin-bottom:5px;"></span><span style="font-size:12px; font-weight:600;">${ev.name}</span>`;
+
+            btn.onclick = () => {
+                timerTempEvent = ev.id;
+                renderTimerEventGrid(); // 仅刷新高亮，不触发真实打乱
+            };
+            grid.appendChild(btn);
+        }
+    });
+}
+
+function confirmTimerEvent() {
+    if (timerTempEvent !== currentTimerEvent) {
+        currentTimerEvent = timerTempEvent;
+
+        let evObj = eventDict.find(e => e.id === currentTimerEvent);
+        let evName = evObj ? evObj.name : '未知';
+
+        // 更新左侧选择器与右侧大标题
+        document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
+        document.getElementById('timer-event-name').innerText = evName;
+        document.getElementById('timer-event-title').innerText = "WCA - " + evName;
+
+        if (!timerHistoryData[currentTimerEvent]) {
+            timerHistoryData[currentTimerEvent] = [];
+        }
+
+        recalculateSessionStats();
+        generateScramble();
+    }
+    closeTimerEventPopup();
+}
+
+function closeTimerEventPopup(e) {
+    if (e && e.target.id !== 'timer-event-popup') return;
+    const popup = document.getElementById('timer-event-popup');
+    if (popup.style.display === 'none') return;
+
+    popup.classList.add('popup-fade-out');
+    setTimeout(() => {
+        popup.style.display = 'none';
+        popup.classList.remove('popup-fade-out');
+    }, 200);
 }
 
 function formatTimerOutput(ms) {
@@ -1782,21 +1854,41 @@ function startTimer() {
     requestAnimationFrame(update);
 }
 
-// 提取通用的打乱引擎
+// 提取通用的打乱引擎 (严格匹配 WCA TNoodle 规则)
 function getScrambleByEvent(ev) {
     let scramble = "";
+
     if (ev === '222') {
         scramble = getRandomMoves(["R", "U", "F"], 11);
-    } else if (['333', '333oh', '333bf', '333fm', '333mbf', '333ft'].includes(ev)) {
+    } else if (['333', '333oh', '333fm', '333ft'].includes(ev)) {
         scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20);
-    } else if (['444', '444bf'].includes(ev)) {
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 45);
-    } else if (['555', '555bf', '666', '777'].includes(ev)) {
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], ev === '555' ? 60 : 80);
+    } else if (['333bf', '333mbf'].includes(ev)) {
+        // 三盲/多盲：20步 + 0-2次随机握持方向宽层转动 (Rw, Uw, Fw)
+        let ori = getRandomMoves(["Rw", "Uw", "Fw"], Math.floor(Math.random() * 3));
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20) + (ori ? " " + ori : "");
+    } else if (ev === '444') {
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 40); // 官方四阶标准为40步
+    } else if (ev === '444bf') {
+        // 四盲：40步 + 0-2次整体转动 (x, y, z)
+        let ori = getRandomMoves(["x", "y", "z"], Math.floor(Math.random() * 3));
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 40) + (ori ? " " + ori : "");
+    } else if (ev === '555') {
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], 60);
+    } else if (ev === '555bf') {
+        // 五盲：60步 + 0-2次三层转动 (3Rw, 3Uw, 3Fw 改变中心朝向)
+        let ori = getRandomMoves(["3Rw", "3Uw", "3Fw"], Math.floor(Math.random() * 3));
+        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], 60) + (ori ? " " + ori : "");
+    } else if (['666', '777'].includes(ev)) {
+        let moves67 = ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw", "3Rw", "3Lw", "3Uw", "3Dw", "3Fw", "3Bw"];
+        scramble = getRandomMoves(moves67, ev === '666' ? 80 : 100);
     } else if (ev === 'pyram') {
-        scramble = getRandomMoves(["U", "L", "R", "B"], 11);
+        // 金字塔：修饰符限制为 [无, ']，彻底消灭 "2"
+        scramble = getRandomMoves(["U", "L", "R", "B"], 11, ["", "'"]);
         let tips = ["u", "l", "r", "b"];
         tips.forEach(t => { if(Math.random() > 0.5) scramble += " " + t + (Math.random() > 0.5 ? "'" : ""); });
+    } else if (ev === 'skewb') {
+        // 斜转：修饰符限制为 [无, ']，彻底消灭 "2"
+        scramble = getRandomMoves(["R", "L", "U", "B"], 11, ["", "'"]);
     } else if (ev === 'minx') {
         let res = [];
         for (let i=0; i<7; i++) {
@@ -1804,8 +1896,6 @@ function getScrambleByEvent(ev) {
             res.push("U" + (Math.random() > 0.5 ? "'" : "") + "<br>");
         }
         scramble = res.join(" ");
-    } else if (ev === 'skewb') {
-        scramble = getRandomMoves(["R", "L", "U", "B"], 11);
     } else if (ev === 'sq1') {
         let res = [];
         for(let i=0; i<12; i++) {
@@ -1815,11 +1905,27 @@ function getScrambleByEvent(ev) {
         }
         scramble = res.join(" / ");
     } else if (ev === 'clock') {
-        let pins = ["UR","DR","DL","UL","U","R","D","L","ALL"];
+        // 核心修复魔表：严格区分正负数语法，完美适配官方解析器
+        let clockMoves1 = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
+        let clockMoves2 = ["U", "R", "D", "L", "ALL"];
         let res = [];
-        pins.forEach(p => res.push(`${p}${Math.floor(Math.random()*12)-5}+`));
+
+        const getClockVal = () => {
+            let v = Math.floor(Math.random() * 12) - 5; // 生成 -5 到 +6
+            if (v < 0) return Math.abs(v) + "-";
+            return v + "+";
+        };
+
+        clockMoves1.forEach(p => res.push(p + getClockVal()));
         res.push("y2");
-        ["U","R","D","L","ALL"].forEach(p => res.push(`${p}${Math.floor(Math.random()*12)-5}+`));
+        clockMoves2.forEach(p => res.push(p + getClockVal()));
+
+        // 随机处理末尾需要按下的拨柱
+        let pins = ["UR", "DR", "DL", "UL"];
+        let finalPins = [];
+        pins.forEach(p => { if (Math.random() > 0.5) finalPins.push(p); });
+        if (finalPins.length > 0) res.push(finalPins.join(" "));
+
         scramble = res.join(" ");
     } else {
         scramble = "无打乱规则";
@@ -1827,21 +1933,82 @@ function getScrambleByEvent(ev) {
     return scramble;
 }
 
-function generateScramble() {
-    document.getElementById('scramble-text').innerHTML = getScrambleByEvent(currentTimerEvent);
-}
-
-function getRandomMoves(moves, length) {
-    const mods = ["", "'", "2"];
+// 升级版：支持自定义修饰符，并智能剥离数字前缀防止死循环
+function getRandomMoves(moves, length, mods = ["", "'", "2"]) {
+    if (length === 0) return "";
     let scramble = [];
     let lastMove = "";
-    for(let i = 0; i < length; i++) {
+
+    for (let i = 0; i < length; i++) {
         let m;
-        do { m = moves[Math.floor(Math.random() * moves.length)]; } while (m[0] === lastMove[0]);
+        // 核心修复：提取上一步的真实转动面（利用正则删掉开头的数字，取第一个字母）
+        let lastFace = lastMove ? lastMove.replace(/^\d+/, '')[0] : "";
+
+        do {
+            m = moves[Math.floor(Math.random() * moves.length)];
+            // 同样提取当前随机动作的真实面进行比对，彻底消灭死循环
+        } while (m.replace(/^\d+/, '')[0] === lastFace);
+
         lastMove = m;
         scramble.push(m + mods[Math.floor(Math.random() * mods.length)]);
     }
     return scramble.join(" ");
+}
+
+// =========================================
+// 官方打乱图组件事件映射与动态缩放补偿字典
+// =========================================
+function getCubingJsPuzzle(eventId) {
+    const map = {
+        '222': '2x2x2', '333': '3x3x3', '333oh': '3x3x3', '333bf': '3x3x3', '333fm': '3x3x3', '333mbf': '3x3x3', '333ft': '3x3x3',
+        '444': '4x4x4', '444bf': '4x4x4',
+        '555': '5x5x5', '555bf': '5x5x5',
+        '666': '6x6x6', '777': '7x7x7',
+        'pyram': 'pyraminx', 'minx': 'megaminx', 'skewb': 'skewb', 'sq1': 'square1', 'clock': 'clock'
+    };
+    return map[eventId] || '3x3x3';
+}
+
+// 核心新增：专门对抗官方组件“高阶缩水”的放大补偿系数
+function getScrambleZoom(eventId) {
+    const zoomMap = {
+        '222': 0.9,
+        '333': 1.0, '333oh': 1.0, '333bf': 1.0, '333fm': 1.0, '333mbf': 1.0, '333ft': 1.0,
+        '444': 1.20, '444bf': 1.20, // 四阶放大
+        '555': 1.20, '555bf': 1.20, // 五阶放大
+        '666': 1.20,                // 六阶放大
+        '777': 1.20,                // 七阶放大
+        'minx': 1.05,               // 五魔方形状特殊，稍微放大
+        'pyram': 1.0,
+        'sq1': 1.0,
+        'skewb': 1.15,
+        'clock': 1.0
+    };
+    return zoomMap[eventId] || 1.0;
+}
+
+function generateScramble() {
+    const scramble = getScrambleByEvent(currentTimerEvent);
+    document.getElementById('scramble-text').innerHTML = scramble;
+
+    // 同步更新右下角打乱图
+    const displayEl = document.getElementById('timer-scramble-display');
+    if (displayEl) {
+        // 去除换行符，保证组件能正确识别
+        let cleanScramble = scramble.replace(/<br>/g, ' ');
+
+        displayEl.setAttribute('puzzle', getCubingJsPuzzle(currentTimerEvent));
+        displayEl.setAttribute('alg', cleanScramble);
+
+        // 核心修复：根据当前项目，动态注入缩放比例，并附带 0.3 秒丝滑过渡动画
+        displayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
+        displayEl.style.transform = `scale(${getScrambleZoom(currentTimerEvent)})`;
+
+        // 强制组件瞬间跳转到打乱后的最终状态
+        setTimeout(() => {
+            displayEl.timestamp = "end";
+        }, 10);
+    }
 }
 
 // ================= 空格键与右键监听控制 =================
@@ -2078,13 +2245,16 @@ function toggleChalMore(e) {
     menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
 }
 
+// 拦截全局点击，点击空白处自动收起各种菜单
 document.addEventListener('click', (e) => {
+    // 拦截普通 Timer 的更多菜单
     const timerMenu = document.getElementById('timer-more-dropdown');
-    if (timerMenu && timerMenu.style.display === 'block' && !e.target.closest('.sidebar-header-row')) {
+    if (timerMenu && timerMenu.style.display === 'block' && !e.target.closest('.btn-more') && !e.target.closest('#timer-more-dropdown')) {
         timerMenu.style.display = 'none';
     }
+    // 拦截 Challenge 的更多菜单：只要点击的不是“更多”按钮本身，也不是菜单内部，就立刻关闭
     const chalMenu = document.getElementById('chal-more-dropdown');
-    if (chalMenu && chalMenu.style.display === 'block' && !e.target.closest('.challenge-divider')) {
+    if (chalMenu && chalMenu.style.display === 'block' && !e.target.closest('.chal-more-btn') && !e.target.closest('#chal-more-dropdown')) {
         chalMenu.style.display = 'none';
     }
 });
@@ -2459,3 +2629,48 @@ document.addEventListener('keyup', (e) => {
     if (topKeys.includes(key)) { e.preventDefault(); handleChalRelease('top'); }
     if (bottomKeys.includes(key)) { e.preventDefault(); handleChalRelease('bottom'); }
 });
+
+// ================= 本地数据持久化引擎 =================
+function loadTimerData() {
+    try {
+        const saved = localStorage.getItem('nbTimerConfig');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.history) timerHistoryData = parsed.history;
+            if (parsed.stat1) stat1 = parsed.stat1;
+            if (parsed.stat2) stat2 = parsed.stat2;
+
+            // 恢复设置面板的数值显示
+            document.getElementById('input-stat1-count').value = stat1.count;
+            document.getElementById('input-stat2-count').value = stat2.count;
+
+            ['ao', 'mo'].forEach(type => {
+                document.getElementById(`btn-stat1-${type}`).classList.remove('active');
+                document.getElementById(`btn-stat2-${type}`).classList.remove('active');
+            });
+            document.getElementById(`btn-stat1-${stat1.type}`).classList.add('active');
+            document.getElementById(`btn-stat2-${stat2.type}`).classList.add('active');
+        }
+    } catch (e) {
+        console.warn("读取本地历史数据失败", e);
+    }
+}
+
+function saveTimerData() {
+    try {
+        // 容量防爆机制：每个项目硬上限 10000 条，超出则切掉最老的记录
+        for (let ev in timerHistoryData) {
+            if (timerHistoryData[ev].length > 10000) {
+                timerHistoryData[ev] = timerHistoryData[ev].slice(0, 10000);
+            }
+        }
+        const dataToSave = {
+            history: timerHistoryData,
+            stat1: stat1,
+            stat2: stat2
+        };
+        localStorage.setItem('nbTimerConfig', JSON.stringify(dataToSave));
+    } catch (e) {
+        console.warn("本地存储已满，无法保存新数据");
+    }
+}
