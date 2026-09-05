@@ -779,12 +779,25 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     margin-bottom: 12px;
     position: relative;
 }
-#timer-event-select {
+.timer-event-selector {
     width: 70%;
     margin: 0;
     padding: 8px 12px;
     background-color: #f8fafc;
     border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+.timer-event-selector:hover {
+    background-color: #f1f5f9;
 }
 .btn-more {
     width: 25%;
@@ -1010,6 +1023,49 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 #timer-stat-best { color: var(--text-main); }
 
+/* =========================================
+   打乱图展示面板 (右下角)
+   ========================================= */
+.timer-scramble-draw-panel {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    background: rgba(248, 250, 252, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none; /* 防止遮挡用户的鼠标点击操作 */
+}
+
+/* 控制官方组件内部的尺寸 (电脑端调大) */
+#timer-scramble-display {
+    width: 250px;
+    height: 200px;
+}
+
+/* 手机端适配：缩小图幅，并往上移动避开底部导航栏 */
+@media (max-width: 768px) {
+    .timer-scramble-draw-panel {
+        right: 8px;
+        bottom: 80px;
+        padding: 8px;
+        border-radius: 12px;
+    }
+
+    /* 核心修复：手机端打乱图调大 */
+    #timer-scramble-display {
+        width: 180px !important;
+        height: 140px !important;
+    }
+}
+
 /* 4. 打乱公式区域 */
 .scramble-container {
     position: absolute;
@@ -1086,8 +1142,20 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 @media (max-width: 768px) {
     .desktop-sidebar-nav { display: none !important; }
     .timer-sidebar { padding-bottom: 0 !important; }
-    .sidebar-header-row .btn-more { display: none !important; }
-    #timer-event-select { width: 100% !important; }
+    .timer-event-selector {
+        width: 72% !important;
+    }
+    .sidebar-header-row .btn-more {
+        display: block !important;
+        width: 25% !important;
+        padding: 8px 0 !important;
+    }
+
+    /* 新增：给单次成绩卡片里的打乱图做移动端大小适配 */
+    #edit-scramble-display {
+        width: 210px !important;
+        height: 155px !important;
+    }
 
     #timer-page, #pk-page {
         position: fixed; inset: 0; width: 100vw; height: 100dvh;
@@ -1143,8 +1211,12 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     .timer-tab-btn:active { transform: scale(0.85); }
 
     .edit-score-popup {
-        padding: 0 15px !important; justify-content: center !important; align-items: center !important;
+        /* 手机端只负责覆盖内边距和对齐方式，背景模糊直接完美继承全局 */
+        padding: 0 15px !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
+
 } /* ⬅️ 核心修复：这个大括号找回来了，完美闭合了手机端代码！ */
 
 /* =========================================
@@ -1186,29 +1258,42 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 .challenge-back-btn:hover { opacity: 0.7; }
 /* 右侧对称的更多按钮 - 加入微弱的毛玻璃质感，融入整体泛灰风格 */
+/* 去除“更多”按钮的底色与阴影，自然融入 */
 .chal-more-btn {
     left: auto; right: 15px;
-    font-size: 14px;
-    background: rgba(148, 163, 184, 0.15);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-weight: 600;
+    font-size: 15px;
+    background: transparent;
+    border-radius: 0;
+    padding: 10px;
+    font-weight: bold;
 }
 .chal-more-btn:hover {
-    background: rgba(148, 163, 184, 0.25);
-    opacity: 1; /* 覆盖原本的 hover 透明度 */
+    background: transparent;
+    opacity: 0.7;
 }
 
+/* 强力消除默认行高带来的像素级偏移 */
 .challenge-event {
     display: flex; align-items: center; justify-content: center; color: var(--text-main);
     cursor: pointer; padding: 6px 20px; border-radius: 20px; transition: background 0.2s ease;
+    line-height: 1;
 }
 .challenge-event:hover { background: rgba(0, 0, 0, 0.05); }
 
-.challenge-score { position: absolute; font-size: 20px; font-weight: 900; color: var(--primary-color); }
+/* 为比分增加绝对居中属性 */
+.challenge-score {
+    position: absolute;
+    top: 50%; /* 核心新增：绝对顶部距离 50% */
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--primary-color);
+    line-height: 1; /* 核心新增：取消字体默认上下间距 */
+}
+
+/* 结合 translateY(-50%) 实现完美垂直居中 */
 .top-half { transform: none; }
-#challenge-score-top { transform: none; right: 50%; margin-right: 75px; }
-#challenge-score-bottom { left: 50%; margin-left: 75px; }
+#challenge-score-top { transform: translateY(-50%); right: 50%; margin-right: 75px; }
+#challenge-score-bottom { transform: translateY(-50%); left: 50%; margin-left: 75px; }
 #challenge-scramble-top { top: auto; bottom: 20px; }
 #challenge-scramble-bottom { top: 20px; }
 
@@ -1246,8 +1331,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     .chal-mobile-back { display: block; }
     .challenge-wrapper { height: 100%; margin: 0; border-radius: 0; border: none; box-shadow: none; }
     .top-half { transform: rotate(180deg); }
-    #challenge-score-top { transform: none; right: 50%; margin-right: 60px; }
-    #challenge-score-bottom { left: 50%; margin-left: 60px; }
+    #challenge-score-top { transform: translateY(-50%); right: 50%; margin-right: 60px; }
+    #challenge-score-bottom { transform: translateY(-50%); left: 50%; margin-left: 60px; }
     #challenge-scramble-top { top: 20px; bottom: auto; }
     .chal-event-grid { grid-template-columns: repeat(3, 1fr); }
 }
