@@ -13,6 +13,24 @@ let currentChartEventId = '333'; // 默认优先三阶
 let currentChartType = 'average'; // 记录当前选中的是平均还是单次
 let currentRankingType = 'single';
 let currentRankingGender = 'all';
+let hasHomeAnimated = false; // 记录首页是否已经完成过初始入场旋转
+
+// ================= 新增：界面设置全局变量 =================
+let uiSettings = {
+    homeLayout: '3d', // 默认简约版
+    font: 'default',
+    fontSize: 100,
+    colorSingle: '#f59e0b',
+    colorAvg: '#f59e0b'
+};
+
+const fontOptions = [
+    { id: 'default', name: '默认等宽', family: "'SFMono-Regular', Consolas, monospace" },
+    { id: 'arial', name: 'Arial (无衬线)', family: "Arial, Helvetica, sans-serif" },
+    { id: 'impact', name: 'Impact (厚重)', family: "Impact, sans-serif" },
+    { id: 'georgia', name: 'Georgia (衬线)', family: "Georgia, serif" },
+    { id: 'comic', name: 'Comic Sans (活泼)', family: "'Comic Sans MS', 'Chalkboard SE', cursive" }
+];
 
 const countryDict = {
     'CN': '中国', 'HK': '中国香港', 'MO': '中国澳门', 'TW': '中国台湾',
@@ -146,18 +164,20 @@ function navigateTo(pageId, isForward = false) {
     }
 }
 
+// 统跳主页的路由函数
+function goHome() {
+    let is3D = uiSettings.homeLayout === '3d';
+    navigateTo(is3D ? 'home-page-3d' : 'home-page');
+    // 如果返回的是 3D 首页，触发一次不切字的纯入场动画
+    if (is3D) setTimeout(() => triggerCubeSpin(true), 50);
+}
+
 function goBack() {
-    // 返回上一页时，如果正处于“选择 PK 对手”状态，先彻底清除 PK 状态
     if (inlinePkState !== 0) {
-        inlinePkState = 0;
-        inlinePkPlayerA = null;
-        pendingPkPlayerB = null;
-
+        inlinePkState = 0; inlinePkPlayerA = null; pendingPkPlayerB = null;
         document.body.classList.remove('pk-mode');
-
         const floatingBar = document.getElementById('pk-floating-bar');
         if (floatingBar) floatingBar.style.display = 'none';
-
         const confirmModal = document.getElementById('pk-confirm-modal');
         if (confirmModal) confirmModal.style.display = 'none';
     }
@@ -166,8 +186,13 @@ function goBack() {
         const prevState = historyStack.pop();
         showPage(prevState.id);
         setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
+
+        // 核心修复：如果是退回到 3D 首页，自动触发一次帅气的入场旋转
+        if (prevState.id === 'home-page-3d') {
+            setTimeout(() => triggerCubeSpin(true), 50);
+        }
     } else {
-        navigateTo('home-page');
+        goHome();
     }
 }
 
@@ -181,8 +206,8 @@ function showPage(pageId) {
 
     const floatingNav = document.getElementById('floating-nav');
     if (floatingNav) {
-        // 核心修改：在主页、挑战页面以及计时器页面均隐藏悬浮导航
-        floatingNav.style.display = (pageId === 'home-page' || pageId === 'challenge-page' || pageId === 'timer-page') ? 'none' : 'block';
+        // 核心修复：不管是简约版首页还是立体版首页，统统隐藏悬浮窗
+        floatingNav.style.display = (pageId === 'home-page' || pageId === 'home-page-3d' || pageId === 'challenge-page' || pageId === 'timer-page') ? 'none' : 'block';
     }
 }
 
@@ -281,11 +306,45 @@ function renderPkHistory() {
     });
 }
 
+// 确保简约版首页的 PK 按钮也能正常唤醒新页面
 function openPkPage() {
-    document.getElementById('pk-input-a').value = '';
-    document.getElementById('pk-input-b').value = '';
-    renderPkHistory();
-    navigateTo('pk-page');
+    openSearchPage();
+}
+
+// 全新合并版的历史渲染引擎
+function renderCombinedHistory() {
+    const container = document.getElementById('combined-history-container');
+    const list = document.getElementById('combined-history-list');
+
+    // 如果两条历史记录都为空，则隐藏容器
+    if (searchHistoryList.length === 0 && pkHistoryList.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    list.innerHTML = '';
+
+    // 1. 优先渲染单人查询历史
+    searchHistoryList.forEach(cuber => {
+        let btn = document.createElement('button');
+        btn.className = 'history-tag';
+        btn.innerHTML = `👤 ${formatName(cuber.person.name)}`;
+        btn.onclick = () => { renderPersonPage(cuber); };
+        list.appendChild(btn);
+    });
+
+    // 2. 紧接着渲染双人 PK 历史
+    pkHistoryList.forEach(entry => {
+        let btn = document.createElement('button');
+        btn.className = 'history-tag';
+        btn.innerHTML = `⚔️ ${formatName(entry.a.person.name)} <span class="history-vs">VS</span> ${formatName(entry.b.person.name)}`;
+        btn.onclick = () => {
+            navigateTo('pk-result-page', true);
+            renderPK(entry.a, entry.b);
+        };
+        list.appendChild(btn);
+    });
 }
 
 async function handlePkClick() {
@@ -333,9 +392,12 @@ function renderSearchHistory() {
     });
 }
 
+// 统跳合并后的页面
 function openSearchPage() {
     document.getElementById('search-input').value = '';
-    renderSearchHistory();
+    document.getElementById('pk-input-a').value = '';
+    document.getElementById('pk-input-b').value = '';
+    renderCombinedHistory();
     navigateTo('search-page');
 }
 
@@ -1220,9 +1282,10 @@ function generateRecords() {
 }
 
 async function initData() {
-    const loader = document.getElementById('global-loading');
-    const homePage = document.getElementById('home-page');
+    // 核心修复：必须在决定路由前，优先读取本地排版设置
+    loadTimerData();
 
+    const loader = document.getElementById('global-loading');
     try {
         const [resWca, resHist] = await Promise.all([
             fetch('wca_data.json?t=' + new Date().getTime()),
@@ -1231,13 +1294,11 @@ async function initData() {
         allCubersData = await resWca.json();
         allHistoryData = await resHist.json();
         isDataReady = true;
-
         if (loader) loader.style.display = 'none';
 
-        // 核心修复：仅在没有任何页面处于激活状态时，才显示首页，避免错乱
         const activePage = document.querySelector('.page-container.active');
         if (!activePage) {
-            if (homePage) homePage.classList.add('active');
+            goHome(); // 根据读取到的排版正确进入
         } else {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
@@ -1613,11 +1674,21 @@ function renderTimerHistory() {
         div.className = 'timer-history-item';
         let displayCount = records.length - index;
 
+        let stat1Name = stat1.type + stat1.count;
+        let stat2Name = stat2.type + stat2.count;
+
+        let stat1Click = r.stat1Str !== '-' ? `onclick="openAvgPopup(${index}, ${stat1.count}, '${stat1Name}', '${r.stat1Str}')"` : '';
+        let stat2Click = r.stat2Str !== '-' ? `onclick="openAvgPopup(${index}, ${stat2.count}, '${stat2Name}', '${r.stat2Str}')"` : '';
+
+        let stat1Class = r.stat1Str !== '-' ? 'clickable-time' : '';
+        let stat2Class = r.stat2Str !== '-' ? 'clickable-time' : '';
+
+        // 核心修复：应用 timer-pb-single 和 timer-pb-avg 以完美响应你的颜色设置
         div.innerHTML = `
             <span class="col-id">${displayCount}</span>
-            <span class="col-time clickable-time ${r.isPb ? 'timer-pb' : ''}" onclick="openEditPopup(${index})">${r.displayTime}</span>
-            <span class="col-stat ${r.isStat1Pb ? 'timer-pb' : ''}">${r.stat1Str}</span>
-            <span class="col-stat ${r.isStat2Pb ? 'timer-pb' : ''}">${r.stat2Str}</span>
+            <span class="col-time clickable-time ${r.isPb ? 'timer-pb-single' : ''}" onclick="openEditPopup(${index})">${r.displayTime}</span>
+            <span class="col-stat ${stat1Class} ${r.isStat1Pb ? 'timer-pb-avg' : ''}" ${stat1Click}>${r.stat1Str}</span>
+            <span class="col-stat ${stat2Class} ${r.isStat2Pb ? 'timer-pb-avg' : ''}" ${stat2Click}>${r.stat2Str}</span>
         `;
         list.appendChild(div);
     });
@@ -1663,6 +1734,169 @@ function openEditPopup(index) {
 
     setEditPenalty(currentEditPenalty, false);
     document.getElementById('edit-score-popup').style.display = 'flex';
+}
+
+// ================= 平均成绩点击弹窗逻辑 =================
+let currentAvgData = null; // 缓存当前打开的平均成绩数据
+
+// 参数: index(最新单次在数组中的索引), count(如5/12), typeLabel(如"ao5"), avgValue(成绩文本)
+function openAvgPopup(index, count, typeLabel, avgValue) {
+    const records = timerHistoryData[currentTimerEvent];
+    if (index + count > records.length) return; // 容错拦截
+
+    // 截取该组平均包含的所有单次成绩 (按最新到最旧的顺序)
+    const solves = records.slice(index, index + count);
+
+    // 计算历史真实序号
+    const total = records.length;
+    const endNum = total - index;
+    const startNum = total - (index + count - 1);
+    const rangeStr = `#${startNum} ~ ${endNum}`;
+
+    let isAo = typeLabel.toLowerCase().startsWith('ao');
+
+    let bestRaw = Infinity;
+    let worstRaw = -1;
+
+    let mappedSolves = solves.map(r => {
+        let actualMs = r.penalty === '+2' ? r.rawMs + 2000 : r.rawMs;
+        let isDNF = r.penalty === 'DNF';
+        let sortMs = isDNF ? Infinity : actualMs;
+
+        let baseStr = formatTimerOutput(actualMs);
+        if (r.penalty === '+2') baseStr += '+';
+
+        // 核心修改：DNF 强制拼接入原成绩
+        let dispStr = isDNF ? `DNF(${formatTimerOutput(r.rawMs)})` : baseStr;
+
+        if (sortMs < bestRaw) bestRaw = sortMs;
+        if (sortMs > worstRaw) worstRaw = sortMs;
+
+        return {
+            ...r,
+            sortMs: sortMs,
+            baseDisp: dispStr
+        };
+    });
+
+    // 倒序：按时间正向顺序 (老 -> 新) 排列，完美符合 WCA 读谱习惯
+    let chronologicalSolves = [...mappedSolves].reverse();
+
+    let bestMarked = false;
+    let worstMarked = false;
+
+    // 提取带括号的成绩列表字符串
+    let timeListStrs = chronologicalSolves.map(s => {
+        let finalStr = s.baseDisp;
+        if (isAo) {
+            // 给最快和最慢成绩加括号，即使它是带成绩的 DNF
+            if (s.sortMs === bestRaw && !bestMarked) {
+                finalStr = `(${finalStr})`;
+                bestMarked = true;
+            } else if (s.sortMs === worstRaw && !worstMarked) {
+                finalStr = `(${finalStr})`;
+                worstMarked = true;
+            }
+        }
+        s.finalDisp = finalStr; // 保存最终呈现文本到原对象
+        return finalStr;
+    });
+
+    // 核心计算：中位数 (Median)
+    let allSortMs = mappedSolves.map(s => s.sortMs).sort((a,b) => a - b);
+    let medianMs;
+    let mid = Math.floor(allSortMs.length / 2);
+    if (allSortMs.length % 2 === 0) {
+        let m1 = allSortMs[mid - 1];
+        let m2 = allSortMs[mid];
+        if (m1 === Infinity || m2 === Infinity) medianMs = Infinity;
+        else medianMs = Math.floor((m1 + m2) / 2);
+    } else {
+        medianMs = allSortMs[mid];
+    }
+    let medianStr = medianMs === Infinity ? "DNF" : formatTimerOutput(medianMs);
+
+    let bestStr = bestRaw === Infinity ? "DNF" : formatTimerOutput(bestRaw);
+    let worstSolveObj = mappedSolves.find(s => s.sortMs === worstRaw);
+    let worstStr = worstSolveObj ? worstSolveObj.baseDisp : "DNF";
+
+    // 格式化“五次去尾平均”之类的前缀翻译词
+    let cnCountMap = { 3: '三', 5: '五', 12: '十二', 50: '五十', 100: '一百' };
+    let cnCount = cnCountMap[count] || count.toString();
+    let avgTypeDesc = isAo ? `${cnCount}次去尾平均` : `${cnCount}次算术平均`;
+    let copyTitle = `${rangeStr}  ${avgTypeDesc} ${typeLabel} = ${avgValue}`;
+
+    currentAvgData = {
+        range: rangeStr,
+        title: `${typeLabel} = ${avgValue}`,
+        copyTitle: copyTitle,
+        timestamp: solves[0].timestamp, // 取最后一次复原的时间
+        best: bestStr,
+        worst: worstStr,
+        median: medianStr,
+        timeListStr: timeListStrs.join(', '),
+        chronologicalSolves: chronologicalSolves,
+        startNum: startNum
+    };
+
+    // 渲染文字
+    document.getElementById('avg-index-range').innerText = currentAvgData.range;
+    document.getElementById('avg-main-value').innerText = currentAvgData.title;
+    document.getElementById('avg-timestamp').innerText = currentAvgData.timestamp;
+    document.getElementById('avg-best-single').innerText = `最快单次：${currentAvgData.best}`;
+    document.getElementById('avg-worst-single').innerText = `最慢单次：${currentAvgData.worst}`;
+    document.getElementById('avg-median-single').innerText = `中位数：${currentAvgData.median}`;
+    document.getElementById('avg-time-list').innerText = `成绩列表：${currentAvgData.timeListStr}`;
+
+    // 显示摘要弹窗
+    document.getElementById('avg-score-popup').style.display = 'flex';
+}
+
+function closeAvgPopup() {
+    document.getElementById('avg-score-popup').style.display = 'none';
+}
+
+function copyAvgInfo() {
+    if (!currentAvgData) return;
+    const text = `该统计信息由NB Timer自动生成于${currentAvgData.timestamp}\n${currentAvgData.copyTitle}\n最快单次：${currentAvgData.best}\n最慢单次：${currentAvgData.worst}\n中位数：${currentAvgData.median}\n成绩列表：${currentAvgData.timeListStr}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+
+    // 获取到“复制”按钮并修改文字交互反馈
+    const btn = document.querySelectorAll('#avg-score-popup .edit-btn-cancel')[1];
+    if (btn) {
+        const oldText = btn.innerText;
+        btn.innerText = '已复制';
+        setTimeout(() => btn.innerText = oldText, 1500);
+    }
+}
+
+// 展开详细列表
+function openAvgDetails() {
+    closeAvgPopup();
+    const listContainer = document.getElementById('avg-details-list');
+    listContainer.innerHTML = "";
+
+    currentAvgData.chronologicalSolves.forEach((s, i) => {
+        // 使用正向推进的历史编号
+        const num = currentAvgData.startNum + i;
+
+        const item = document.createElement('div');
+        item.className = 'avg-detail-item';
+        item.innerHTML = `
+            <div class="avg-detail-row1">
+                <span class="avg-detail-time">#${num} &nbsp; ${s.finalDisp}</span>
+                <span class="avg-detail-date">${s.timestamp}</span>
+            </div>
+            <div class="avg-detail-scramble">${s.scramble}</div>
+        `;
+        listContainer.appendChild(item);
+    });
+
+    document.getElementById('avg-details-popup').style.display = 'flex';
+}
+
+function closeAvgDetails() {
+    document.getElementById('avg-details-popup').style.display = 'none';
 }
 
 function closeEditPopup() {
@@ -1744,21 +1978,23 @@ function switchTimerTab(tabName) {
 let timerTempEvent = '333';
 
 function initTimer() {
-    loadTimerData(); // 核心新增：启动时立刻读取本地硬盘数据
+    loadTimerData();
 
-    let evObj = eventDict.find(e => e.id === currentTimerEvent);
-    if (evObj) {
-        document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
-        document.getElementById('timer-event-name').innerText = evObj.name;
-        document.getElementById('timer-event-title').innerText = "WCA - " + evObj.name;
-    }
+    try {
+        let evObj = eventDict.find(e => e.id === currentTimerEvent);
+        if (evObj) {
+            document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
+            document.getElementById('timer-event-name').innerText = evObj.name;
+            document.getElementById('timer-event-title').innerText = "WCA - " + evObj.name;
+        }
+    } catch (e) {}
 
     if (!timerHistoryData[currentTimerEvent]) {
         timerHistoryData[currentTimerEvent] = [];
     }
 
-    recalculateSessionStats();
-    generateScramble();
+    try { recalculateSessionStats(); } catch(e) {}
+    try { generateScramble(); } catch(e) {}
     switchTimerTab('main');
 }
 
@@ -1933,23 +2169,44 @@ function getScrambleByEvent(ev) {
     return scramble;
 }
 
-// 升级版：支持自定义修饰符，并智能剥离数字前缀防止死循环
+// 升级版：智能同轴抵消防御引擎 (严格匹配 WCA 难度标准)
 function getRandomMoves(moves, length, mods = ["", "'", "2"]) {
     if (length === 0) return "";
     let scramble = [];
-    let lastMove = "";
+    let lastFace = "";
+    let secondLastFace = "";
+
+    // 核心规则：定义平行对立面
+    const opposites = { 'R': 'L', 'L': 'R', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F' };
 
     for (let i = 0; i < length; i++) {
-        let m;
-        // 核心修复：提取上一步的真实转动面（利用正则删掉开头的数字，取第一个字母）
-        let lastFace = lastMove ? lastMove.replace(/^\d+/, '')[0] : "";
+        let m, newFace;
+        let isValid = false;
 
         do {
             m = moves[Math.floor(Math.random() * moves.length)];
-            // 同样提取当前随机动作的真实面进行比对，彻底消灭死循环
-        } while (m.replace(/^\d+/, '')[0] === lastFace);
 
-        lastMove = m;
+            // 提取核心转动面 (智能剥离高阶数字和 w 修饰符，例如 '3Rw' -> 'R', 'Fw' -> 'F')
+            let match = m.match(/[RLUDFB]/);
+            newFace = match ? match[0] : m;
+
+            // 拦截规则 1：不能和上一步转动同一个基础面 (例如防止 R 和 Rw 连在一起)
+            if (newFace === lastFace) {
+                isValid = false;
+            }
+            // 拦截规则 2：杜绝同轴抵消夹心饼干 (例如严禁 F B F，或 R L Rw)
+            else if (newFace === secondLastFace && opposites[newFace] === lastFace) {
+                isValid = false;
+            }
+            else {
+                isValid = true;
+            }
+        } while (!isValid);
+
+        // 更新历史记录状态
+        secondLastFace = lastFace;
+        lastFace = newFace;
+
         scramble.push(m + mods[Math.floor(Math.random() * mods.length)]);
     }
     return scramble.join(" ");
@@ -2639,8 +2896,8 @@ function loadTimerData() {
             if (parsed.history) timerHistoryData = parsed.history;
             if (parsed.stat1) stat1 = parsed.stat1;
             if (parsed.stat2) stat2 = parsed.stat2;
+            if (parsed.uiSettings) uiSettings = { ...uiSettings, ...parsed.uiSettings };
 
-            // 恢复设置面板的数值显示
             document.getElementById('input-stat1-count').value = stat1.count;
             document.getElementById('input-stat2-count').value = stat2.count;
 
@@ -2651,14 +2908,14 @@ function loadTimerData() {
             document.getElementById(`btn-stat1-${stat1.type}`).classList.add('active');
             document.getElementById(`btn-stat2-${stat2.type}`).classList.add('active');
         }
-    } catch (e) {
-        console.warn("读取本地历史数据失败", e);
-    }
+    } catch (e) { console.warn("读取本地历史数据失败", e); }
+
+    // 核心防御：包裹 UI 设置，就算报错也绝不中断网页启动
+    try { applyUiSettings(); } catch(e) { console.warn("UI配置应用失败", e); }
 }
 
 function saveTimerData() {
     try {
-        // 容量防爆机制：每个项目硬上限 10000 条，超出则切掉最老的记录
         for (let ev in timerHistoryData) {
             if (timerHistoryData[ev].length > 10000) {
                 timerHistoryData[ev] = timerHistoryData[ev].slice(0, 10000);
@@ -2667,10 +2924,264 @@ function saveTimerData() {
         const dataToSave = {
             history: timerHistoryData,
             stat1: stat1,
-            stat2: stat2
+            stat2: stat2,
+            uiSettings: uiSettings
         };
         localStorage.setItem('nbTimerConfig', JSON.stringify(dataToSave));
-    } catch (e) {
-        console.warn("本地存储已满，无法保存新数据");
+    } catch (e) { console.warn("本地存储已满", e); }
+}
+
+// ================= 新增：界面设置交互引擎 =================
+function applyUiSettings() {
+    let fontObj = fontOptions.find(f => f.id === uiSettings.font) || fontOptions[0];
+    document.documentElement.style.setProperty('--timer-font', fontObj.family);
+
+    let fontNameEl = document.getElementById('current-font-name');
+    if (fontNameEl) fontNameEl.innerText = fontObj.name.split(' ')[0];
+
+    document.documentElement.style.setProperty('--timer-font-scale', uiSettings.fontSize / 100);
+
+    let sliderEl = document.getElementById('font-size-slider');
+    if (sliderEl) sliderEl.value = uiSettings.fontSize;
+
+    let sliderValEl = document.getElementById('font-size-val');
+    if (sliderValEl) sliderValEl.innerText = uiSettings.fontSize + '%';
+
+    document.documentElement.style.setProperty('--pb-single-color', uiSettings.colorSingle);
+    document.documentElement.style.setProperty('--pb-avg-color', uiSettings.colorAvg);
+
+    let singleDisp = document.getElementById('color-single-display');
+    if (singleDisp) singleDisp.style.background = uiSettings.colorSingle;
+
+    let singleHex = document.getElementById('color-single-hex');
+    if (singleHex) singleHex.value = uiSettings.colorSingle.toUpperCase();
+
+    let avgDisp = document.getElementById('color-avg-display');
+    if (avgDisp) avgDisp.style.background = uiSettings.colorAvg;
+
+    let avgHex = document.getElementById('color-avg-hex');
+    if (avgHex) avgHex.value = uiSettings.colorAvg.toUpperCase();
+
+    // 核心修复：在此处统一接管两处排版滑动开关的状态
+    let btnSimple = document.getElementById('btn-layout-simple');
+    let btn3d = document.getElementById('btn-layout-3d');
+    let btnSimpleGlobal = document.getElementById('btn-layout-simple-global');
+    let btn3dGlobal = document.getElementById('btn-layout-3d-global');
+
+    if (btnSimple && btn3d) {
+        btnSimple.classList.toggle('active', uiSettings.homeLayout === 'simple');
+        btn3d.classList.toggle('active', uiSettings.homeLayout === '3d');
+    }
+    if (btnSimpleGlobal && btn3dGlobal) {
+        btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'simple');
+        btn3dGlobal.classList.toggle('active', uiSettings.homeLayout === '3d');
     }
 }
+
+function openFontModal() {
+    const list = document.getElementById('font-options-list');
+    list.innerHTML = '';
+    fontOptions.forEach(f => {
+        let btn = document.createElement('div');
+        btn.className = `chal-event-item ${uiSettings.font === f.id ? 'active' : ''}`;
+        btn.style.flexDirection = 'row';
+        btn.style.padding = '14px 15px';
+        btn.innerHTML = `<span style="font-family: ${f.family}; font-size: 16px;">${f.name}</span>`;
+        btn.onclick = () => {
+            uiSettings.font = f.id;
+            saveTimerData();
+            applyUiSettings();
+            closeFontModal();
+        };
+        list.appendChild(btn);
+    });
+    document.getElementById('font-select-modal').style.display = 'flex';
+}
+
+function closeFontModal(e) {
+    if (e && e.target.id !== 'font-select-modal') return;
+    document.getElementById('font-select-modal').style.display = 'none';
+}
+
+function updateFontSize(val) {
+    uiSettings.fontSize = parseInt(val);
+    applyUiSettings();
+    saveTimerData();
+}
+
+function updateColor(type, val) {
+    let hex = val.startsWith('#') ? val : '#' + val;
+    if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) {
+        if (hex.length === 7) return;
+    } else {
+        if (type === 'single') uiSettings.colorSingle = hex;
+        else uiSettings.colorAvg = hex;
+        applyUiSettings();
+        saveTimerData();
+    }
+}
+
+// ---- 专属颜色卡片逻辑 ----
+let currentColorTarget = 'single';
+
+function openColorModal(type) {
+    currentColorTarget = type;
+    document.getElementById('color-modal-title').innerText = type === 'single' ? '选择颜色：最快单次' : '选择颜色：最快平均';
+
+    // 初始化同步显示当前的十六进制文本与原生调色盘底色
+    let currentColor = type === 'single' ? uiSettings.colorSingle : uiSettings.colorAvg;
+    document.getElementById('custom-color-btn-text').innerText = currentColor.toUpperCase();
+    document.getElementById('native-color-picker').value = currentColor;
+
+    const popup = document.getElementById('color-picker-modal');
+    popup.classList.remove('popup-fade-out');
+    popup.style.display = 'flex';
+}
+
+function closeColorModal(e) {
+    if (e && e.target.id !== 'color-picker-modal') return;
+    const popup = document.getElementById('color-picker-modal');
+    if (popup.style.display === 'none') return;
+    popup.classList.add('popup-fade-out');
+    setTimeout(() => { popup.style.display = 'none'; popup.classList.remove('popup-fade-out'); }, 200);
+}
+
+// 修复：剥离了导致报错的不存在的 input 元素
+function applyQuickColor(hex) {
+    document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
+    if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
+    else uiSettings.colorAvg = hex;
+    applyUiSettings();
+    saveTimerData();
+    closeColorModal();
+}
+
+function applyNativeColor(hex) {
+    document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
+    if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
+    else uiSettings.colorAvg = hex;
+    applyUiSettings();
+    saveTimerData();
+}
+
+// ================= 新增：3D 首页排版与交互逻辑 =================
+function setHomeLayout(layout) {
+    uiSettings.homeLayout = layout;
+    applyUiSettings();
+    saveTimerData();
+    // 如果当前正在主页，则瞬间切换排版
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && (activePage.id === 'home-page' || activePage.id === 'home-page-3d')) {
+        goHome();
+    }
+}
+
+// 升级为 3 状态机 (0: 基础模块, 1: 计时与挑战, 2: 全局设置)
+let cubeState = 0;
+let isCubeAnimating = false;
+
+function handleCubeClick(face) {
+    if (isCubeAnimating) return;
+
+    if (cubeState === 0) {
+        if (face === 'top') { navigateTo('ranking-page'); }
+        if (face === 'front') { navigateTo('records-page'); generateRecords(); }
+        if (face === 'right') { openSearchPage(); }
+    } else if (cubeState === 1) {
+        if (face === 'top') { alert("巅峰月赛系统搭建中，该功能暂未开放！"); }
+        if (face === 'front') { navigateTo('timer-page'); initTimer(); }
+        if (face === 'right') { initChallenge(); navigateTo('challenge-page'); }
+    } else if (cubeState === 2) {
+        navigateTo('settings-page'); // 3个面统一进入设置
+    }
+}
+
+// 支持左划/右划判断，并兼容入场动画调用
+function triggerCubeSpin(direction = 'right', isEntryAnim = false) {
+    // 兼容之前只传了一个 boolean 值的入场动画代码
+    if (typeof direction === 'boolean') {
+        isEntryAnim = direction;
+        direction = 'right';
+    }
+
+    if (isCubeAnimating) return;
+    isCubeAnimating = true;
+    const cube = document.getElementById('home-cube');
+    const scene = document.getElementById('scene-container');
+
+    cube.classList.remove('spinning-right', 'spinning-left', 'spinning');
+    if (scene) scene.classList.remove('spinning-blur');
+    void cube.offsetWidth;
+
+    // 根据滑动方向赋予不同的动画类名
+    if (direction === 'left') {
+        cube.classList.add('spinning-left');
+    } else {
+        cube.classList.add('spinning-right');
+    }
+
+    if (scene) scene.classList.add('spinning-blur');
+
+    if (!isEntryAnim) {
+        setTimeout(() => {
+            // 核心修复：顺应标准的轮播交互直觉
+            // 向左滑 (看下一页) -> 状态 +1
+            // 向右滑 (看上一页) -> 状态 +2 (等同于-1)
+            if (direction === 'left') {
+                cubeState = (cubeState + 1) % 3;
+            } else {
+                cubeState = (cubeState + 2) % 3;
+            }
+
+            const elTop = document.getElementById('cube-face-top');
+            const elFront = document.getElementById('cube-face-front');
+            const elRight = document.getElementById('cube-face-right');
+
+            if (cubeState === 0) {
+                elTop.innerText = '成绩排行榜';
+                elFront.innerText = '宁波纪录';
+                elRight.innerText = '成绩查询 · PK';
+            } else if (cubeState === 1) {
+                elTop.innerText = '巅峰月赛';
+                elFront.innerText = 'NB Timer';
+                elRight.innerText = 'NB Challenge';
+            } else if (cubeState === 2) {
+                elTop.innerText = '设置';
+                elFront.innerText = '设置';
+                elRight.innerText = '设置';
+            }
+        }, 350);
+    }
+
+    setTimeout(() => { isCubeAnimating = false; }, 700);
+}
+
+// 全局滑动侦测升级 (加入正负方向判断)
+let cubeStartX = 0;
+document.addEventListener('touchstart', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && activePage.id === 'home-page-3d') { cubeStartX = e.changedTouches[0].screenX; }
+}, {passive: false});
+
+document.addEventListener('touchend', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && activePage.id === 'home-page-3d') {
+        let delta = e.changedTouches[0].screenX - cubeStartX;
+        if (delta > 50) triggerCubeSpin('right');
+        else if (delta < -50) triggerCubeSpin('left');
+    }
+});
+
+document.addEventListener('mousedown', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && activePage.id === 'home-page-3d') { cubeStartX = e.clientX; }
+});
+
+document.addEventListener('mouseup', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && activePage.id === 'home-page-3d') {
+        let delta = e.clientX - cubeStartX;
+        if (delta > 80) triggerCubeSpin('right');
+        else if (delta < -80) triggerCubeSpin('left');
+    }
+});
