@@ -1118,7 +1118,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* 控制官方组件内部的尺寸 (电脑端调大) */
-#timer-scramble-display {
+#timer-scramble-display, #monthly-scramble-display {
     width: 250px;
     height: 200px;
 }
@@ -1133,10 +1133,11 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     }
 
     /* 核心修复：手机端打乱图调大 */
-    #timer-scramble-display {
+    #timer-scramble-display, #monthly-scramble-display {
         width: 180px !important;
         height: 140px !important;
     }
+
 }
 
 /* 4. 打乱公式区域 */
@@ -1297,11 +1298,18 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
    7. 移动端响应式布局 (Tab 单页模式)
    ========================================= */
 @media (max-width: 768px) {
-    .desktop-sidebar-nav { display: none !important; }
-    .timer-sidebar { padding-bottom: 0 !important; }
+    .desktop-sidebar-nav {
+        display: none !important;
+    }
+
+    .timer-sidebar {
+        padding-bottom: 0 !important;
+    }
+
     .timer-event-selector {
         width: 72% !important;
     }
+
     .sidebar-header-row .btn-more {
         display: block !important;
         width: 25% !important;
@@ -1314,58 +1322,169 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         height: 155px !important;
     }
 
-    #timer-page, #pk-page {
-        position: fixed; inset: 0; width: 100vw; height: 100dvh;
-        padding: 12px; margin: 0; box-sizing: border-box;
-        overflow: hidden; touch-action: none;
+    /* 把月赛计时页加进去，让它在手机端也能够沉浸式全屏 */
+    #timer-page, #pk-page, #monthly-timer-page, #monthly-ranking-page {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        padding: 12px;
+        margin: 0;
+        box-sizing: border-box;
+        overflow: hidden;
+        touch-action: none;
     }
 
     #pk-result-page {
-        position: relative; inset: auto; width: auto; height: auto;
-        min-height: calc(100dvh - 24px); padding: 12px; margin: 0;
-        box-sizing: border-box; overflow: visible; touch-action: pan-y;
+        position: relative;
+        inset: auto;
+        width: auto;
+        height: auto;
+        min-height: calc(100dvh - 24px);
+        padding: 12px;
+        margin: 0;
+        box-sizing: border-box;
+        overflow: visible;
+        touch-action: pan-y;
     }
 
     .timer-layout {
-        position: absolute; top: 56px; left: 12px; right: 12px; bottom: 0;
-        display: flex; flex-direction: column; width: auto; height: auto; gap: 0;
-        overflow: hidden; box-sizing: border-box;
+        position: absolute;
+        top: 56px;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        width: auto;
+        height: auto;
+        gap: 0;
+        overflow: hidden;
+        box-sizing: border-box;
     }
 
     .timer-sidebar, .timer-main {
-        display: none !important; width: 100%; height: 100%;
-        min-width: 0; box-sizing: border-box; border: none; box-shadow: none;
-        background: transparent; padding: 0 10px; overflow: hidden;
+        display: none !important;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        padding: 0 10px;
+        overflow: hidden;
     }
 
-    #timer-tab-list { padding: 30px 10px 0 !important; box-sizing: border-box; }
+    #timer-tab-list {
+        padding: 30px 10px 0 !important;
+        box-sizing: border-box;
+    }
+
     #timer-tab-main.active-tab, #timer-tab-list.active-tab {
-        display: flex !important; animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+        display: flex !important;
+        animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
     }
-    #timer-tab-main.active-tab { flex-direction: column; align-items: center; justify-content: center; position: relative; }
 
-    .scramble-container { top: 10px; left: 0; width: 100%; padding: 0 10px; box-sizing: border-box; }
-    #scramble-text { width: 100%; max-width: 100%; box-sizing: border-box; font-size: 16px; text-align: center; }
+    #timer-tab-main.active-tab {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
 
-    .timer-display { font-size: clamp(60px, 20vw, 85px) !important; margin-top: 0; }
-    .timer-stats-panel { left: 15px; bottom: 75px; margin: 0; }
-    .mobile-prompt { display: block; margin-top: 15px; }
-    .desktop-prompt { display: none; }
+    /* 月赛专属手机端主区域强制展示 */
+    #monthly-timer-main-area {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        padding: 0 10px;
+        overflow: hidden;
+    }
+
+    .scramble-container {
+        top: 10px;
+        left: 0;
+        width: 100%;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #scramble-text {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        font-size: 16px;
+        text-align: center;
+    }
+
+    .timer-display {
+        font-size: clamp(60px, 20vw, 85px) !important;
+        margin-top: 0;
+    }
+
+    .timer-stats-panel {
+        left: 15px;
+        bottom: 75px;
+        margin: 0;
+    }
+
+    .mobile-prompt {
+        display: block;
+        margin-top: 15px;
+    }
+
+    .desktop-prompt {
+        display: none;
+    }
 
     .timer-bottom-bar {
-        display: flex; position: fixed; bottom: 12px; left: 0; right: 0; margin: 0 auto;
-        width: 220px; height: 52px; background: rgba(248, 250, 252, 0.85);
-        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-        border-radius: 30px; z-index: 1050; -webkit-tap-highlight-color: transparent; user-select: none;
+        display: flex;
+        position: fixed;
+        bottom: 12px;
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+        width: 220px;
+        height: 52px;
+        background: rgba(248, 250, 252, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border-radius: 30px;
+        z-index: 1050;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
     }
+
     .timer-tab-btn {
-        flex: 1; display: flex; align-items: center; justify-content: center;
-        color: #94a3b8; cursor: pointer; transition: color 0.25s ease, transform 0.2s ease;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        cursor: pointer;
+        transition: color 0.25s ease, transform 0.2s ease;
         -webkit-tap-highlight-color: transparent;
     }
-    .timer-tab-btn.active { color: #334155; }
-    .timer-tab-btn:active { transform: scale(0.85); }
+
+    .timer-tab-btn.active {
+        color: #334155;
+    }
+
+    .timer-tab-btn:active {
+        transform: scale(0.85);
+    }
 
     .edit-score-popup {
         /* 手机端只负责覆盖内边距和对齐方式，背景模糊直接完美继承全局 */
@@ -1374,7 +1493,87 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         align-items: center !important;
     }
 
-} /* ⬅️ 核心修复：这个大括号找回来了，完美闭合了手机端代码！ */
+    /* 巅峰月赛：利用底部空余空间，让成绩列表和打乱图下沉并完美齐平 */
+    #monthly-stats-panel {
+        bottom: 30px !important;
+        left: 20px !important;
+        margin: 0 !important;
+    }
+
+    /* 核心修复：直接控制外壳 (Wrapper) 的位置 */
+    #monthly-scramble-outer-wrapper {
+        bottom: 30px !important;
+        right: 8px !important;
+    }
+
+    #monthly-scramble-draw-panel {
+        position: relative !important;
+        right: auto !important;
+        bottom: auto !important;
+    }
+
+    /* =========================================
+   手机端专属：输入成绩卡片贴底与毛玻璃恢复
+   ========================================= */
+    #monthly-manual-modal,
+    #nb-manual-modal {
+        background: rgba(248, 250, 252, 0.15) !important; /* 恢复原版的淡淡模糊背景 */
+        backdrop-filter: blur(4px) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+        align-items: flex-end !important;
+        padding: 12px !important;
+    }
+
+    #monthly-manual-modal .pk-confirm-card,
+    #nb-manual-modal .pk-confirm-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 20px 15px !important;
+        margin: 0 !important;
+        border-radius: 18px !important;
+        /* 核心修正：百分之百复刻“参赛确认”卡片的毛玻璃质感 */
+        background: rgba(255, 255, 255, 0.78) !important;
+        backdrop-filter: blur(18px) !important;
+        -webkit-backdrop-filter: blur(18px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.65) !important;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.7) !important;
+    }
+
+    #monthly-manual-modal h3,
+    #nb-manual-modal h3 {
+        font-size: 16px !important;
+    }
+
+    #monthly-manual-modal > div > div:first-child,
+    #nb-manual-modal > div > div:first-child {
+        margin-bottom: 12px !important;
+    }
+
+    #monthly-manual-input,
+    #nb-manual-input {
+        font-size: 38px !important;
+        padding: 0 !important;
+        margin-bottom: 15px !important;
+        background: transparent !important;
+    }
+
+    #monthly-manual-modal .ios-segment-control,
+    #nb-manual-modal .ios-segment-control {
+        margin-bottom: 15px !important;
+    }
+
+    /* 排除确认键，普通按键压缩高度 */
+    #monthly-manual-modal .numpad-btn:not(.numpad-confirm),
+    #nb-manual-modal .numpad-btn:not(.numpad-confirm) {
+        height: 44px !important;
+    }
+
+    /* 核心修正：释放确认键的高度，让它完美撑满分配好的两行空间 */
+    #monthly-manual-modal .numpad-confirm,
+    #nb-manual-modal .numpad-confirm {
+        height: 100% !important;
+    }
+}
 
 /* =========================================
    NB Challenge 专属样式 (跨平台完美适配版)
@@ -1680,3 +1879,100 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 .history-scroll-container::-webkit-scrollbar { width: 6px; }
 .history-scroll-container::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.4); border-radius: 4px; }
+
+/* =========================================
+   巅峰月赛列表样式
+   ========================================= */
+.monthly-event-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+.monthly-event-row:last-child { border-bottom: none; }
+.monthly-event-row:hover { background: #f8fafc; }
+.monthly-btn {
+    padding: 6px 18px !important;
+    font-size: 13px !important;
+    border-radius: 20px !important;
+}
+
+/* 去除黑色遮罩，恢复默认 */
+#monthly-manual-modal,
+#nb-manual-modal {
+    background: transparent;
+}
+
+/* =========================================
+   自定义键盘样式 (精致毛玻璃融合版)
+   ========================================= */
+.numpad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr; /* 核心修正：强制所有行等高，确保跨行按钮生效 */
+    gap: 8px;
+    background: transparent;
+    padding: 0;
+    border: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+.numpad-btn {
+    background: rgba(255, 255, 255, 0.85); /* 半透明白底，质感与毛玻璃卡片完美融合 */
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    transition: all 0.15s ease;
+}
+.numpad-btn:active {
+    background: rgba(226, 232, 240, 0.8);
+    transform: scale(0.95);
+}
+
+/* 核心修正：利用强制权重，统一清除和确认按钮的文字大小，无视 HTML 里的内联样式 */
+.numpad-btn[onclick*="CLEAR"],
+.numpad-confirm {
+    font-size: 16px !important;
+}
+
+.numpad-confirm {
+    grid-column: 4;
+    grid-row: 3 / span 2;
+    height: 100% !important; /* 核心修正：强制高度撑满两行 */
+    background: var(--primary-color) !important;
+    color: white !important;
+    border: none;
+    box-shadow: 0 4px 12px rgba(71, 85, 105, 0.2);
+}
+.numpad-confirm:active {
+    background: var(--primary-hover) !important;
+}
+
+/* 设置面板滚动且不挤压内容 */
+#sidebar-view-settings {
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* 增加底部内边距，确保最底部文字不被遮挡 */
+    padding-bottom: 60px;
+}
+
+/* 自定义隐形超细滚动条，避免挤压页面宽度 */
+#sidebar-view-settings::-webkit-scrollbar {
+    width: 4px;
+    background: transparent;
+}
+#sidebar-view-settings::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+}
