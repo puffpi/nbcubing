@@ -111,6 +111,21 @@
         </div>
 
         <div class="card" style="max-width: 650px; margin: 0 auto;">
+            <div class="sidebar-settings-title">用户</div>
+
+            <div class="ios-setting-group custom-ui-group">
+                <span>用户名</span>
+                <!-- 宽度严格锁定 140px，统一样式，带有浅灰色背景框 -->
+                <input type="text" id="setting-username" class="ios-input" style="width: 140px; padding: 6px 10px; margin: 0;" placeholder="请输入用户名" onchange="saveUsername(this.value)">
+            </div>
+
+            <div class="ios-setting-group custom-ui-group">
+                <span>WCA ID</span>
+                <!-- 强制大写，样式与用户名严格对齐 -->
+                <input type="text" id="setting-wcaid" class="ios-input" style="width: 140px; padding: 6px 10px; margin: 0; text-transform: uppercase;" placeholder="输入 WCA ID" onchange="saveWcaId(this.value)">
+            </div>
+
+            <hr class="settings-divider">
             <div class="sidebar-settings-title">个性化</div>
 
             <div class="ios-setting-group custom-ui-group">
@@ -127,7 +142,236 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.16.2</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.17.2</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================
+         巅峰月赛 核心功能模块 (统一规整版)
+    ========================================= -->
+
+    <!-- 1. 初次进入强制设置用户名弹窗 -->
+    <div id="monthly-name-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0; margin-bottom: 20px;">身份信息设置</h3>
+            <div style="text-align: left; margin-bottom: 12px;">
+                <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px; display: block; padding-left: 4px;">请输入用户名 (必填)</label>
+                <input type="text" id="monthly-input-name" class="ios-input" style="width: 100%;" placeholder="输入用户名">
+            </div>
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px; display: block; padding-left: 4px;">请输入 WCA ID (选填)</label>
+                <input type="text" id="monthly-input-wcaid" class="ios-input" style="width: 100%; text-transform: uppercase;" placeholder="输入 WCA ID">
+            </div>
+            <div style="display:flex; justify-content:center; gap:15px;">
+                <button class="btn btn-outline" style="flex:1; border-color: var(--text-muted); color: var(--text-muted);" onclick="cancelMonthlyName()">退出</button>
+                <button class="btn" style="flex:1;" onclick="confirmMonthlyName()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 参赛确认弹窗 -->
+    <div id="monthly-entry-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0;">参赛确认</h3>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">若未完成全部尝试就退出，此项目成绩将不会被保留，是否确认参加月赛？</p>
+            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyEntry()">取消</button>
+                <button class="btn" style="flex:1;" onclick="confirmMonthlyEntry()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 中途退出警告弹窗 -->
+    <div id="monthly-exit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0;">警 告</h3>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">若未完成此轮尝试，退出后记录将不被保留，且无法再次进入</p>
+            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyExit()">取消</button>
+                <button class="btn" style="flex:1;" onclick="confirmMonthlyExit()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 单次成绩确认与惩罚弹窗 (已修复滑动条震动 Bug) -->
+    <div id="monthly-penalty-modal" class="edit-score-popup" style="z-index: 2600; position: fixed;">
+        <div class="edit-score-content" style="max-width: 320px;">
+            <div id="monthly-penalty-index" style="color: var(--text-muted); font-size: 14px; font-weight: 600;">#1</div>
+            <div id="monthly-penalty-time" style="font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums;">0.00</div>
+            <div class="ios-segment-control" style="width: 100%; max-width: 220px; margin: 15px auto 20px auto; display: flex;">
+                <div class="ios-segment-btn active" style="flex:1; text-align:center;" id="monthly-pen-none" onclick="setMonthlyPenalty('')">无惩罚</div>
+                <div class="ios-segment-btn" style="flex:1; text-align:center;" id="monthly-pen-plus2" onclick="setMonthlyPenalty('+2')">+2</div>
+                <div class="ios-segment-btn" style="flex:1; text-align:center;" id="monthly-pen-dnf" onclick="setMonthlyPenalty('DNF')">DNF</div>
+            </div>
+            <div class="edit-popup-actions" style="justify-content: center;">
+                <button class="edit-btn-confirm" style="width: 100%;" onclick="confirmMonthlyPenalty()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 完赛提示弹窗 (替换为统一的深色不透明卡片，去除表情包) -->
+    <div id="monthly-finish-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2700; justify-content:center; align-items:center;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <h3 style="margin-top:0;">项目结束通知</h3>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">恭喜完成该项目月赛的全部尝试！</p>
+        </div>
+    </div>
+
+    <!-- 6. 巅峰月赛 列表主页 -->
+    <div id="monthly-page" class="page-container">
+        <div style="max-width: 650px; margin: 0 auto;">
+            <div class="page-header" style="padding: 0;">
+                <button onclick="goBack()">返回上一页</button>
+                <div>
+                    <h2 style="margin-bottom: 5px;">巅峰月赛</h2>
+                    <div id="monthly-date-range" style="font-size: 14px; color: var(--text-muted); font-weight: normal; font-family: 'SFMono-Regular', Consolas, monospace;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 0; overflow: hidden; max-width: 650px; margin: 0 auto;">
+            <div id="monthly-event-list" style="display: flex; flex-direction: column;">
+                <!-- JS 动态注入月赛项目 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. 巅峰月赛 排行榜页面 -->
+    <div id="monthly-ranking-page" class="page-container">
+        <div style="max-width: 650px; margin: 0 auto;">
+            <div class="page-header" style="padding: 0;">
+                <button onclick="goBack()">返回上一页</button>
+                <div>
+                    <h2 id="monthly-ranking-title" style="margin-bottom: 5px;">月赛排行榜</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="padding: 0; overflow: hidden; max-width: 650px; margin: 0 auto;">
+            <div id="monthly-ranking-list" style="display: flex; flex-direction: column;">
+                <!-- JS 动态注入排行榜数据 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. 巅峰月赛 专属计时器页面 -->
+    <div id="monthly-timer-page" class="page-container">
+        <!-- 将宽度精确设为 1050px，完美匹配下方卡片的真实外轮廓宽度 -->
+        <div class="page-header" style="z-index: 100; min-height: 44px; padding: 0; max-width: 1050px; margin: 24px auto 30px auto; width: 100%; align-items: flex-start;">
+            <button onclick="goBack()" style="position: relative; left: 0; top: 0; margin: 0;">返回上一页</button>
+        </div>
+
+        <div class="timer-layout" style="justify-content: center;">
+            <div class="timer-main card active-tab" id="monthly-timer-main-area" style="width: 100%; max-width: 1000px; margin: 0 auto; height: 100%;">
+
+                <div class="timer-stats-panel" id="monthly-stats-panel" style="left: 24px; bottom: 24px; font-size: 16px; line-height: 1.8;">
+                    <!-- JS 动态注入 Attempt 1 等成绩 -->
+                </div>
+
+                <div class="scramble-container">
+                    <div id="monthly-timer-title" style="font-size: 20px; font-weight: bold; color: var(--primary-color); margin-bottom: 12px; letter-spacing: 1px;">巅峰月赛 - 三阶</div>
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%;">
+                        <div id="monthly-scramble-text" style="font-size: 19px; font-weight: 700; text-align: center; line-height: 1.4; font-family: 'SFMono-Regular', Consolas, monospace; color: var(--text-main); max-width: 85%;"></div>
+                    </div>
+                </div>
+
+                <div id="monthly-timer-display" class="timer-display">0.00</div>
+
+                <div class="timer-prompt-text">
+                    <span class="desktop-prompt">
+                        长按空格键启动 · 任意键停止<br>
+                        <span class="prompt-sub">点击 ↓ 键输入成绩</span>
+                    </span>
+                    <span class="mobile-prompt">
+                        长按屏幕启动<br>
+                        <span class="prompt-sub">向下滑动输入成绩</span>
+                    </span>
+                </div>
+
+                <!-- 恢复原版打乱图面板，并将“输入成绩”按钮独立放置在它正上方外侧 -->
+                <div style="position: absolute; right: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 15;" id="monthly-scramble-outer-wrapper">
+                    <div class="timer-scramble-draw-panel" id="monthly-scramble-draw-panel" style="position: relative; right: auto; bottom: auto; margin: 0;">
+                        <twisty-player id="monthly-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 巅峰月赛：手动输入成绩弹窗 (采用标准的 pk-confirm-card 毛玻璃与圆角风格) -->
+    <div id="monthly-manual-modal" class="edit-score-popup" style="z-index: 2800; position: fixed; display: none;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 15px; width: 100%;">
+                <span style="position: absolute; left: 0; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeMonthlyManualInput()">✕</span>
+                <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">输入成绩</h3>
+            </div>
+
+            <input type="text" id="monthly-manual-input" readonly placeholder="0.00" style="width: 100%; text-align: center; font-size: 44px; font-weight: 900; font-family: 'SFMono-Regular', Consolas, monospace; border: none; background: transparent; padding: 0; margin-bottom: 15px; color: var(--text-main); outline: none; box-sizing: border-box;">
+
+            <div class="ios-segment-control" style="width: 100%; margin-bottom: 15px; display: flex;">
+                <div class="ios-segment-btn active" id="manual-pen-none" onclick="setManualPenalty('')" style="flex:1; text-align:center;">无惩罚</div>
+                <div class="ios-segment-btn" id="manual-pen-plus2" onclick="setManualPenalty('+2')" style="flex:1; text-align:center;">+2</div>
+                <div class="ios-segment-btn" id="manual-pen-dnf" onclick="setManualPenalty('DNF')" style="flex:1; text-align:center;">DNF</div>
+            </div>
+
+            <!-- 优化后等宽、矮高度的精致数字键盘 -->
+            <div class="numpad-grid" style="width: 100%; box-sizing: border-box;">
+                <div class="numpad-btn" onclick="manualInput('1')">1</div>
+                <div class="numpad-btn" onclick="manualInput('2')">2</div>
+                <div class="numpad-btn" onclick="manualInput('3')">3</div>
+                <div class="numpad-btn" onclick="manualInput('BACK')">⌫</div>
+
+                <div class="numpad-btn" onclick="manualInput('4')">4</div>
+                <div class="numpad-btn" onclick="manualInput('5')">5</div>
+                <div class="numpad-btn" onclick="manualInput('6')">6</div>
+                <div class="numpad-btn" style="font-size: 13px;" onclick="manualInput('CLEAR')">清除</div>
+
+                <div class="numpad-btn" onclick="manualInput('7')">7</div>
+                <div class="numpad-btn" onclick="manualInput('8')">8</div>
+                <div class="numpad-btn" onclick="manualInput('9')">9</div>
+                <div class="numpad-btn numpad-confirm" onclick="confirmMonthlyManual()">确认</div>
+
+                <div class="numpad-btn" onclick="manualInput(':')">:</div>
+                <div class="numpad-btn" onclick="manualInput('0')">0</div>
+                <div class="numpad-btn" onclick="manualInput('.')">.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 巅峰月赛：无效输入提示框 -->
+    <div id="invalid-input-toast" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 8px; z-index: 3000; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="this.style.display='none'">
+        无效输入
+    </div>
+
+    <!-- NB Timer：手动输入成绩弹窗 -->
+    <div id="nb-manual-modal" class="edit-score-popup" style="z-index: 2800; position: fixed; display: none;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 15px; width: 100%;">
+                <span style="position: absolute; left: 0; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeNbManualInput()">✕</span>
+                <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">输入成绩</h3>
+            </div>
+            <input type="text" id="nb-manual-input" readonly placeholder="0.00" style="width: 100%; text-align: center; font-size: 44px; font-weight: 900; font-family: 'SFMono-Regular', Consolas, monospace; border: none; background: transparent; padding: 0; margin-bottom: 15px; color: var(--text-main); outline: none; box-sizing: border-box;">
+            <div class="ios-segment-control" style="width: 100%; margin-bottom: 15px; display: flex;">
+                <div class="ios-segment-btn active" id="nb-manual-pen-none" onclick="setNbManualPenalty('')" style="flex:1; text-align:center;">无惩罚</div>
+                <div class="ios-segment-btn" id="nb-manual-pen-plus2" onclick="setNbManualPenalty('+2')" style="flex:1; text-align:center;">+2</div>
+                <div class="ios-segment-btn" id="nb-manual-pen-dnf" onclick="setNbManualPenalty('DNF')" style="flex:1; text-align:center;">DNF</div>
+            </div>
+            <div class="numpad-grid" style="width: 100%; box-sizing: border-box;">
+                <div class="numpad-btn" onclick="nbManualInput('1')">1</div>
+                <div class="numpad-btn" onclick="nbManualInput('2')">2</div>
+                <div class="numpad-btn" onclick="nbManualInput('3')">3</div>
+                <div class="numpad-btn" onclick="nbManualInput('BACK')">⌫</div>
+                <div class="numpad-btn" onclick="nbManualInput('4')">4</div>
+                <div class="numpad-btn" onclick="nbManualInput('5')">5</div>
+                <div class="numpad-btn" onclick="nbManualInput('6')">6</div>
+                <div class="numpad-btn" style="font-size: 13px;" onclick="nbManualInput('CLEAR')">清除</div>
+                <div class="numpad-btn" onclick="nbManualInput('7')">7</div>
+                <div class="numpad-btn" onclick="nbManualInput('8')">8</div>
+                <div class="numpad-btn" onclick="nbManualInput('9')">9</div>
+                <div class="numpad-btn numpad-confirm" onclick="confirmNbManual()">确认</div>
+                <div class="numpad-btn" onclick="nbManualInput(':')">:</div>
+                <div class="numpad-btn" onclick="nbManualInput('0')">0</div>
+                <div class="numpad-btn" onclick="nbManualInput('.')">.</div>
             </div>
         </div>
     </div>
@@ -338,6 +582,26 @@
                             <div id="color-avg-display" class="color-display-block" onclick="openColorModal('avg')"></div>
                             <input type="text" id="color-avg-hex" value="#f59e0b" class="ios-input hex-input" onchange="updateColor('avg', this.value)">
                         </div>
+                    </div>
+
+                    <hr class="settings-divider">
+                    <div class="sidebar-settings-title">手势</div>
+
+                    <!-- 电脑端专属手势提示 -->
+                    <div class="desktop-prompt" style="width: 100%; text-align: left;">
+                        <div class="ios-setting-group custom-ui-group"><span>长按空格键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">启动计时器</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>计时状态下点击任意键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">停止计时器</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>点击 → 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">切换打乱</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>点击 ← 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">删除上一次成绩</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>点击 ↑ 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">编辑惩罚</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>点击 ↓ 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">输入成绩</span></div>
+                    </div>
+
+                    <!-- 手机端专属手势提示 -->
+                    <div class="mobile-prompt" style="width: 100%; text-align: left; margin-top: 0;">
+                        <div class="ios-setting-group custom-ui-group"><span>长按屏幕</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">启动计时器</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>向右滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">切换打乱</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>向下滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">输入成绩</span></div>
                     </div>
                 </div> <!-- 闭合 sidebar-view-settings -->
 
