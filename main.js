@@ -21,7 +21,9 @@ let uiSettings = {
     font: 'default',
     fontSize: 100,
     colorSingle: '#f59e0b',
-    colorAvg: '#f59e0b'
+    colorAvg: '#f59e0b',
+    username: '', // 新增用户名储存
+    wcaId: '' // 新增 WCA ID 储存
 };
 
 const fontOptions = [
@@ -135,6 +137,17 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAutocomplete('pk-input-b', 'autocomplete-b');
     setupAutocomplete('search-input', 'autocomplete-search');
 
+    const nameInput = document.getElementById('monthly-input-name');
+    if (nameInput) {
+        nameInput.addEventListener('focus', function() {
+            if (this.dataset.error === 'true') {
+                this.value = '';
+                this.style.color = '';
+                this.dataset.error = 'false';
+            }
+        });
+    }
+
     // 初始状态下不让首页直接乱显现，先在后台拉取数据
     initData();
 });
@@ -168,11 +181,25 @@ function navigateTo(pageId, isForward = false) {
 function goHome() {
     let is3D = uiSettings.homeLayout === '3d';
     navigateTo(is3D ? 'home-page-3d' : 'home-page');
-    // 如果返回的是 3D 首页，触发一次不切字的纯入场动画
-    if (is3D) setTimeout(() => triggerCubeSpin(true), 50);
 }
 
 function goBack() {
+
+    // 强制关闭完赛撒花弹窗
+    const finishModal = document.getElementById('monthly-finish-modal');
+    if (finishModal && finishModal.style.display !== 'none') {
+        closeMonthlyFinishAlert();
+    }
+
+    // --- 核心拦截：巅峰月赛退出判定 ---
+    const activePage = document.querySelector('.page-container.active');
+    if (activePage && activePage.id === 'monthly-timer-page') {
+        if (!monthlyHasFinished) {
+            document.getElementById('monthly-exit-modal').style.display = 'flex';
+            return; // 拦截住返回指令
+        }
+    }
+
     if (inlinePkState !== 0) {
         inlinePkState = 0; inlinePkPlayerA = null; pendingPkPlayerB = null;
         document.body.classList.remove('pk-mode');
@@ -186,11 +213,6 @@ function goBack() {
         const prevState = historyStack.pop();
         showPage(prevState.id);
         setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
-
-        // 核心修复：如果是退回到 3D 首页，自动触发一次帅气的入场旋转
-        if (prevState.id === 'home-page-3d') {
-            setTimeout(() => triggerCubeSpin(true), 50);
-        }
     } else {
         goHome();
     }
@@ -206,8 +228,8 @@ function showPage(pageId) {
 
     const floatingNav = document.getElementById('floating-nav');
     if (floatingNav) {
-        // 核心修复：不管是简约版首页还是立体版首页，统统隐藏悬浮窗
-        floatingNav.style.display = (pageId === 'home-page' || pageId === 'home-page-3d' || pageId === 'challenge-page' || pageId === 'timer-page') ? 'none' : 'block';
+        // 核心修改：利用 startsWith 智能识别，只要是月赛相关的所有页面，统统隐藏悬浮导航
+        floatingNav.style.display = (pageId === 'home-page' || pageId === 'home-page-3d' || pageId === 'challenge-page' || pageId === 'timer-page' || pageId.startsWith('monthly-')) ? 'none' : 'block';
     }
 }
 
@@ -1298,7 +1320,12 @@ async function initData() {
 
         const activePage = document.querySelector('.page-container.active');
         if (!activePage) {
-            goHome(); // 根据读取到的排版正确进入
+            // 核心修改：仅在首次打开网页时进入主页，并触发一次动画
+            let is3D = uiSettings.homeLayout === '3d';
+            navigateTo(is3D ? 'home-page-3d' : 'home-page');
+            if (is3D) {
+                setTimeout(() => triggerCubeSpin('right', true), 50);
+            }
         } else {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
@@ -2317,19 +2344,21 @@ document.addEventListener('keyup', (e) => {
 });
 
 // =======================================================
-// 手机端：限定区域内的滑动切打乱与长按屏幕计时逻辑
+// 手机端：限定区域内的滑动切打乱/弹出卡片与长按屏幕计时逻辑 (NB Timer)
 // =======================================================
 let touchStartX = 0;
-let touchEndX = 0;
+let touchStartY = 0;
+let nbSwipeAction = null;
 
 document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-
     const isTimerArea = e.target.closest('#timer-tab-main');
     if (!isTimerArea) return;
 
     touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    nbSwipeAction = null;
 
     if (timerState === 'RUNNING') {
         if(e.cancelable) e.preventDefault();
@@ -2354,9 +2383,25 @@ document.addEventListener('touchstart', (e) => {
 document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-
     const isTimerArea = e.target.closest('#timer-tab-main');
+
     if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY')) {
+        let currentX = e.changedTouches[0].screenX;
+        let currentY = e.changedTouches[0].screenY;
+
+        if (currentX - touchStartX > 50) {
+            nbSwipeAction = 'right';
+        } else if (currentY - touchStartY > 50) {
+            nbSwipeAction = 'down';
+        }
+
+        // 判定发生滑动，立即中断长按状态并恢复原色
+        if (nbSwipeAction) {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'IDLE';
+            document.getElementById('timer-display').classList.remove('waiting', 'ready');
+        }
+
         if(e.cancelable) e.preventDefault();
     }
 }, { passive: false });
@@ -2364,8 +2409,8 @@ document.addEventListener('touchmove', (e) => {
 document.addEventListener('touchend', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-
     const isTimerArea = e.target.closest('#timer-tab-main');
+
     if (!isTimerArea) {
         if (timerState === 'WAITING' || timerState === 'READY') {
             clearTimeout(timerHoldTimeout);
@@ -2375,16 +2420,12 @@ document.addEventListener('touchend', (e) => {
         return;
     }
 
-    touchEndX = e.changedTouches[0].screenX;
-
-    if (timerState === 'WAITING' || timerState === 'IDLE') {
-        if (touchEndX - touchStartX > 50) {
-            clearTimeout(timerHoldTimeout);
-            timerState = 'IDLE';
-            document.getElementById('timer-display').classList.remove('waiting', 'ready');
-            generateScramble();
-            return;
-        }
+    if (nbSwipeAction === 'right') {
+        generateScramble();
+        return;
+    } else if (nbSwipeAction === 'down') {
+        openNbManualInput();
+        return;
     }
 
     const display = document.getElementById('timer-display');
@@ -2395,6 +2436,97 @@ document.addEventListener('touchend', (e) => {
     } else if (timerState === 'READY') {
         if(e.cancelable) e.preventDefault();
         startTimer();
+    }
+}, { passive: false });
+
+
+// =======================================================
+// 手机端专属：巅峰月赛滑动防误触与卡片触发
+// =======================================================
+let monthlyTouchStartX = 0;
+let monthlyTouchStartY = 0;
+let monthlySwipeAction = null;
+
+document.addEventListener('touchstart', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    const penaltyModal = document.getElementById('monthly-penalty-modal');
+    if (penaltyModal && penaltyModal.style.display === 'flex') return;
+    const isTimerArea = e.target.closest('#monthly-timer-main-area');
+    if (!isTimerArea || monthlyHasFinished) return;
+
+    monthlyTouchStartX = e.changedTouches[0].screenX;
+    monthlyTouchStartY = e.changedTouches[0].screenY;
+    monthlySwipeAction = null;
+
+    if (monthlyTimerState === 'RUNNING') {
+        if (e.cancelable) e.preventDefault();
+        stopMonthlyTimer();
+        return;
+    }
+
+    if (monthlyTimerState === 'IDLE') {
+        monthlyTimerState = 'WAITING';
+        const display = document.getElementById('monthly-timer-display');
+        display.classList.add('waiting');
+        monthlyHoldTimeout = setTimeout(() => {
+            if (monthlyTimerState === 'WAITING') {
+                monthlyTimerState = 'READY';
+                display.classList.remove('waiting');
+                display.classList.add('ready');
+            }
+        }, 350);
+    }
+}, { passive: false });
+
+document.addEventListener('touchmove', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    const isTimerArea = e.target.closest('#monthly-timer-main-area');
+
+    if (isTimerArea && (monthlyTimerState === 'WAITING' || monthlyTimerState === 'READY')) {
+        let currentY = e.changedTouches[0].screenY;
+        if (currentY - monthlyTouchStartY > 50) {
+            monthlySwipeAction = 'down';
+            clearTimeout(monthlyHoldTimeout);
+            monthlyTimerState = 'IDLE';
+            document.getElementById('monthly-timer-display').classList.remove('waiting', 'ready');
+        }
+        if (e.cancelable) e.preventDefault();
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    const penaltyModal = document.getElementById('monthly-penalty-modal');
+    if (penaltyModal && penaltyModal.style.display === 'flex') return;
+    const isTimerArea = e.target.closest('#monthly-timer-main-area');
+
+    if (!isTimerArea) {
+        if (monthlyTimerState === 'WAITING' || monthlyTimerState === 'READY') {
+            clearTimeout(monthlyHoldTimeout);
+            monthlyTimerState = 'IDLE';
+            document.getElementById('monthly-timer-display').classList.remove('waiting', 'ready');
+        }
+        return;
+    }
+
+    if (monthlyHasFinished) return;
+
+    if (monthlySwipeAction === 'down') {
+        openMonthlyManualInput();
+        return;
+    }
+
+    const display = document.getElementById('monthly-timer-display');
+    if (monthlyTimerState === 'WAITING') {
+        clearTimeout(monthlyHoldTimeout);
+        monthlyTimerState = 'IDLE';
+        display.classList.remove('waiting');
+    } else if (monthlyTimerState === 'READY') {
+        if (e.cancelable) e.preventDefault();
+        startMonthlyTimer();
     }
 }, { passive: false });
 
@@ -2976,6 +3108,13 @@ function applyUiSettings() {
         btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'simple');
         btn3dGlobal.classList.toggle('active', uiSettings.homeLayout === '3d');
     }
+
+    // --- 👇直接在这里追加：读取并显示用户名和 WCA ID ---
+    let userEl = document.getElementById('setting-username');
+    if (userEl) userEl.value = uiSettings.username || '';
+
+    let wcaEl = document.getElementById('setting-wcaid');
+    if (wcaEl) wcaEl.value = uiSettings.wcaId || '';
 }
 
 function openFontModal() {
@@ -3088,7 +3227,7 @@ function handleCubeClick(face) {
         if (face === 'front') { navigateTo('records-page'); generateRecords(); }
         if (face === 'right') { openSearchPage(); }
     } else if (cubeState === 1) {
-        if (face === 'top') { alert("巅峰月赛系统搭建中，该功能暂未开放！"); }
+        if (face === 'top') { initMonthly(); }
         if (face === 'front') { navigateTo('timer-page'); initTimer(); }
         if (face === 'right') { initChallenge(); navigateTo('challenge-page'); }
     } else if (cubeState === 2) {
@@ -3153,7 +3292,14 @@ function triggerCubeSpin(direction = 'right', isEntryAnim = false) {
         }, 350);
     }
 
-    setTimeout(() => { isCubeAnimating = false; }, 700);
+    // 核心修复：在 700ms 动画播放完毕后，彻底剥离动画类名
+    setTimeout(() => {
+        isCubeAnimating = false;
+
+        // 扒掉类名，让魔方瞬间切回静止的 -45 度（与旋转终点视觉完美重合），杜绝 display 切换时的二次重播
+        if (cube) cube.classList.remove('spinning-right', 'spinning-left', 'spinning');
+        if (scene) scene.classList.remove('spinning-blur');
+    }, 700);
 }
 
 // 全局滑动侦测升级 (加入正负方向判断)
@@ -3185,3 +3331,740 @@ document.addEventListener('mouseup', (e) => {
         else if (delta < -80) triggerCubeSpin('left');
     }
 });
+
+// ================= 用户名与 WCA ID 保存引擎 =================
+function saveUsername(val) {
+    uiSettings.username = val.trim();
+    saveTimerData();
+}
+
+function saveWcaId(val) {
+    uiSettings.wcaId = val.trim().toUpperCase();
+    saveTimerData();
+    // 失去焦点时自动变成大写并刷新显示
+    let wcaEl = document.getElementById('setting-wcaid');
+    if (wcaEl) wcaEl.value = uiSettings.wcaId;
+}
+
+// ================= 巅峰月赛渲染引擎 =================
+
+// =========================================
+// 巅峰月赛底层数据引擎与计时逻辑
+// =========================================
+let currentMonthlyEventTarget = '';
+let currentMonthlyEventName = '';
+let monthlyTimerState = 'IDLE';
+let monthlyHoldTimeout = null;
+let monthlyStartTime = 0;
+let monthlyAnimFrame = null;
+let monthlyAttempts = [];
+let monthlyHasFinished = false;
+let currentMonthlyRawMs = 0;
+let currentMonthlyPen = '';
+let monthlyFinishTimer = null;
+
+function getCurrentMonthKey() {
+    const now = new Date();
+    return `${now.getFullYear()}_${now.getMonth() + 1}`;
+}
+
+function getEventFormat(evId) {
+    if (['666', '777', '333bf', '444bf', '555bf', '333fm'].includes(evId)) return { count: 3 };
+    return { count: 5 };
+}
+
+function getMonthlyAttempts(eventId) {
+    let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
+    let key = getCurrentMonthKey();
+    return data[key] ? data[key][eventId] : null;
+}
+
+function markMonthlyParticipated(eventId, attemptsArr) {
+    let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
+    let key = getCurrentMonthKey();
+    if (!data[key]) data[key] = {};
+    data[key][eventId] = attemptsArr || 'DNF';
+    localStorage.setItem('monthlyParticipation', JSON.stringify(data));
+}
+
+function ensureMonthlyScrambles() {
+    const key = 'monthlyScrambles_' + getCurrentMonthKey();
+    let cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+
+    let generated = {};
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+    eventDict.forEach(ev => {
+        if (!excludedEvents.includes(ev.id)) {
+            let format = getEventFormat(ev.id);
+            let scrs = [];
+            for (let i = 0; i < format.count; i++) scrs.push(getScrambleByEvent(ev.id));
+            generated[ev.id] = scrs;
+        }
+    });
+    localStorage.setItem(key, JSON.stringify(generated));
+    return generated;
+}
+
+// ---------------- 成绩解析与智能格式化引擎 ----------------
+function processMonthlyResults(attemptsData, evId) {
+    let format = getEventFormat(evId);
+    let isBlind = ['333bf', '444bf', '555bf'].includes(evId);
+
+    if (!Array.isArray(attemptsData)) {
+        return { avgDisp: 'DNF (未完赛)', detailsStr: 'DNS', sortAvgMs: Infinity, sortSingleMs: Infinity };
+    }
+
+    let formattedList = attemptsData.map(a => {
+        if (a.penalty === 'DNS') return { disp: 'DNS', ms: Infinity };
+        if (a.penalty === 'DNF') return { disp: 'DNF', ms: Infinity };
+        let ms = a.penalty === '+2' ? a.rawMs + 2000 : a.rawMs;
+        return { disp: formatTimerOutput(ms) + (a.penalty === '+2' ? '+' : ''), ms };
+    });
+
+    let dnfOrDnsCount = attemptsData.filter(a => a.penalty === 'DNF' || a.penalty === 'DNS').length;
+    let isUnfinished = attemptsData.some(a => a.penalty === 'DNS');
+
+    let avgDisp = 'DNF';
+    let sortAvgMs = Infinity;
+    let sortSingleMs = Math.min(...formattedList.map(a => a.ms));
+
+    if (isBlind) {
+        if (sortSingleMs === Infinity) {
+            avgDisp = isUnfinished ? 'DNF (未完赛)' : 'DNF';
+        } else {
+            avgDisp = formatTimerOutput(sortSingleMs);
+        }
+        sortAvgMs = sortSingleMs;
+    } else if (format.count === 3) {
+        if (dnfOrDnsCount > 0) {
+            avgDisp = isUnfinished ? 'DNF (未完赛)' : 'DNF';
+        } else {
+            let sum = formattedList.reduce((acc, a) => acc + a.ms, 0);
+            sortAvgMs = Math.floor(sum / 3);
+            avgDisp = formatTimerOutput(sortAvgMs);
+        }
+    } else if (format.count === 5) {
+        if (dnfOrDnsCount > 1) {
+            avgDisp = isUnfinished ? 'DNF (未完赛)' : 'DNF';
+        } else {
+            let validMs = formattedList.map(a => a.ms).sort((a,b) => a-b);
+            let sum = 0;
+            for (let i = 1; i < 4; i++) sum += validMs[i];
+            sortAvgMs = Math.floor(sum / 3);
+            avgDisp = formatTimerOutput(sortAvgMs);
+        }
+    }
+
+    let bestMs = sortSingleMs;
+    let worstMs = Math.max(...formattedList.map(a => a.ms));
+    let bestMarked = false; let worstMarked = false;
+
+    let detailsStr = formattedList.map(a => {
+        let s = a.disp;
+        // 核心修改：只有在计算得出有效平均成绩的前提下，才给最好最慢加上括号
+        if (format.count === 5 && sortAvgMs !== Infinity) {
+            if (a.ms === worstMs && !worstMarked) { s = `(${s})`; worstMarked = true; }
+            else if (a.ms === bestMs && !bestMarked) { s = `(${s})`; bestMarked = true; }
+        }
+        return s;
+    }).join(' ');
+
+    return { avgDisp, detailsStr, sortAvgMs, sortSingleMs };
+}
+
+// ---------------- 身份验证与路由分发 ----------------
+function initMonthly() {
+    if (!uiSettings.username) {
+        document.getElementById('monthly-input-name').value = '';
+        document.getElementById('monthly-input-wcaid').value = '';
+        document.getElementById('monthly-name-modal').style.display = 'flex';
+    } else {
+        renderMonthlyList();
+        // 如果是从 3D 首页进来的，此处不加 true，确保不污染返回栈
+        navigateTo('monthly-page');
+    }
+}
+
+function cancelMonthlyName() {
+    document.getElementById('monthly-name-modal').style.display = 'none';
+    goBack();
+}
+
+function confirmMonthlyName() {
+    const nameEl = document.getElementById('monthly-input-name');
+    const wcaEl = document.getElementById('monthly-input-wcaid');
+    const nameVal = nameEl.value.trim();
+
+    if (nameEl.dataset.error === 'true' || !nameVal) {
+        nameEl.dataset.error = 'true';
+        nameEl.value = '不可输入空白用户名';
+        nameEl.style.color = '#e63946';
+        return;
+    }
+
+    uiSettings.username = nameVal;
+    uiSettings.wcaId = wcaEl.value.trim().toUpperCase();
+    saveTimerData();
+    applyUiSettings();
+
+    document.getElementById('monthly-name-modal').style.display = 'none';
+    renderMonthlyList();
+    navigateTo('monthly-page');
+}
+
+function renderMonthlyList() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    document.getElementById('monthly-date-range').innerText = `${month}.01 - ${month}.${lastDay}`;
+
+    const list = document.getElementById('monthly-event-list');
+    list.innerHTML = '';
+
+    ensureMonthlyScrambles();
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+
+    eventDict.forEach(ev => {
+        if (!excludedEvents.includes(ev.id)) {
+            let cnName = ev.name.split('（')[0].split('(')[0].trim();
+            let attemptsData = getMonthlyAttempts(ev.id);
+
+            let btnAction = `event.stopPropagation(); openMonthlyEntry('${ev.id}', '${cnName}')`;
+            let resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">参加</button>`;
+
+            if (attemptsData) {
+                let res = processMonthlyResults(attemptsData, ev.id);
+                btnAction = `event.stopPropagation(); alert('您已完成或中途退出了本月该项目的比赛，无法再次进入！')`;
+
+                resultHtml = `
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
+                        <!-- 核心修改：取消所有条件判断，固定使用 var(--primary-color) -->
+                        <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${res.avgDisp}</div>
+                        <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${res.detailsStr}</div>
+                    </div>
+                `;
+            }
+
+            let row = document.createElement('div');
+            row.className = 'monthly-event-row';
+            row.style.cursor = 'pointer';
+            row.onclick = () => { openMonthlyRanking(ev.id, cnName); };
+
+            row.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: bold; color: var(--text-main);">
+                    <span class="cubing-icon event-${ev.id}" style="font-size: 24px; color: var(--primary-color);"></span>
+                    <span>${cnName}</span>
+                </div>
+                ${resultHtml}
+            `;
+            list.appendChild(row);
+        }
+    });
+}
+
+// ---------------- 巅峰月赛 排行榜渲染引擎 ----------------
+function openMonthlyRanking(evId, cnName) {
+    document.getElementById('monthly-ranking-title').innerText = `月赛排行榜 - ${cnName}`;
+    const list = document.getElementById('monthly-ranking-list');
+    list.innerHTML = '';
+
+    let attemptsData = getMonthlyAttempts(evId);
+    let entries = [];
+
+    if (attemptsData) {
+        let res = processMonthlyResults(attemptsData, evId);
+        entries.push({
+            name: uiSettings.username,
+            wcaId: uiSettings.wcaId,
+            avgDisp: res.avgDisp,
+            detailsStr: res.detailsStr,
+            sortAvgMs: res.sortAvgMs,
+            sortSingleMs: res.sortSingleMs
+        });
+    }
+
+    // 核心修改：已彻底删除“泡芙老师”的虚拟数据注入块
+
+    // WCA 官方排名逻辑：优先比拼有效平均(单次)，若是 DNF 选手，则再比拼他们的最快单次进行底端排位
+    entries.sort((a, b) => {
+        if (a.sortAvgMs !== b.sortAvgMs) return a.sortAvgMs - b.sortAvgMs;
+        return a.sortSingleMs - b.sortSingleMs;
+    });
+
+    entries.forEach((entry, index) => {
+        let row = document.createElement('div');
+        row.className = 'monthly-event-row';
+        row.style.cursor = 'default';
+
+        let userDisplay = entry.wcaId ? `${entry.name}<br><span style="font-size:12px; color:var(--text-muted); font-weight:normal;">${entry.wcaId}</span>` : `${entry.name}`;
+
+        row.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 18px; font-weight: bold; color: var(--text-muted); width: 24px; text-align: center;">${index + 1}</span>
+                <div style="font-size: 15px; font-weight: bold; color: var(--text-main); line-height: 1.3;">${userDisplay}</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
+                <!-- 核心修改：取消了对未完赛的颜色判定，固定使用 var(--primary-color) -->
+                <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${entry.avgDisp}</div>
+                <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${entry.detailsStr}</div>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+
+    if (entries.length === 0) {
+        list.innerHTML = '<div style="padding: 30px; text-align: center; color: var(--text-muted);">暂无成绩记录</div>';
+    }
+
+    navigateTo('monthly-ranking-page', true);
+}
+
+// ---------------- 弹窗与进出控制 ----------------
+function openMonthlyEntry(evId, cnName) {
+    currentMonthlyEventTarget = evId;
+    currentMonthlyEventName = cnName;
+    document.getElementById('monthly-entry-modal').style.display = 'flex';
+}
+function closeMonthlyEntry() { document.getElementById('monthly-entry-modal').style.display = 'none'; }
+function closeMonthlyExit() { document.getElementById('monthly-exit-modal').style.display = 'none'; }
+
+function confirmMonthlyExit() {
+    document.getElementById('monthly-exit-modal').style.display = 'none';
+
+    // 核心修复：自动给未完成的次数强行塞入 DNS 并立即封存本地成绩
+    let format = getEventFormat(currentMonthlyEventTarget);
+    let finalAttempts = [...monthlyAttempts];
+    while (finalAttempts.length < format.count) {
+        finalAttempts.push({ rawMs: Infinity, penalty: 'DNS' });
+    }
+
+    markMonthlyParticipated(currentMonthlyEventTarget, finalAttempts);
+    monthlyTimerState = 'IDLE';
+    monthlyHasFinished = true;
+
+    // 强制后台刷新外部列表状态，保障返回后一眼看到 DNF 且无法重进
+    renderMonthlyList();
+    goBack();
+}
+
+function confirmMonthlyEntry() {
+    // 无论渲染组件出现任何报错，都绝不能阻断页面跳转
+    try {
+        document.getElementById('monthly-entry-modal').style.display = 'none';
+        monthlyAttempts = [];
+        monthlyHasFinished = false;
+        monthlyTimerState = 'IDLE';
+
+        let displayEl = document.getElementById('monthly-timer-display');
+        if(displayEl) {
+            displayEl.innerText = '0.00';
+            displayEl.className = 'timer-display';
+        }
+
+        let titleEl = document.getElementById('monthly-timer-title');
+        if(titleEl) {
+            titleEl.innerText = `巅峰月赛 - ${currentMonthlyEventName}`;
+        }
+
+        renderMonthlyAttemptsList();
+        renderMonthlyScramble(0);
+    } catch (err) {
+        console.warn("UI 渲染出现波动，已被系统拦截", err);
+    } finally {
+        // 核心修复：放在 finally 中，确保 100% 会执行跳转指令
+        navigateTo('monthly-timer-page', true);
+    }
+}
+
+function renderMonthlyAttemptsList() {
+    const panel = document.getElementById('monthly-stats-panel');
+    if (!panel) return;
+
+    panel.innerHTML = '';
+
+    const format = getEventFormat(currentMonthlyEventTarget);
+
+    for (let i = 0; i < format.count; i++) {
+        let valStr = '-';
+
+        if (i < monthlyAttempts.length) {
+            const att = monthlyAttempts[i];
+
+            if (att.penalty === '+2') {
+                valStr = formatTimerOutput(att.rawMs + 2000) + '+';
+            } else if (att.penalty === 'DNF') {
+                valStr = 'DNF';
+            } else if (att.penalty === 'DNS') {
+                valStr = 'DNS';
+            } else {
+                valStr = formatTimerOutput(att.rawMs);
+            }
+        }
+
+        const row = document.createElement('div');
+
+        row.style.marginBottom = '6px';
+        row.style.fontFamily = "'SFMono-Regular', Consolas, monospace";
+
+        row.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: var(--text-muted);
+                    width: 24px;
+                    text-align: center;
+                ">
+                    ${i + 1}
+                </span>
+
+                <span style="
+                    font-size: 15px;
+                    font-weight: bold;
+                    color: var(--text-main);
+                ">
+                    ${valStr}
+                </span>
+            </div>
+        `;
+
+        panel.appendChild(row);
+    }
+}
+
+function renderMonthlyScramble(attemptIndex) {
+    try {
+        let allScrambles = ensureMonthlyScrambles();
+        let scrambles = allScrambles[currentMonthlyEventTarget];
+
+        if (!scrambles) {
+            localStorage.removeItem('monthlyScrambles_' + getCurrentMonthKey());
+            allScrambles = ensureMonthlyScrambles();
+            scrambles = allScrambles[currentMonthlyEventTarget];
+        }
+
+        if (!scrambles || attemptIndex >= scrambles.length) return;
+
+        const scramble = scrambles[attemptIndex];
+        let textEl = document.getElementById('monthly-scramble-text');
+        if(textEl) textEl.innerHTML = scramble;
+
+        const displayEl = document.getElementById('monthly-scramble-display');
+        if (displayEl) {
+            let cleanScramble = scramble.replace(/<br>/g, ' ');
+
+            // 给官方组件的操作套上异常捕获罩，即使报错也只在后台静默处理
+            try {
+                displayEl.setAttribute('puzzle', getCubingJsPuzzle(currentMonthlyEventTarget));
+                displayEl.setAttribute('alg', cleanScramble);
+                displayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
+                displayEl.style.transform = `scale(${getScrambleZoom(currentMonthlyEventTarget)})`;
+
+                setTimeout(() => {
+                    try { displayEl.timestamp = "end"; } catch(e){}
+                }, 10);
+            } catch(renderErr) {
+                console.warn(`[${currentMonthlyEventTarget}] 项目的打乱图渲染失败，已降级为仅文本显示`, renderErr);
+            }
+        }
+    } catch (err) {
+        console.warn("打乱引擎波动，已被系统拦截", err);
+    }
+}
+
+// ---------------- 计时与判定逻辑 ----------------
+function startMonthlyTimer() {
+    monthlyTimerState = 'RUNNING';
+    const display = document.getElementById('monthly-timer-display');
+    display.classList.remove('ready');
+    monthlyStartTime = performance.now();
+
+    function update() {
+        if (monthlyTimerState !== 'RUNNING') return;
+        let elapsed = Math.floor(performance.now() - monthlyStartTime);
+        display.innerText = formatTimerOutput(elapsed);
+        monthlyAnimFrame = requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+function stopMonthlyTimer() {
+    monthlyTimerState = 'IDLE';
+    cancelAnimationFrame(monthlyAnimFrame);
+    currentMonthlyRawMs = Math.floor(performance.now() - monthlyStartTime);
+    document.getElementById('monthly-timer-display').innerText = formatTimerOutput(currentMonthlyRawMs);
+
+    document.getElementById('monthly-penalty-index').innerText = `#${monthlyAttempts.length + 1}`;
+    setMonthlyPenalty('');
+    document.getElementById('monthly-penalty-modal').style.display = 'flex';
+}
+
+function setMonthlyPenalty(pen) {
+    currentMonthlyPen = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`monthly-pen-${id}`).classList.remove('active'));
+    if (pen === '') document.getElementById('monthly-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('monthly-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('monthly-pen-dnf').classList.add('active');
+
+    let simDisp = "";
+    if (pen === '+2') simDisp = formatTimerOutput(currentMonthlyRawMs + 2000) + '+';
+    else if (pen === 'DNF') simDisp = 'DNF';
+    else simDisp = formatTimerOutput(currentMonthlyRawMs);
+    document.getElementById('monthly-penalty-time').innerText = simDisp;
+}
+
+function showMonthlyFinishAlert() {
+    const modal = document.getElementById('monthly-finish-modal');
+    modal.classList.remove('popup-fade-out');
+    modal.style.display = 'flex';
+    clearTimeout(monthlyFinishTimer);
+    monthlyFinishTimer = setTimeout(() => {
+        closeMonthlyFinishAlert();
+    }, 3000);
+}
+
+function closeMonthlyFinishAlert() {
+    const modal = document.getElementById('monthly-finish-modal');
+    if (modal.style.display === 'none') return;
+    modal.classList.add('popup-fade-out');
+    setTimeout(() => { modal.style.display = 'none'; modal.classList.remove('popup-fade-out'); }, 200);
+}
+
+function confirmMonthlyPenalty() {
+    document.getElementById('monthly-penalty-modal').style.display = 'none';
+
+    monthlyAttempts.push({
+        rawMs: currentMonthlyRawMs,
+        penalty: currentMonthlyPen
+    });
+
+    renderMonthlyAttemptsList();
+
+    if (monthlyAttempts.length < getEventFormat(currentMonthlyEventTarget).count) {
+        renderMonthlyScramble(monthlyAttempts.length);
+    } else {
+        monthlyHasFinished = true;
+        markMonthlyParticipated(currentMonthlyEventTarget, monthlyAttempts);
+        renderMonthlyList(); // 后台预渲染，为返回上一页做准备
+        showMonthlyFinishAlert();
+    }
+}
+
+// ---------------- 手动成绩输入与解析引擎 ----------------
+let currentManualPenalty = '';
+let invalidToastTimer = null;
+
+function openMonthlyManualInput() {
+    document.getElementById('monthly-manual-input').value = '';
+    setManualPenalty('');
+    document.getElementById('monthly-manual-modal').style.display = 'flex';
+}
+
+function closeMonthlyManualInput() {
+    document.getElementById('monthly-manual-modal').style.display = 'none';
+}
+
+function setManualPenalty(pen) {
+    currentManualPenalty = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`manual-pen-${id}`).classList.remove('active'));
+    if (pen === '') document.getElementById('manual-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('manual-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('manual-pen-dnf').classList.add('active');
+}
+
+function manualInput(val) {
+    const inputEl = document.getElementById('monthly-manual-input');
+    if (val === 'CLEAR') {
+        inputEl.value = '';
+    } else if (val === 'BACK') {
+        inputEl.value = inputEl.value.slice(0, -1);
+    } else {
+        if (inputEl.value.length < 12) inputEl.value += val;
+    }
+}
+
+function showInvalidInputToast() {
+    const toast = document.getElementById('invalid-input-toast');
+    toast.style.display = 'block';
+    clearTimeout(invalidToastTimer);
+    invalidToastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2000);
+}
+
+// 智能转换输入 (例如 0009.2300 -> 9230ms, 1:9.2 -> 69200ms)
+function parseManualTime(str) {
+    str = str.trim();
+    if (!str) return null;
+    if (!/^[0-9:\.]+$/.test(str)) return null;
+
+    const parts = str.split(':');
+    if (parts.length > 2) return null;
+
+    let min = 0;
+    let secStr = str;
+
+    if (parts.length === 2) {
+        if (!parts[0] || !parts[1]) return null;
+        min = parseInt(parts[0]);
+        secStr = parts[1];
+    }
+
+    let secParts = secStr.split('.');
+    if (secParts.length > 2) return null;
+
+    let sec = parseInt(secParts[0] || '0');
+    let msStr = secParts[1] || '0';
+
+    if (isNaN(min) || isNaN(sec)) return null;
+    if (parts.length === 2 && sec >= 60) return null;
+
+    msStr = (msStr + '000').substring(0, 3);
+    let ms = parseInt(msStr);
+    if (isNaN(ms)) return null;
+
+    return min * 60000 + sec * 1000 + ms;
+}
+
+function confirmMonthlyManual() {
+    const str = document.getElementById('monthly-manual-input').value;
+    let rawMs = 0;
+
+    if (str) {
+        let parsed = parseManualTime(str);
+        if (parsed === null) {
+            showInvalidInputToast();
+            return;
+        }
+        rawMs = parsed;
+    } else {
+        if (currentManualPenalty !== 'DNF') return;
+        rawMs = Infinity; // 输入为空但点击了 DNF 允许放行
+    }
+
+    monthlyAttempts.push({
+        rawMs: rawMs,
+        penalty: currentManualPenalty
+    });
+
+    renderMonthlyAttemptsList();
+
+    if (monthlyAttempts.length < getEventFormat(currentMonthlyEventTarget).count) {
+        renderMonthlyScramble(monthlyAttempts.length);
+    } else {
+        monthlyHasFinished = true;
+        markMonthlyParticipated(currentMonthlyEventTarget, monthlyAttempts);
+        renderMonthlyList();
+        showMonthlyFinishAlert();
+    }
+
+    closeMonthlyManualInput();
+}
+
+// ---------------- 专属按键与触屏控制 ----------------
+document.addEventListener('keydown', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (monthlyHasFinished) return;
+
+    const penaltyModal = document.getElementById('monthly-penalty-modal');
+    if (penaltyModal && penaltyModal.style.display === 'flex') return;
+
+    if (monthlyTimerState === 'IDLE') {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (document.activeElement) document.activeElement.blur();
+            if (e.repeat) return;
+            monthlyTimerState = 'WAITING';
+            const display = document.getElementById('monthly-timer-display');
+            display.classList.add('waiting');
+            monthlyHoldTimeout = setTimeout(() => {
+                if (monthlyTimerState === 'WAITING') {
+                    monthlyTimerState = 'READY';
+                    display.classList.remove('waiting');
+                    display.classList.add('ready');
+                }
+            }, 350);
+        }
+    } else if (monthlyTimerState === 'RUNNING') {
+        e.preventDefault();
+        stopMonthlyTimer();
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    const activePage = document.querySelector('.page-container.active');
+    if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (monthlyHasFinished) return;
+
+    if (e.code === 'Space') {
+        const display = document.getElementById('monthly-timer-display');
+        if (monthlyTimerState === 'WAITING') {
+            clearTimeout(monthlyHoldTimeout);
+            monthlyTimerState = 'IDLE';
+            display.classList.remove('waiting');
+        } else if (monthlyTimerState === 'READY') {
+            startMonthlyTimer();
+        }
+    }
+});
+
+// ================= NB Timer 手动成绩输入引擎 =================
+let currentNbManualPenalty = '';
+
+function openNbManualInput() {
+    document.getElementById('nb-manual-input').value = '';
+    setNbManualPenalty('');
+    document.getElementById('nb-manual-modal').style.display = 'flex';
+}
+
+function closeNbManualInput() {
+    document.getElementById('nb-manual-modal').style.display = 'none';
+}
+
+function setNbManualPenalty(pen) {
+    currentNbManualPenalty = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`nb-manual-pen-${id}`).classList.remove('active'));
+    if (pen === '') document.getElementById('nb-manual-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('nb-manual-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('nb-manual-pen-dnf').classList.add('active');
+}
+
+function nbManualInput(val) {
+    const inputEl = document.getElementById('nb-manual-input');
+    if (val === 'CLEAR') {
+        inputEl.value = '';
+    } else if (val === 'BACK') {
+        inputEl.value = inputEl.value.slice(0, -1);
+    } else {
+        if (inputEl.value.length < 12) inputEl.value += val;
+    }
+}
+
+function confirmNbManual() {
+    const str = document.getElementById('nb-manual-input').value;
+    let rawMs = 0;
+
+    if (str) {
+        let parsed = parseManualTime(str); // 复用已有的智能时间解析函数
+        if (parsed === null) {
+            showInvalidInputToast();
+            return;
+        }
+        rawMs = parsed;
+    } else {
+        if (currentNbManualPenalty !== 'DNF') return;
+        rawMs = Infinity;
+    }
+
+    timerHistoryData[currentTimerEvent].unshift({
+        rawMs: rawMs,
+        penalty: currentNbManualPenalty,
+        timestamp: getNowFormatted(),
+        scramble: document.getElementById('scramble-text').innerText
+    });
+
+    closeNbManualInput();
+    recalculateSessionStats();
+    saveTimerData();
+    generateScramble();
+}
