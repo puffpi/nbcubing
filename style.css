@@ -1905,6 +1905,15 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     background: transparent;
 }
 
+/* 全局强制压缩输入成绩的数字大小与间距，保持双端扁平 */
+#monthly-manual-input,
+#nb-manual-input {
+    font-size: 38px !important;
+    padding: 0 !important;
+    margin-bottom: 15px !important;
+    background: transparent !important;
+}
+
 /* =========================================
    自定义键盘样式 (精致毛玻璃融合版)
    ========================================= */
@@ -1929,7 +1938,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 48px;
+    height: 44px;
     cursor: pointer;
     user-select: none;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
@@ -1959,20 +1968,20 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     background: var(--primary-hover) !important;
 }
 
-/* 设置面板滚动且不挤压内容 */
+/* 设置面板滚动且彻底隐藏滚动条 */
 #sidebar-view-settings {
     overflow-y: auto;
     overflow-x: hidden;
-    /* 增加底部内边距，确保最底部文字不被遮挡 */
     padding-bottom: 60px;
+    /* 针对 Firefox 隐藏滚动条 */
+    scrollbar-width: none;
+    /* 针对 IE/Edge 隐藏滚动条 */
+    -ms-overflow-style: none;
 }
 
-/* 自定义隐形超细滚动条，避免挤压页面宽度 */
+/* 针对 WebKit 浏览器 (Chrome, Safari, iOS) 彻底隐藏滚动条 */
 #sidebar-view-settings::-webkit-scrollbar {
-    width: 4px;
-    background: transparent;
-}
-#sidebar-view-settings::-webkit-scrollbar-thumb {
-    background-color: rgba(148, 163, 184, 0.3);
-    border-radius: 4px;
+    display: none;
+    width: 0;
+    height: 0;
 }
