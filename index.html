@@ -30,7 +30,7 @@
 
     <div id="global-loading">
         <div class="spinner"></div>
-        <div>正在获取 WCA 数据库信息，请稍候...</div>
+        <div>载入中，请稍候...</div>
     </div>
 
     <div id="pk-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
@@ -103,7 +103,8 @@
          全局设置页面
     ========================================= -->
     <div id="settings-page" class="page-container">
-        <div class="page-header">
+        <!-- 将头部宽度限制为 700px (对应下方卡片的真实总宽)，保持居中且清除内边距 -->
+        <div class="page-header" style="max-width: 700px; margin: 24px auto 30px auto; padding: 0; width: 100%; position: relative;">
             <button onclick="goBack()">返回上一页</button>
             <div>
                 <h2 style="margin-bottom: 5px;">设置</h2>
@@ -376,6 +377,42 @@
         </div>
     </div>
 
+    <!-- NB Timer：删除上一次成绩弹窗 -->
+    <div id="nb-delete-last-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">删除上一次成绩</h3>
+            <div id="delete-last-index" style="color: var(--text-muted); font-size: 14px; font-weight: 600;">#1</div>
+            <div id="delete-last-time" style="font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0 20px 0; font-variant-numeric: tabular-nums;">0.00</div>
+
+            <!-- 使用同款小巧按钮布局 -->
+            <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
+                <button class="edit-btn-cancel" onclick="closeNbDeleteLast()">取消</button>
+                <button class="edit-btn-confirm" onclick="confirmNbDeleteLast()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NB Timer：编辑上一次成绩惩罚弹窗 -->
+    <div id="nb-edit-last-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">编辑惩罚</h3>
+            <div id="edit-last-index" style="color: var(--text-muted); font-size: 14px; font-weight: 600;">#1</div>
+            <div id="edit-last-time" style="font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums;">0.00</div>
+
+            <div class="ios-segment-control" style="width: 100%; margin: 15px 0 20px 0; display: flex;">
+                <div class="ios-segment-btn active" id="edit-last-pen-none" onclick="setNbEditLastPenalty('')" style="flex:1; text-align:center;">无惩罚</div>
+                <div class="ios-segment-btn" id="edit-last-pen-plus2" onclick="setNbEditLastPenalty('+2')" style="flex:1; text-align:center;">+2</div>
+                <div class="ios-segment-btn" id="edit-last-pen-dnf" onclick="setNbEditLastPenalty('DNF')" style="flex:1; text-align:center;">DNF</div>
+            </div>
+
+            <!-- 使用同款小巧按钮布局 -->
+            <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
+                <button class="edit-btn-cancel" onclick="closeNbEditLast()">取消</button>
+                <button class="edit-btn-confirm" onclick="confirmNbEditLast()">确认</button>
+            </div>
+        </div>
+    </div>
+
     <!-- =========================================
          NB Timer 计时器页面
     ========================================= -->
@@ -591,8 +628,8 @@
                     <div class="desktop-prompt" style="width: 100%; text-align: left;">
                         <div class="ios-setting-group custom-ui-group"><span>长按空格键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">启动计时器</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>计时状态下点击任意键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">停止计时器</span></div>
-                        <div class="ios-setting-group custom-ui-group"><span>点击 → 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">切换打乱</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>点击 ← 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">删除上一次成绩</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>点击 → 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">切换打乱</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>点击 ↑ 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">编辑惩罚</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>点击 ↓ 键</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">输入成绩</span></div>
                     </div>
@@ -600,7 +637,10 @@
                     <!-- 手机端专属手势提示 -->
                     <div class="mobile-prompt" style="width: 100%; text-align: left; margin-top: 0;">
                         <div class="ios-setting-group custom-ui-group"><span>长按屏幕</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">启动计时器</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>计时状态下点击屏幕</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">停止计时器</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>向左滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">删除上一次成绩</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>向右滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">切换打乱</span></div>
+                        <div class="ios-setting-group custom-ui-group"><span>向上滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">编辑惩罚</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>向下滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">输入成绩</span></div>
                     </div>
                 </div> <!-- 闭合 sidebar-view-settings -->
