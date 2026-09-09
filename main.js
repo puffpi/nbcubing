@@ -2306,7 +2306,21 @@ document.addEventListener('keydown', (e) => {
             generateScramble();
             return;
         }
-
+        if (e.code === 'ArrowDown') {
+            e.preventDefault();
+            openNbManualInput();
+            return;
+        }
+        if (e.code === 'ArrowLeft') {
+            e.preventDefault();
+            openNbDeleteLast();
+            return;
+        }
+        if (e.code === 'ArrowUp') {
+            e.preventDefault();
+            openNbEditLast();
+            return;
+        }
         if (e.code === 'Space') {
             e.preventDefault();
             if (document.activeElement) document.activeElement.blur();
@@ -2389,10 +2403,15 @@ document.addEventListener('touchmove', (e) => {
         let currentX = e.changedTouches[0].screenX;
         let currentY = e.changedTouches[0].screenY;
 
+        // 扩充四个方向的判定
         if (currentX - touchStartX > 50) {
             nbSwipeAction = 'right';
+        } else if (currentX - touchStartX < -50) {
+            nbSwipeAction = 'left';
         } else if (currentY - touchStartY > 50) {
             nbSwipeAction = 'down';
+        } else if (currentY - touchStartY < -50) {
+            nbSwipeAction = 'up';
         }
 
         // 判定发生滑动，立即中断长按状态并恢复原色
@@ -2425,6 +2444,12 @@ document.addEventListener('touchend', (e) => {
         return;
     } else if (nbSwipeAction === 'down') {
         openNbManualInput();
+        return;
+    } else if (nbSwipeAction === 'left') {
+        openNbDeleteLast();
+        return;
+    } else if (nbSwipeAction === 'up') {
+        openNbEditLast();
         return;
     }
 
@@ -4067,4 +4092,76 @@ function confirmNbManual() {
     recalculateSessionStats();
     saveTimerData();
     generateScramble();
+}
+
+// ================= NB Timer 快捷弹窗功能 (删除与编辑最新成绩) =================
+let currentNbEditLastPenalty = '';
+
+function openNbDeleteLast() {
+    const records = timerHistoryData[currentTimerEvent];
+    if (!records || records.length === 0) return; // 如果没有成绩，不响应
+
+    // 渲染序号与成绩
+    document.getElementById('delete-last-index').innerText = `#${records.length}`;
+    document.getElementById('delete-last-time').innerText = records[0].displayTime;
+
+    document.getElementById('nb-delete-last-modal').style.display = 'flex';
+}
+
+function closeNbDeleteLast() {
+    document.getElementById('nb-delete-last-modal').style.display = 'none';
+}
+
+function confirmNbDeleteLast() {
+    const records = timerHistoryData[currentTimerEvent];
+    if (records && records.length > 0) {
+        records.shift(); // 移除最新的一次成绩
+        recalculateSessionStats();
+        saveTimerData();
+    }
+    closeNbDeleteLast();
+}
+
+function openNbEditLast() {
+    const records = timerHistoryData[currentTimerEvent];
+    if (!records || records.length === 0) return;
+
+    const r = records[0];
+    document.getElementById('edit-last-index').innerText = `#${records.length}`;
+    setNbEditLastPenalty(r.penalty); // 自动匹配并展示当前状态
+
+    document.getElementById('nb-edit-last-modal').style.display = 'flex';
+}
+
+function closeNbEditLast() {
+    document.getElementById('nb-edit-last-modal').style.display = 'none';
+}
+
+function setNbEditLastPenalty(pen) {
+    currentNbEditLastPenalty = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`edit-last-pen-${id}`).classList.remove('active'));
+
+    if (pen === '') document.getElementById('edit-last-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('edit-last-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('edit-last-pen-dnf').classList.add('active');
+
+    const records = timerHistoryData[currentTimerEvent];
+    if (!records || records.length === 0) return;
+
+    let simDisp = "";
+    if (pen === '+2') simDisp = formatTimerOutput(records[0].rawMs + 2000) + '+';
+    else if (pen === 'DNF') simDisp = 'DNF';
+    else simDisp = formatTimerOutput(records[0].rawMs);
+
+    document.getElementById('edit-last-time').innerText = simDisp;
+}
+
+function confirmNbEditLast() {
+    const records = timerHistoryData[currentTimerEvent];
+    if (records && records.length > 0) {
+        records[0].penalty = currentNbEditLastPenalty;
+        recalculateSessionStats();
+        saveTimerData();
+    }
+    closeNbEditLast();
 }
