@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- 核心新增：引入 WCA 官方的 2D/3D 魔方渲染组件库 -->
     <script type="module" src="https://cdn.cubing.net/js/cubing/twisty"></script>
 </head>
@@ -344,6 +346,74 @@
         无效输入
     </div>
 
+    <!-- 1. 清空成绩确认弹窗 -->
+    <div id="timer-clear-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">清空成绩</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px; text-align: center;">确定要清空该项目的所有成绩记录吗？此操作无法撤销。</p>
+            <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
+                <button class="edit-btn-cancel" onclick="closeTimerClearModal()">取消</button>
+                <button class="edit-btn-confirm" style="background: #e63946;" onclick="confirmTimerClear()">确定清空</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 导出成绩确认弹窗 -->
+    <div id="timer-export-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">导出成绩</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px; text-align: center;">确定要导出当前项目的所有成绩吗？数据将自动复制到剪贴板，方便您跨设备导入。</p>
+            <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
+                <button class="edit-btn-cancel" onclick="closeTimerExportModal()">取消</button>
+                <button class="edit-btn-confirm" onclick="confirmTimerExport()">确定导出</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 导入成绩输入弹窗 -->
+    <div id="timer-import-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 360px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">导入成绩</h3>
+            <textarea id="timer-import-textarea" class="ios-input" placeholder="请粘贴之前导出的成绩数据..." style="width: 100%; height: 120px; resize: none; margin-bottom: 20px; text-align: left; padding: 10px; font-size: 13px; font-family: monospace;"></textarea>
+            <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
+                <button class="edit-btn-cancel" onclick="closeTimerImportModal()">取消</button>
+                <button class="edit-btn-confirm" onclick="confirmTimerImport()">确定导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 成绩分布图弹窗 -->
+    <div id="timer-dist-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 480px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main); text-align: center;">成绩分布</h3>
+
+            <div id="timer-dist-chart" class="dist-chart-container">
+                <!-- JS 动态注入纵轴与横向柱状图 -->
+            </div>
+
+            <!-- 正常的右下角按钮 (应用在成绩分布弹窗) -->
+            <div class="edit-popup-actions" style="justify-content: flex-end; margin-top: 15px;">
+                <button class="edit-btn-cancel" style="flex: none; width: 100px;" onclick="closeTimerDistModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 成绩走势折线图弹窗 -->
+    <div id="timer-trend-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+        <div class="card pk-confirm-card" style="width: 600px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main); text-align: center;">成绩折线图</h3>
+
+            <div style="width: 100%; height: 260px; position: relative;">
+                <canvas id="timer-trend-canvas"></canvas>
+            </div>
+
+            <!-- 正常的右下角按钮 (应用在折线图弹窗) -->
+            <div class="edit-popup-actions" style="justify-content: flex-end; margin-top: 15px;">
+                <button class="edit-btn-cancel" style="flex: none; width: 100px;" onclick="closeTimerTrendModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- NB Timer：手动输入成绩弹窗 -->
     <div id="nb-manual-modal" class="edit-score-popup" style="z-index: 2800; position: fixed; display: none;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
@@ -413,6 +483,29 @@
         </div>
     </div>
 
+    <!-- NB Timer：每次计时结束操作提示弹窗 -->
+    <!-- 外层加了 onclick="confirmPostSolve()"，实现点击空白处直接记录成绩的效果 -->
+    <div id="post-solve-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;" onclick="confirmPostSolve()">
+        <!-- 内层加了 event.stopPropagation() 防止点击卡片内部触发关闭 -->
+        <div class="card pk-confirm-card" style="width: 340px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;" onclick="event.stopPropagation()">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">记录本次成绩</h3>
+            <div id="post-solve-time" style="font-size: 46px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums;">0.00</div>
+
+            <div class="ios-segment-control" style="width: 100%; margin: 15px 0 20px 0; display: flex;">
+                <div class="ios-segment-btn active" id="post-pen-none" onclick="setPostPenalty('')" style="flex:1; text-align:center;">无惩罚</div>
+                <div class="ios-segment-btn" id="post-pen-plus2" onclick="setPostPenalty('+2')" style="flex:1; text-align:center;">+2</div>
+                <div class="ios-segment-btn" id="post-pen-dnf" onclick="setPostPenalty('DNF')" style="flex:1; text-align:center;">DNF</div>
+            </div>
+
+            <!-- 加入专属偏蓝色系的 继续计时 按钮 -->
+            <div class="edit-popup-actions" style="justify-content: space-between; width: 100%; gap: 10px;">
+                <button class="edit-btn-cancel" style="background: rgba(37, 99, 235, 0.1); color: #2563eb; flex: 1;" onclick="resumePostSolve()">继续计时</button>
+                <button class="edit-btn-cancel" style="flex: 1;" onclick="cancelPostSolve()">取消</button>
+                <button class="edit-btn-confirm" style="flex: 1;" onclick="confirmPostSolve()">确定</button>
+            </div>
+        </div>
+    </div>
+
     <!-- =========================================
          NB Timer 计时器页面
     ========================================= -->
@@ -438,7 +531,11 @@
 
                     <!-- 更多下拉悬浮窗 -->
                     <div id="timer-more-dropdown" class="timer-more-dropdown">
-                        <div class="timer-more-item" onclick="clearCurrentSession()">清空成绩</div>
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDistModal()">成绩分布</div>
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerTrendModal()">折线图</div>
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerImportModal()">导入成绩</div>
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerExportModal()">导出成绩</div>
+                        <div class="timer-more-item" onclick="openTimerClearModal()">清空成绩</div>
                     </div>
                 </div>
 
@@ -542,6 +639,15 @@
                 <div id="sidebar-view-settings" class="sidebar-view">
                     <div class="sidebar-settings-title">统计</div>
 
+                    <!-- 👇 新增：每次成绩确认提示开关 👇 -->
+                    <div class="ios-setting-group custom-ui-group">
+                        <span>提示对每次成绩的操作</span>
+                        <div class="ios-segment-control" style="width: 100px; margin: 0; display: flex;">
+                            <div class="ios-segment-btn active" id="btn-prompt-no" onclick="setPromptAction(false)" style="flex: 1; text-align: center; padding: 5px 0;">否</div>
+                            <div class="ios-segment-btn" id="btn-prompt-yes" onclick="setPromptAction(true)" style="flex: 1; text-align: center; padding: 5px 0;">是</div>
+                        </div>
+                    </div>
+
                     <!-- 统计 1 并排布局 -->
                     <div class="ios-setting-group custom-stat-group">
                         <div class="stat-labels">
@@ -602,6 +708,15 @@
                         <div class="ui-control-right ui-slider-wrapper">
                             <span id="font-size-val">100%</span>
                             <input type="range" id="font-size-slider" min="50" max="150" value="100" oninput="updateFontSize(this.value)">
+                        </div>
+                    </div>
+
+                    <!-- 👇 新增：打乱字体大小控制滑条 👇 -->
+                    <div class="ios-setting-group custom-ui-group">
+                        <span>打乱字体大小</span>
+                        <div class="ui-control-right ui-slider-wrapper">
+                            <span id="scramble-size-val">100%</span>
+                            <input type="range" id="scramble-size-slider" min="50" max="150" value="100" oninput="updateScrambleSize(this.value)">
                         </div>
                     </div>
 
@@ -863,18 +978,46 @@
             <h2>WCA 宁波纪录</h2>
         </div>
 
-        <div class="card">
+        <div class="card" style="padding-top: 20px;">
+            <!-- 全新自适应容器：左右布局 -->
+            <div class="records-controls-container">
+
+                <!-- 左侧：开关控制组 (横向排列) -->
+                <div class="records-toggles">
+                    <!-- 主开关：当前纪录 vs 历史纪录 -->
+                    <div class="ios-segment-control" style="flex-shrink: 0;">
+                        <div id="btn-record-mode-current" class="ios-segment-btn active" onclick="setRecordMode('current')">当前纪录</div>
+                        <div id="btn-record-mode-history" class="ios-segment-btn" onclick="setRecordMode('history')">历史纪录</div>
+                    </div>
+
+                    <!-- 副开关外壳：负责横向推拉动画 -->
+                    <div class="records-type-wrapper hidden" id="records-history-type-ctrl">
+                        <div class="ios-segment-control" style="width: 100%;">
+                            <div id="btn-record-type-single" class="ios-segment-btn active" onclick="setRecordHistoryType('single')">单次</div>
+                            <div id="btn-record-type-average" class="ios-segment-btn" onclick="setRecordHistoryType('average')">平均</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：WCA 项目图标栏 (靠右、允许换行) -->
+                <div class="records-event-tabs-wrapper">
+                    <div id="records-event-tabs">
+                        <!-- JS 将动态注入所有的 WCA 项目小图标 -->
+                    </div>
+                </div>
+            </div>
+
             <div class="table-responsive">
-                <table>
+                <table id="records-table">
                     <thead>
                         <tr>
                             <th style="width: 12%;">项目</th>
                             <th style="width: 10%;">类型</th>
                             <th style="width: 18%;">纪录保持者</th>
                             <th style="width: 12%;">成绩</th>
-                            <th style="width: 12%;">地区排名（NR）</th>
-                            <th style="width: 12%;">洲际排名（CR）</th>
-                            <th style="width: 12%;">世界排名（WR）</th>
+                            <th class="record-rank-col" style="width: 12%;">地区排名（NR）</th>
+                            <th class="record-rank-col" style="width: 12%;">洲际排名（CR）</th>
+                            <th class="record-rank-col" style="width: 12%;">世界排名（WR）</th>
                             <th style="width: 12%;">比赛与日期</th>
                         </tr>
                     </thead>
