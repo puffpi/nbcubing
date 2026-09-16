@@ -6,6 +6,8 @@
     -webkit-touch-callout: none !important; /* 禁用长按弹出的系统菜单 */
     -webkit-user-select: none !important; /* 禁用长按选中文字 */
     user-select: none !important;
+    /* 👇猛药 1：告诉浏览器这是一个 App，禁止双击放大，点击动作瞬间执行，0 延迟！ */
+    touch-action: manipulation !important;
 }
 
 /* 唯独放过输入框和选择框，保证正常打字和交互 */
@@ -32,6 +34,7 @@ input, textarea, select {
     --timer-font-scale: 1;
     --pb-single-color: #f59e0b;
     --pb-avg-color: #f59e0b;
+    --scramble-font-scale: 1; /* 新增兜底缩放 */
 }
 
 body {
@@ -243,7 +246,15 @@ select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(71
 /* =========================================
    表格基础样式与防覆盖行交互
    ========================================= */
-.table-responsive { overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+/* =========================================
+   表格基础样式与防覆盖行交互
+   ========================================= */
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: hidden; /* 核心修复：彻底封杀表格内部突变的垂直滚动条 */
+    padding-bottom: 5px;
+    -webkit-overflow-scrolling: touch;
+}
 table { width: 100%; border-collapse: separate; border-spacing: 0 2px; margin-top: 10px; }
 td { padding: 14px 12px; text-align: center; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
 
@@ -579,23 +590,25 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* =========================================
-   排行榜切换：柔和羽化 + 轻微上浮
+   排行榜与纪录表格切换：柔和羽化 + 阶梯式下拉
    ========================================= */
 
-#table-body {
+#table-body, #records-tbody {
     transition:
         opacity 0.24s ease,
         filter 0.24s ease,
         transform 0.24s ease;
 }
 
-#table-body.ranking-transition-out {
+#table-body.ranking-transition-out,
+#records-tbody.ranking-transition-out {
     opacity: 0;
     filter: blur(3px);
     transform: translateY(3px);
 }
 
-#table-body.ranking-transition-in tr {
+#table-body.ranking-transition-in tr,
+#records-tbody.ranking-transition-in tr {
     --row-delay: 0s;
     animation: rankingRowFadeIn 0.48s cubic-bezier(0.25, 0.8, 0.25, 1) both;
     animation-delay: var(--row-delay);
@@ -607,7 +620,6 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         transform: translateY(6px);
         filter: blur(3px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -864,7 +876,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     display: flex;
     padding: 5px 5px;
     border-bottom: 2px solid var(--border-color);
-    font-size: 13px;
+    font-size: 15.5px; /* 核心修改：从原本的 13px 放大，和下方成绩尺寸保持协调 */
     font-weight: bold;
     color: var(--text-muted);
     margin-bottom: 10px;
@@ -872,8 +884,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .timer-history-container {
     flex: 1;
     overflow-y: scroll;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 15px;
+    /* 核心修改：取消 monospace 等宽字体，改用圆润美观的系统无衬线字体 */
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16.5px; /* 核心修改：将原本的 15px 稍微放大，更加清晰 */
     font-weight: 600;
     color: var(--text-main);
     scrollbar-width: thin;
@@ -903,23 +916,32 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 /* =========================================
    成绩编辑专属悬浮卡片 (毛玻璃质感)
    ========================================= */
+/* =========================================
+   弹窗极速响应优化：微缩放 + 硬件加速
+   ========================================= */
 .edit-score-popup {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-
-    /* 提高不透明度至 0.65，模糊半径增至 8px，质感会变得厚实柔和 */
     background: rgba(248, 250, 252, 0.15);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
-
-    z-index: 2500 !important; /* <--- 修改这里，从 50 改为 2500 !important */
+    z-index: 2500 !important;
     display: none;
     align-items: center;
     justify-content: center;
     border-radius: 16px;
-    animation: pageFadeIn 0.2s ease forwards;
     padding: 8px;
     box-sizing: border-box;
+
+    /* 核心修复：换用专属极速动画，耗时从 0.2s 缩短到 0.12s，且取消位移 */
+    animation: popupFastShow 0.12s cubic-bezier(0.1, 0.9, 0.2, 1) forwards !important;
+    /* 强制开启 GPU 渲染，彻底消除毛玻璃带来的卡顿感 */
+    will-change: opacity, transform;
+}
+
+@keyframes popupFastShow {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .edit-score-content {
@@ -957,7 +979,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .edit-popup-actions { display: flex; gap: 10px; width: 100%; justify-content: space-between; }
 .edit-popup-actions button {
     flex: 1; padding: 10px 0; border: none; border-radius: 10px;
-    font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    /* 核心修改：缩短了按钮按下的响应时间 */
+    transition: all 0.05s ease !important;
     background: rgba(148, 163, 184, 0.15); color: var(--text-main);
 }
 .edit-popup-actions .edit-btn-del { color: #e63946; background: rgba(230, 57, 70, 0.1); }
@@ -1088,8 +1112,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     position: absolute;
     left: 24px;
     bottom: 24px;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 15px;
+    /* 核心修改：同样取消等宽字体，换成美观字体 */
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px; /* 略微调大一点点 */
     color: #64748b;
     line-height: 1.6;
     font-weight: 600;
@@ -1160,8 +1185,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     margin-bottom: 12px;
     letter-spacing: 1px;
 }
-#scramble-text {
-    font-size: 19px;
+#scramble-text, #monthly-scramble-text {
+    /* 核心修改：加入刚刚设置好的动态缩放变量 */
+    font-size: calc(19px * var(--scramble-font-scale, 1)) !important;
     font-weight: 700;
     text-align: center;
     line-height: 1.4;
@@ -1242,10 +1268,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     display: flex; align-items: center;
 }
 .ui-slider-wrapper:hover { background: transparent; }
-#font-size-val {
+#font-size-val, #scramble-size-val {
     width: 36px; text-align: center; font-family: monospace; flex-shrink: 0;
 }
-#font-size-slider {
+#font-size-slider, #scramble-size-slider {
     flex: 1; min-width: 0; width: 100%; accent-color: var(--primary-color); cursor: pointer; pointer-events: auto;
 }
 
@@ -1465,6 +1491,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         z-index: 1050;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
+
+        /* 👇 核心修复：开启 3D 硬件加速并剥离图层，彻底消灭重影闪烁 👇 */
+        transform: translateZ(0);
+        will-change: transform;
     }
 
     .timer-tab-btn {
@@ -1694,19 +1724,15 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* =========================================
-   弹窗通用消失动画
+   弹窗极速消失动画
    ========================================= */
 .popup-fade-out {
-    animation: popupFadeOut 0.2s ease-out forwards !important;
+    animation: popupFastHide 0.12s ease-out forwards !important;
 }
 
-@keyframes popupFadeOut {
-    from {
-        opacity: 1;
-    }
-    to {
-        opacity: 0;
-    }
+@keyframes popupFastHide {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.96); }
 }
 
 /* =========================================
@@ -1942,7 +1968,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     cursor: pointer;
     user-select: none;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-    transition: all 0.15s ease;
+    /* 核心修改：缩短了动画响应时间 */
+    transition: all 0.05s ease !important;
 }
 .numpad-btn:active {
     background: rgba(226, 232, 240, 0.8);
@@ -1984,4 +2011,214 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     display: none;
     width: 0;
     height: 0;
+}
+
+/* =========================================
+   宁波纪录专属：WCA 项目导航栏
+   ========================================= */
+.records-event-tab {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    color: var(--text-muted);
+    background: transparent;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+.records-event-tab:hover {
+    background: rgba(200, 200, 200, 0.15);
+    color: var(--text-main);
+}
+.records-event-tab.active {
+    color: #000000;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.06);
+}
+/* 置灰锁死状态：当在“当前纪录”时启用 */
+.records-event-tab.disabled {
+    pointer-events: none; /* 依旧锁死点击 */
+    color: #000000;       /* 取消透明和灰度，直接变成和选中一样的黑色 */
+    font-weight: bold;
+    opacity: 1;
+    filter: none;
+}
+
+/* =========================================
+   宁波纪录专属：全新动画控制栏与防抖表格
+   ========================================= */
+
+.records-controls-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    gap: 15px;
+}
+
+.records-toggles {
+    display: flex;
+    flex-direction: row; /* 强制横向排列 */
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
+}
+
+/* 隐藏状态的副开关：加入 nowrap 防止文字换行撑开高度导致页面上下跳动 */
+.records-type-wrapper {
+    overflow: hidden;
+    max-width: 150px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap; /* 绝对防御：防止隐藏时文字换行撑爆高度 */
+    opacity: 1;
+    transform: scaleX(1);
+    transform-origin: left center;
+    transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.records-type-wrapper.hidden {
+    max-width: 0;
+    opacity: 0;
+    margin-left: -15px;
+    transform: scaleX(0.8);
+}
+
+.records-event-tabs-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+#records-event-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* 手机端响应式排版：开关左右对齐，图标换行靠左 */
+@media (max-width: 768px) {
+    .records-controls-container {
+        flex-direction: column;
+    }
+    .records-toggles {
+        width: 100%;
+        justify-content: space-between; /* 完美实现当前纪录靠左，单次平均靠最右 */
+    }
+    .records-type-wrapper {
+        transform-origin: right center;
+    }
+    .records-type-wrapper.hidden {
+        margin-left: 0;
+    }
+    .records-event-tabs-wrapper {
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 5px; /* 让图标和上方开关稍微隔开一点 */
+    }
+    #records-event-tabs {
+        justify-content: flex-start;
+    }
+}
+
+/* 置灰锁死状态：同款灰色，彻底去除外圈的选中印记 */
+.records-event-tab.disabled {
+    pointer-events: none;
+    color: var(--text-muted); /* 变回未选中的淡灰色 */
+    background: transparent;  /* 彻底去掉背景灰印 */
+    font-weight: normal;
+}
+
+/* 历史纪录表格严格固定列宽，杜绝列名左右颤动 */
+table.table-historical {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 650px; /* 核心修改：手机端允许横向滚动，彻底杜绝文字挤压重叠 */
+}
+/* 核心修复：加入 !important 强行覆盖 HTML 里的内联宽度设置 */
+table.table-historical th:nth-child(1) { width: 10% !important; }  /* 项目 */
+table.table-historical th:nth-child(2) { width: 8% !important; }  /* 类型 */
+table.table-historical th:nth-child(3) { width: 24% !important; } /* 纪录保持者 */
+table.table-historical th:nth-child(4) { width: 16% !important; } /* 成绩 */
+table.table-historical th:nth-child(8) { width: 42% !important; } /* 比赛与日期 */
+
+/* =========================================
+   成绩分布柱状图专属样式 (连续区间版)
+   ========================================= */
+.dist-chart-container {
+    width: 100%;
+    max-height: 350px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding-right: 5px;
+    padding-top: 10px; /* 顶部留白防止第一个数字被遮挡 */
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+.dist-chart-container::-webkit-scrollbar { width: 6px; }
+.dist-chart-container::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.4); border-radius: 4px; }
+
+.dist-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 28px; /* 固定高度，确保刻度均匀分布 */
+    margin-bottom: 1px;
+}
+.dist-y-tick-top {
+    position: absolute;
+    left: 0;
+    top: -7px;
+    width: 45px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.dist-y-tick-bottom {
+    position: absolute;
+    left: 0;
+    bottom: -7px;
+    width: 45px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.dist-bar-track {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 20px;
+    margin-left: 55px;
+    border-left: 1px solid var(--border-color); /* 核心新增：纵轴基准线 */
+    padding-left: 4px;
+}
+.dist-bar-fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 5px;
+    box-sizing: border-box;
+    min-width: 20px;
+}
+.dist-bar-label {
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: 'SFMono-Regular', Consolas, monospace;
 }
