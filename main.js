@@ -15,11 +15,18 @@ let currentRankingType = 'single';
 let currentRankingGender = 'all';
 let hasHomeAnimated = false; // 记录首页是否已经完成过初始入场旋转
 
+// ================= 新增：Supabase 数据库配置 =================
+const SUPABASE_URL = 'https://aizchgrmejdqwpvpxxui.supabase.co'; // 这是你截图里的 URL
+const SUPABASE_KEY = 'sb_publishable_VnqJY_Yz9PyqFhKxBPsasA_cgBb9JfU'; // 记得替换这串文字
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ================= 新增：界面设置全局变量 =================
 let uiSettings = {
     homeLayout: '3d', // 默认简约版
     font: 'default',
     fontSize: 100,
+    scrambleSize: 100,
+    promptAction: true,
     colorSingle: '#f59e0b',
     colorAvg: '#f59e0b',
     username: '', // 新增用户名储存
@@ -1211,13 +1218,133 @@ function updateRanking() {
     });
 }
 
+// =========================================
+// 宁波纪录核心逻辑 (当前汇总 + 历史更迭史)
+// =========================================
+
+// 初始化顶部项目图标
+// 初始化顶部项目图标
+function initRecordsTabs() {
+    const container = document.getElementById('records-event-tabs');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // 核心修改：剔除了 mbf (旧版多盲)
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf'];
+
+    eventDict.forEach(ev => {
+        if (!excludedEvents.includes(ev.id)) {
+            let tab = document.createElement('div');
+            tab.className = `records-event-tab disabled`;
+            tab.dataset.ev = ev.id;
+            tab.innerHTML = `<span class="cubing-icon event-${ev.id}" style="font-size: 24px;"></span>`;
+            tab.onclick = () => {
+                if (recordsMode === 'current') return;
+                recordsHistoryEvent = ev.id;
+                updateRecordsTabsUI();
+                generateRecords();
+            };
+            container.appendChild(tab);
+        }
+    });
+    updateRecordsTabsUI();
+}
+
+// 更新图标界面的高亮与置灰状态
+function updateRecordsTabsUI() {
+    const tabs = document.querySelectorAll('.records-event-tab');
+    tabs.forEach(tab => {
+        if (recordsMode === 'current') {
+            tab.classList.add('disabled');
+            tab.classList.remove('active');
+        } else {
+            tab.classList.remove('disabled');
+            if (tab.dataset.ev === recordsHistoryEvent) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        }
+    });
+}
+
+// 控制主开关 (当前/历史) 与横向推拉动画
+function setRecordMode(mode) {
+    if (recordsMode === mode) return; // 防止重复点击重复刷新
+    recordsMode = mode;
+    document.getElementById('btn-record-mode-current').classList.toggle('active', mode === 'current');
+    document.getElementById('btn-record-mode-history').classList.toggle('active', mode === 'history');
+
+    const typeCtrl = document.getElementById('records-history-type-ctrl');
+    const tableEl = document.getElementById('records-table');
+
+    if (mode === 'history') {
+        recordsHistoryEvent = '333'; // 强制跳回三阶
+        typeCtrl.classList.remove('hidden');
+        tableEl.classList.add('table-historical');
+    } else {
+        typeCtrl.classList.add('hidden');
+        tableEl.classList.remove('table-historical');
+    }
+
+    document.querySelectorAll('.record-rank-col').forEach(th => {
+        th.style.display = (mode === 'current') ? 'table-cell' : 'none';
+    });
+
+    updateRecordsTabsUI();
+    generateRecords();
+}
+
+// 控制副开关 (单次/平均)
+function setRecordHistoryType(type) {
+    if (recordsHistoryType === type) return;
+    recordsHistoryType = type;
+    document.getElementById('btn-record-type-single').classList.toggle('active', type === 'single');
+    document.getElementById('btn-record-type-average').classList.toggle('active', type === 'average');
+    generateRecords();
+}
+
+// 入口分发函数 (核心修复：移除累赘延迟，1:1 完美复刻排行榜的极速动画)
 function generateRecords() {
     if (!isDataReady) return;
     const tbody = document.getElementById('records-tbody');
+
+    // 强制重置上一轮动画
+    tbody.classList.remove('ranking-transition-in', 'ranking-transition-out');
+    void tbody.offsetWidth;
+
+    // 开始旧内容淡出
+    tbody.classList.add('ranking-transition-out');
+
+    // 瞬间清空数据并注入新内容
     tbody.innerHTML = '';
+
+    if (recordsMode === 'current') {
+        generateCurrentRecords(tbody);
+    } else {
+        generateHistoricalRecords(tbody);
+    }
+
+    // 新内容淡入
+    requestAnimationFrame(() => {
+        tbody.classList.remove('ranking-transition-out');
+        tbody.classList.add('ranking-transition-in');
+
+        // 保持和 updateRanking 完全一致的收尾逻辑
+        setTimeout(() => {
+            tbody.classList.remove('ranking-transition-in');
+        }, 400);
+    });
+}
+
+// 渲染传统页面 (谁持有了当前最佳)
+function generateCurrentRecords(tbody) {
     const types = [{id: 'single', label: '单次'}, {id: 'average', label: '平均'}];
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf'];
 
     eventDict.forEach(ev => {
+        if (excludedEvents.includes(ev.id)) return;
+
         types.forEach(type => {
             let bestRecord = null;
             allCubersData.forEach(cuber => {
@@ -1263,45 +1390,100 @@ function generateRecords() {
             }
         });
     });
-
-    const nameSun = formatName('孙凯霖（Kailin Sun）');
-    const trSorSingle = document.createElement('tr');
-    trSorSingle.innerHTML = `
-        <td style="color:var(--text-main);">全项目综合排名</td>
-        <td><span class="type-badge">单次</span></td>
-        <td class="clickable-name-cell">
-            <span class="clickable-name" onclick="showPerson('2018SUNK01')">${nameSun}</span>
-        </td>
-        <td class="highlight-score">5278</td>
-        <td>${formatRank(67, 'NR')}</td>
-        <td>${formatRank(267, 'AsR')}</td>
-        <td>${formatRank(1531, 'WR')}</td>
-        <td>
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Vietnam Championship 2023</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2023-07-16</div>
-        </td>
-    `;
-    tbody.appendChild(trSorSingle);
-
-    const nameGuo = formatName('郭畅（Chang Guo）');
-    const trSorAvg = document.createElement('tr');
-    trSorAvg.innerHTML = `
-        <td></td>
-        <td><span class="type-badge">平均</span></td>
-        <td class="clickable-name-cell">
-            <span class="clickable-name" onclick="showPerson('2024GUOC01')">${nameGuo}</span>
-        </td>
-        <td class="highlight-score">5266</td>
-        <td>${formatRank(68, 'NR')}</td>
-        <td>${formatRank(295, 'AsR')}</td>
-        <td>${formatRank(1524, 'WR')}</td>
-        <td>
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Hefei August Open 2026</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2026-08-15</div>
-        </td>
-    `;
-    tbody.appendChild(trSorAvg);
 }
+
+// 渲染时间轴破纪录历史
+function generateHistoricalRecords(tbody) {
+    let allAttempts = [];
+    const evId = recordsHistoryEvent;
+    const type = recordsHistoryType;
+
+    for (let wcaId in allHistoryData) {
+        let userHistory = allHistoryData[wcaId][evId];
+        if (!userHistory) continue;
+
+        let cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
+        if (!cuber) continue;
+
+        let name = cuber.person.name;
+        let iso2 = cuber.person.country_iso2;
+
+        userHistory.forEach(attempt => {
+            let score = attempt[type];
+            if (score && score > 0) {
+                allAttempts.push({
+                    wcaId: wcaId, name: name, iso2: iso2, score: score,
+                    date: attempt.date, comp: attempt.comp
+                });
+            }
+        });
+    }
+
+    allAttempts.sort((a, b) => {
+        let dA = new Date(a.date).getTime();
+        let dB = new Date(b.date).getTime();
+        if (dA !== dB) return dA - dB;
+        return a.score - b.score;
+    });
+
+    let progression = [];
+    let currentBest = Infinity;
+
+    allAttempts.forEach(attempt => {
+        if (attempt.score < currentBest) {
+            currentBest = attempt.score;
+            progression.push(attempt);
+        }
+    });
+
+    if (progression.length === 0) {
+        // 核心修复：空数据时动态使用 colspan="5"，彻底解决列名缩成一团的 Bug
+        tbody.innerHTML = '<tr><td colspan="5" style="padding: 50px 0; color: var(--text-muted); font-size: 15px;">该项目暂无历史纪录数据</td></tr>';
+        return;
+    }
+
+    // 已经倒序排列：最新的纪录在顶部，越古老的在底部
+    progression.reverse();
+
+    let evObj = eventDict.find(e => e.id === evId);
+    let evName = evObj ? evObj.name : evId;
+    let typeLabel = type === 'single' ? '单次' : '平均';
+
+    progression.forEach((record, index) => {
+        let displayTime = formatWcaResult(record.score, evId, type);
+        let formattedName = formatName(record.name);
+
+        let isCurrentRecord = index === 0;
+
+        const tr = document.createElement('tr');
+        if (isCurrentRecord) {
+            tr.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+        }
+
+        tr.style.setProperty('--row-delay', `${Math.min(index * 0.02, 0.2)}s`);
+
+        let displayEventName = (index === 0) ? `<div style="display:flex; justify-content:center; align-items:center; gap:5px;"><span class="cubing-icon event-${evId}" style="color:var(--text-main); font-size:16px; margin-top:-2px;"></span><span>${evName}</span></div>` : '';
+
+        tr.innerHTML = `
+            <td>${displayEventName}</td>
+            <td><span class="type-badge">${typeLabel}</span></td>
+            <td class="clickable-name-cell">
+                <span class="clickable-name" onclick="showPerson('${record.wcaId}')">${formattedName}</span>
+            </td>
+            <td class="highlight-score" style="${isCurrentRecord ? 'color: #10b981;' : ''}">${displayTime}</td>
+            <td>
+                <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${record.comp}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${record.date}</div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// 👇 新增：历史纪录专属全局控制变量 👇
+let recordsMode = 'current'; // 当前模式
+let recordsHistoryType = 'single'; // 单次/平均
+let recordsHistoryEvent = '333'; // 默认三阶
 
 async function initData() {
     // 核心修复：必须在决定路由前，优先读取本地排版设置
@@ -1317,6 +1499,9 @@ async function initData() {
         allHistoryData = await resHist.json();
         isDataReady = true;
         if (loader) loader.style.display = 'none';
+
+        // 👇 核心新增：初始化纪录页面的项目图标 👇
+        initRecordsTabs();
 
         const activePage = document.querySelector('.page-container.active');
         if (!activePage) {
@@ -1556,11 +1741,234 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function clearCurrentSession() {
-    timerHistoryData[currentTimerEvent] = [];
+// 清空成绩
+function openTimerClearModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
+    document.getElementById('timer-clear-modal').style.display = 'flex';
+}
+function closeTimerClearModal() {
+    document.getElementById('timer-clear-modal').style.display = 'none';
+}
+function confirmTimerClear() {
+    timerHistoryData[currentTimerEvent] = [];
     recalculateSessionStats();
-    saveTimerData(); // 核心新增：清空后存档
+    saveTimerData();
+    closeTimerClearModal();
+}
+
+// ================= 导入导出引擎 =================
+function openTimerExportModal() {
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+    const records = timerHistoryData[currentTimerEvent] || [];
+    if (records.length === 0) return alert('当前项目没有任何成绩可导出！');
+    document.getElementById('timer-export-modal').style.display = 'flex';
+}
+function closeTimerExportModal() { document.getElementById('timer-export-modal').style.display = 'none'; }
+
+function confirmTimerExport() {
+    const dataStr = JSON.stringify(timerHistoryData[currentTimerEvent]);
+    navigator.clipboard.writeText(dataStr).then(() => {
+        const btn = document.querySelector('#timer-export-modal .edit-btn-confirm');
+        btn.innerText = '复制成功';
+        setTimeout(() => {
+            btn.innerText = '确定导出';
+            closeTimerExportModal();
+        }, 1200);
+    });
+}
+
+function openTimerImportModal() {
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+    document.getElementById('timer-import-textarea').value = '';
+    document.getElementById('timer-import-modal').style.display = 'flex';
+}
+function closeTimerImportModal() { document.getElementById('timer-import-modal').style.display = 'none'; }
+
+function confirmTimerImport() {
+    const str = document.getElementById('timer-import-textarea').value.trim();
+    if (!str) return alert('输入内容不能为空！');
+    try {
+        const parsed = JSON.parse(str);
+        if (!Array.isArray(parsed)) throw new Error('格式不合法');
+
+        // 追加合并成绩，并剔除无效数据
+        const currentData = timerHistoryData[currentTimerEvent] || [];
+        const validParsed = parsed.filter(r => r.hasOwnProperty('rawMs') && typeof r.rawMs === 'number');
+        timerHistoryData[currentTimerEvent] = [...currentData, ...validParsed];
+
+        recalculateSessionStats();
+        saveTimerData();
+        closeTimerImportModal();
+        alert('成绩导入成功！');
+    } catch (e) {
+        alert('解析失败，请检查粘贴的数据格式是否正确！');
+    }
+}
+
+// ================= 智能成绩分布引擎 (连续直方图) =================
+function openTimerDistModal() {
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+
+    const records = timerHistoryData[currentTimerEvent] || [];
+    const validMs = records.map(r => r.penalty === '+2' ? r.rawMs + 2000 : r.rawMs)
+                           .filter(ms => ms !== Infinity && !isNaN(ms) && ms > 0);
+
+    const container = document.getElementById('timer-dist-chart');
+    if (validMs.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">暂无有效成绩数据</div>';
+        document.getElementById('timer-dist-modal').style.display = 'flex';
+        return;
+    }
+
+    const maxMs = Math.max(...validMs);
+    const minMs = Math.min(...validMs);
+    const range = maxMs - minMs;
+
+    let stepMs = 1000;
+    if (range <= 3000) stepMs = 200;
+    else if (range <= 10000) stepMs = 500;
+    else if (range >= 60000) stepMs = 5000;
+
+    // 强制锁定最快和最慢所在的绝对区间
+    let startBin = Math.floor(minMs / stepMs) * stepMs;
+    let endBin = Math.floor(maxMs / stepMs) * stepMs;
+
+    let bins = {};
+    let maxCount = 0;
+
+    // 核心修复：强制补齐从最快到最慢中间的所有区间，哪怕是 0 次，也必须在纵轴上留出空位！
+    for (let b = startBin; b <= endBin; b += stepMs) {
+        bins[b] = 0;
+    }
+
+    validMs.forEach(ms => {
+        let binStart = Math.floor(ms / stepMs) * stepMs;
+        bins[binStart]++;
+        if (bins[binStart] > maxCount) maxCount = bins[binStart];
+    });
+
+    const sortedBinKeys = Object.keys(bins).map(Number).sort((a, b) => a - b);
+    container.innerHTML = '';
+
+    sortedBinKeys.forEach((start, index) => {
+        let count = bins[start];
+        let end = start + stepMs;
+        let percentage = maxCount === 0 ? 0 : (count / maxCount) * 100;
+
+        let startStr = stepMs >= 1000 ? formatTimerOutput(start) : (start/1000).toFixed(1);
+        let endStr = stepMs >= 1000 ? formatTimerOutput(end) : (end/1000).toFixed(1);
+
+        let endLabelHtml = '';
+        // 只有最后一个柱子，才在底部额外画一个封底的下刻度
+        if (index === sortedBinKeys.length - 1) {
+            endLabelHtml = `<div class="dist-y-tick-bottom">${endStr}</div>`;
+        }
+
+        container.innerHTML += `
+            <div class="dist-row">
+                <div class="dist-y-tick-top">${startStr}</div>
+                ${endLabelHtml}
+                <div class="dist-bar-track">
+                    <!-- 如果该区间没有成绩，就渲染透明的 0% 长度，只维持网格形状 -->
+                    <div class="dist-bar-fill" style="width: 0%; ${count === 0 ? 'background: transparent;' : ''}" data-width="${percentage}%">
+                        ${count > 0 ? `<span class="dist-bar-label">${count}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('timer-dist-modal').style.display = 'flex';
+
+    setTimeout(() => {
+        container.querySelectorAll('.dist-bar-fill').forEach(bar => {
+            bar.style.width = bar.getAttribute('data-width');
+        });
+    }, 50);
+}
+function closeTimerDistModal() {
+    document.getElementById('timer-dist-modal').style.display = 'none';
+}
+
+
+// ================= 折线图走势引擎 =================
+let timerTrendChartInstance = null;
+
+function openTimerTrendModal() {
+    document.getElementById('timer-more-dropdown').style.display = 'none';
+    const records = timerHistoryData[currentTimerEvent] || [];
+    const ctx = document.getElementById('timer-trend-canvas').getContext('2d');
+
+    if (records.length === 0) {
+        alert('暂无成绩数据可生成图表');
+        return;
+    }
+
+    // 数据反转，从老到新
+    const chronoRecords = [...records].reverse();
+
+    const labels = chronoRecords.map((_, i) => `#${i + 1}`);
+    const singleData = chronoRecords.map(r => r.effectiveMs !== Infinity ? Number((r.effectiveMs / 1000).toFixed(2)) : null);
+    const stat1Data = chronoRecords.map(r => r.stat1Ms !== Infinity ? Number((r.stat1Ms / 1000).toFixed(2)) : null);
+    const stat2Data = chronoRecords.map(r => r.stat2Ms !== Infinity ? Number((r.stat2Ms / 1000).toFixed(2)) : null);
+
+    if (timerTrendChartInstance) {
+        timerTrendChartInstance.destroy();
+    }
+
+    timerTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '单次',
+                    data: singleData,
+                    borderColor: '#f59e0b', // 琥珀橙
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    spanGaps: true // 跨越 DNF
+                },
+                {
+                    label: `${stat1.type}${stat1.count}`,
+                    data: stat1Data,
+                    borderColor: '#3b82f6', // 经典蓝
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0, // 隐藏端点使曲线更干净
+                    spanGaps: true
+                },
+                {
+                    label: `${stat2.type}${stat2.count}`,
+                    data: stat2Data,
+                    borderColor: '#10b981', // 翡翠绿
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    spanGaps: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 13, family: 'sans-serif' } } },
+                tooltip: { backgroundColor: 'rgba(51, 65, 85, 0.95)' }
+            },
+            scales: {
+                y: { title: { display: true, text: '时间 (秒)', font: { size: 12 } } },
+                x: { ticks: { autoSkip: true, maxTicksLimit: 10 } }
+            }
+        }
+    });
+
+    document.getElementById('timer-trend-modal').style.display = 'flex';
+}
+function closeTimerTrendModal() {
+    document.getElementById('timer-trend-modal').style.display = 'none';
 }
 
 function switchSidebarTab(tab) {
@@ -1671,6 +2079,10 @@ function recalculateSessionStats() {
     renderTimerHistory();
 }
 
+// ================= 新增：完赛结算专属全局变量 =================
+let pendingSolveMs = 0;
+let pendingSolvePenalty = '';
+
 function stopTimer() {
     timerState = 'IDLE';
     cancelAnimationFrame(requestAnimFrameId);
@@ -1679,15 +2091,85 @@ function stopTimer() {
     let finalTimeStr = formatTimerOutput(elapsed);
     document.getElementById('timer-display').innerText = finalTimeStr;
 
+    // 核心拦截：如果开启了每次提示，则拦截保存动作，弹出卡片
+    if (uiSettings.promptAction) {
+        pendingSolveMs = elapsed;
+        setPostPenalty('', false); // 默认无惩罚，且不更新界面避免闪烁
+        document.getElementById('post-solve-time').innerText = finalTimeStr;
+        document.getElementById('post-solve-modal').style.display = 'flex';
+    } else {
+        // 如果没开启，维持以前的无缝丝滑记录方式
+        timerHistoryData[currentTimerEvent].unshift({
+            rawMs: elapsed,
+            penalty: "",
+            timestamp: getNowFormatted(),
+            scramble: document.getElementById('scramble-text').innerText
+        });
+        recalculateSessionStats();
+        saveTimerData();
+        generateScramble();
+    }
+}
+
+// 专属卡片惩罚切换
+function setPostPenalty(pen, updateDisplay = true) {
+    pendingSolvePenalty = pen;
+    ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`post-pen-${id}`).classList.remove('active'));
+    if (pen === '') document.getElementById('post-pen-none').classList.add('active');
+    else if (pen === '+2') document.getElementById('post-pen-plus2').classList.add('active');
+    else if (pen === 'DNF') document.getElementById('post-pen-dnf').classList.add('active');
+
+    if (updateDisplay) {
+        let simDisp = "";
+        if (pen === '+2') simDisp = formatTimerOutput(pendingSolveMs + 2000) + '+';
+        else if (pen === 'DNF') simDisp = 'DNF';
+        else simDisp = formatTimerOutput(pendingSolveMs);
+        document.getElementById('post-solve-time').innerText = simDisp;
+    }
+}
+
+// 核心黑科技：瞬间倒推时光，恢复之前计时的无缝连接
+function resumePostSolve() {
+    document.getElementById('post-solve-modal').style.display = 'none';
+
+    // 巧妙利用时间差：当前时间减去刚才积攒的毫秒数，算出虚拟的“起步时间”
+    solveStartTime = performance.now() - pendingSolveMs;
+    timerState = 'RUNNING';
+
+    const display = document.getElementById('timer-display');
+    display.classList.remove('waiting', 'ready');
+
+    function update() {
+        if (timerState !== 'RUNNING') return;
+        let elapsed = Math.floor(performance.now() - solveStartTime);
+        display.innerText = formatTimerOutput(elapsed);
+        requestAnimFrameId = requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+// 丢弃成绩 (点击取消)：直接重置并给新打乱
+function cancelPostSolve() {
+    document.getElementById('post-solve-modal').style.display = 'none';
+    document.getElementById('timer-display').innerText = '0.00';
+    generateScramble();
+}
+
+// 确认记录 (点击确认或点击外部空白)：真正写入数据库
+function confirmPostSolve() {
+    const modal = document.getElementById('post-solve-modal');
+    if (modal.style.display === 'none') return; // 防连击保护
+    modal.style.display = 'none';
+
     timerHistoryData[currentTimerEvent].unshift({
-        rawMs: elapsed,
-        penalty: "",
+        rawMs: pendingSolveMs,
+        penalty: pendingSolvePenalty,
         timestamp: getNowFormatted(),
         scramble: document.getElementById('scramble-text').innerText
     });
 
     recalculateSessionStats();
-    saveTimerData(); // 核心新增：每次计时结束自动存档
+    saveTimerData();
     generateScramble();
 }
 
@@ -2300,6 +2782,14 @@ document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
 
+    // 👇 核心升级：如果确认卡片在屏幕上，敲击【任意键】直接记录成绩并关闭卡片！
+    const postModal = document.getElementById('post-solve-modal');
+    if (postModal && postModal.style.display === 'flex') {
+        e.preventDefault();
+        confirmPostSolve(); // 直接调用确定保存成绩
+        return;
+    }
+
     if (timerState === 'IDLE') {
         if (e.code === 'ArrowRight') {
             e.preventDefault();
@@ -2367,6 +2857,11 @@ let nbSwipeAction = null;
 document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+
+    // 👇 绝对防御：如果确认卡片在屏幕上，强行没收所有触摸指令！
+    const postModal = document.getElementById('post-solve-modal');
+    if (postModal && postModal.style.display === 'flex') return;
+
     const isTimerArea = e.target.closest('#timer-tab-main');
     if (!isTimerArea) return;
 
@@ -3104,6 +3599,14 @@ function applyUiSettings() {
     let sliderValEl = document.getElementById('font-size-val');
     if (sliderValEl) sliderValEl.innerText = uiSettings.fontSize + '%';
 
+    // 👇 核心新增：渲染并应用打乱公式的大小 👇
+    document.documentElement.style.setProperty('--scramble-font-scale', uiSettings.scrambleSize / 100);
+    let scrambleSliderEl = document.getElementById('scramble-size-slider');
+    if (scrambleSliderEl) scrambleSliderEl.value = uiSettings.scrambleSize;
+    let scrambleValEl = document.getElementById('scramble-size-val');
+    if (scrambleValEl) scrambleValEl.innerText = uiSettings.scrambleSize + '%';
+    // 👆 新增结束 👆
+
     document.documentElement.style.setProperty('--pb-single-color', uiSettings.colorSingle);
     document.documentElement.style.setProperty('--pb-avg-color', uiSettings.colorAvg);
 
@@ -3140,6 +3643,14 @@ function applyUiSettings() {
 
     let wcaEl = document.getElementById('setting-wcaid');
     if (wcaEl) wcaEl.value = uiSettings.wcaId || '';
+
+    // 👇 核心新增：渲染每次成绩确认开关 👇
+    let btnPromptNo = document.getElementById('btn-prompt-no');
+    let btnPromptYes = document.getElementById('btn-prompt-yes');
+    if (btnPromptNo && btnPromptYes) {
+        btnPromptNo.classList.toggle('active', !uiSettings.promptAction);
+        btnPromptYes.classList.toggle('active', !!uiSettings.promptAction);
+    }
 }
 
 function openFontModal() {
@@ -3169,6 +3680,20 @@ function closeFontModal(e) {
 
 function updateFontSize(val) {
     uiSettings.fontSize = parseInt(val);
+    applyUiSettings();
+    saveTimerData();
+}
+
+// 👇 核心新增：控制打乱字体的函数 👇
+function updateScrambleSize(val) {
+    uiSettings.scrambleSize = parseInt(val);
+    applyUiSettings();
+    saveTimerData(); // 自动保存到本地，下次打开仍然生效
+}
+
+// 👇 核心新增：控制提示选项的函数 👇
+function setPromptAction(val) {
+    uiSettings.promptAction = val;
     applyUiSettings();
     saveTimerData();
 }
@@ -3873,6 +4398,9 @@ function confirmMonthlyPenalty() {
         markMonthlyParticipated(currentMonthlyEventTarget, monthlyAttempts);
         renderMonthlyList(); // 后台预渲染，为返回上一页做准备
         showMonthlyFinishAlert();
+
+        // 核心新增：项目完赛，立刻同步到云端
+        syncMonthlyResultToCloud();
     }
 }
 
@@ -3955,7 +4483,7 @@ function confirmMonthlyManual() {
     let rawMs = 0;
 
     if (str) {
-        let parsed = parseManualTime(str);
+        let parsed = parseManualTime(str); // 复用已有的智能时间解析函数
         if (parsed === null) {
             showInvalidInputToast();
             return;
@@ -3980,6 +4508,9 @@ function confirmMonthlyManual() {
         markMonthlyParticipated(currentMonthlyEventTarget, monthlyAttempts);
         renderMonthlyList();
         showMonthlyFinishAlert();
+
+        // 核心新增：手动输入完赛，立刻同步到云端
+        syncMonthlyResultToCloud();
     }
 
     closeMonthlyManualInput();
@@ -4164,4 +4695,65 @@ function confirmNbEditLast() {
         saveTimerData();
     }
     closeNbEditLast();
+}
+
+// ================= 云端数据库接口：周赛/月赛系统 =================
+
+// ================= 云端同步辅助函数 =================
+function syncMonthlyResultToCloud() {
+    // 利用现成的成绩解析引擎，直接算出最终成绩和带括号的明细文本
+    let res = processMonthlyResults(monthlyAttempts, currentMonthlyEventTarget);
+
+    // 数据库的 int8 无法存储 JS 的 Infinity（DNF代表值）
+    // 将其转化为 99999999，确保在云端升序排列时 DNF 自动垫底
+    let uploadMs = res.sortAvgMs;
+    if (uploadMs === Infinity) {
+        uploadMs = 99999999;
+    }
+
+    // 触发 Supabase 上传接口
+    uploadWeeklyResult(
+        uiSettings.wcaId || '',
+        uiSettings.username || '匿名魔友',
+        currentMonthlyEventTarget,
+        uploadMs,
+        res.detailsStr
+    );
+}
+
+// 1. 上传成绩到全网
+async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
+    const { data, error } = await supabaseClient
+        .from('WeeklyRecord')
+        .insert([
+            {
+                wca_id: wcaId,
+                username: username,
+                event_id: eventId,
+                raw_ms: rawMs,
+                details: details
+            }
+        ]);
+
+    if (error) {
+        console.error('成绩上传失败：', error);
+    } else {
+        console.log('成绩已同步至排行榜！');
+    }
+}
+
+// 2. 从全网拉取排行榜
+async function fetchWeeklyLeaderboard(eventId) {
+    const { data, error } = await supabaseClient
+        .from('WeeklyRecord')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('raw_ms', { ascending: true }) // 毫秒数越小（越快）排得越靠前
+        .limit(50); // 最多拉取前 50 名的数据
+
+    if (error) {
+        console.error('拉取排行榜失败：', error);
+        return [];
+    }
+    return data;
 }
