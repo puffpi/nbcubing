@@ -22,15 +22,18 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ================= 新增：界面设置全局变量 =================
 let uiSettings = {
-    homeLayout: '3d', // 默认简约版
+    homeLayout: 'simple', // 默认简约版
     font: 'default',
     fontSize: 100,
     scrambleSize: 100,
+    chalTimerSize: 100,    // <--- 新增：对战计时器大小
+    chalScrambleSize: 100, // <--- 新增：对战打乱公式大小
     promptAction: true,
     colorSingle: '#f59e0b',
     colorAvg: '#f59e0b',
     username: '', // 新增用户名储存
     wcaId: '' // 新增 WCA ID 储存
+
 };
 
 const fontOptions = [
@@ -98,7 +101,7 @@ async function fetchAutocomplete(query) {
     return results;
 }
 
-function setupAutocomplete(inputId, dropdownId) {
+function setupAutocomplete(inputId, dropdownId, onSelectCallback) {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropdownId);
 
@@ -125,6 +128,11 @@ function setupAutocomplete(inputId, dropdownId) {
             div.onclick = () => {
                 input.value = `${formatName(r.name)}（${r.wca_id}）`;
                 dropdown.style.display = 'none';
+
+                // 核心修复：如果传了回调函数（比如直达主页的指令），就立刻执行
+                if (onSelectCallback) {
+                    onSelectCallback(r.wca_id);
+                }
             };
             dropdown.appendChild(div);
         });
@@ -142,7 +150,9 @@ function setupAutocomplete(inputId, dropdownId) {
 document.addEventListener("DOMContentLoaded", () => {
     setupAutocomplete('pk-input-a', 'autocomplete-a');
     setupAutocomplete('pk-input-b', 'autocomplete-b');
-    setupAutocomplete('search-input', 'autocomplete-search');
+    setupAutocomplete('search-input', 'autocomplete-search', (wcaId) => {
+        showPerson(wcaId);
+    });
 
     const nameInput = document.getElementById('monthly-input-name');
     if (nameInput) {
@@ -155,7 +165,43 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 初始状态下不让首页直接乱显现，先在后台拉取数据
+    // ================= 全局导航栏下拉菜单逻辑 =================
+    // 统一关闭所有全局导航下拉窗；不使用 hide-dropdown 等“伪隐藏”状态。
+    window.closeNavDropdowns = function() {
+        document.querySelectorAll('.nav-menu-item.has-dropdown').forEach(item => {
+            item.classList.remove('dropdown-open');
+        });
+    };
+
+    const dropdownItems = document.querySelectorAll('.nav-menu-item.has-dropdown');
+
+    dropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            // 下拉项目由它自己的点击处理；这里不重复切换父菜单。
+            if (e.target.closest('.dropdown-content a')) return;
+
+            e.stopPropagation();
+            const shouldOpen = !this.classList.contains('dropdown-open');
+            window.closeNavDropdowns();
+            if (shouldOpen) this.classList.add('dropdown-open');
+        });
+    });
+
+    document.querySelectorAll('.dropdown-content a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            // 先彻底清理状态，再让 HTML 上的 onclick 执行跳转/打开页面。
+            window.closeNavDropdowns();
+            e.stopPropagation();
+        });
+    });
+
+    // 点击菜单外部的任意位置关闭下拉窗。
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.nav-menu-item.has-dropdown')) {
+            window.closeNavDropdowns();
+        }
+    });
+
     initData();
 });
 
@@ -232,12 +278,6 @@ function showPage(pageId) {
     });
     void page.offsetWidth;
     page.classList.add('active');
-
-    const floatingNav = document.getElementById('floating-nav');
-    if (floatingNav) {
-        // 核心修改：利用 startsWith 智能识别，只要是月赛相关的所有页面，统统隐藏悬浮导航
-        floatingNav.style.display = (pageId === 'home-page' || pageId === 'home-page-3d' || pageId === 'challenge-page' || pageId === 'timer-page' || pageId.startsWith('monthly-')) ? 'none' : 'block';
-    }
 }
 
 function getPkButtonHtml(wcaId, formattedName) {
@@ -1611,98 +1651,6 @@ function animateRankingColumns(oldPositions) {
 }
 
 // =========================================
-// 全局智能悬浮导航拖拽逻辑 (仅左右半圆版)
-// =========================================
-function setupDraggableNav() {
-    const nav = document.getElementById('floating-nav');
-    if (!nav) return;
-
-    let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
-
-    const onDragStart = (e) => {
-        if (e.target.closest('.nav-item')) return;
-        isDragging = true;
-        nav.style.transition = 'none';
-
-        // 核心修复：拖拽时全局强制禁止选中文字
-        document.body.style.userSelect = 'none';
-
-        const rect = nav.getBoundingClientRect();
-        initialLeft = rect.left;
-        initialTop = rect.top;
-
-        nav.style.bottom = 'auto';
-        nav.style.right = 'auto';
-        nav.style.left = initialLeft + 'px';
-        nav.style.top = initialTop + 'px';
-
-        if (e.type === 'touchstart') {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        } else {
-            startX = e.clientX;
-            startY = e.clientY;
-        }
-    };
-
-    const onDragMove = (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-
-        let clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-        let clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-        let newLeft = initialLeft + (clientX - startX);
-        let newTop = initialTop + (clientY - startY);
-
-        const maxX = window.innerWidth - nav.offsetWidth;
-        const maxY = window.innerHeight - nav.offsetHeight;
-        newLeft = Math.max(0, Math.min(newLeft, maxX));
-        newTop = Math.max(0, Math.min(newTop, maxY));
-
-        nav.style.left = newLeft + 'px';
-        nav.style.top = newTop + 'px';
-    };
-
-    const onDragEnd = () => {
-        if (isDragging) {
-            isDragging = false;
-            nav.style.transition = 'all 0.3s ease';
-
-            // 核心修复：拖拽结束后恢复网页文字正常选中状态
-            document.body.style.userSelect = '';
-
-            const rect = nav.getBoundingClientRect();
-            const centerX = window.innerWidth / 2;
-
-            nav.classList.remove('expand-left', 'expand-right');
-
-            // 极简判断：只区分左右半圆展开
-            if (rect.left < centerX) {
-                nav.classList.add('expand-right'); // 处在左半屏 -> 向右边展开半圆
-            } else {
-                nav.classList.add('expand-left');  // 处在右半屏 -> 向左边展开半圆
-            }
-        }
-    };
-
-    nav.addEventListener('mousedown', onDragStart);
-    document.addEventListener('mousemove', onDragMove, { passive: false });
-    document.addEventListener('mouseup', onDragEnd);
-
-    nav.addEventListener('touchstart', onDragStart, { passive: false });
-    document.addEventListener('touchmove', onDragMove, { passive: false });
-    document.addEventListener('touchend', onDragEnd);
-}
-
-// 确保 DOM 加载后初始化拖拽功能
-document.addEventListener("DOMContentLoaded", () => {
-    // 之前已有的其他逻辑...
-    setupDraggableNav();
-});
-
-// =========================================
 // NB Timer 核心逻辑 (完整重构引擎：支持惩罚、Mo/Ao及动态修改)
 // =========================================
 let timerState = 'IDLE';
@@ -1805,13 +1753,16 @@ function confirmTimerImport() {
     }
 }
 
-// ================= 智能成绩分布引擎 (连续直方图) =================
+// ================= 智能成绩分布引擎 (带动态区间防溢出) =================
 function openTimerDistModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
 
     const records = timerHistoryData[currentTimerEvent] || [];
-    const validMs = records.map(r => r.penalty === '+2' ? r.rawMs + 2000 : r.rawMs)
-                           .filter(ms => ms !== Infinity && !isNaN(ms) && ms > 0);
+    // 过滤掉 DNF 和无效数据
+    const validMs = records.map(r => {
+        if (r.penalty === 'DNF') return Infinity;
+        return r.penalty === '+2' ? r.rawMs + 2000 : r.rawMs;
+    }).filter(ms => ms !== Infinity && !isNaN(ms) && ms > 0);
 
     const container = document.getElementById('timer-dist-chart');
     if (validMs.length === 0) {
@@ -1824,10 +1775,17 @@ function openTimerDistModal() {
     const minMs = Math.min(...validMs);
     const range = maxMs - minMs;
 
-    let stepMs = 1000;
-    if (range <= 3000) stepMs = 200;
-    else if (range <= 10000) stepMs = 500;
-    else if (range >= 60000) stepMs = 5000;
+    // 👇 核心修复：动态计算合理的步长，强制保证区间数量最多在 12~14 个左右 👇
+    const niceSteps = [100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000, 30000, 60000];
+    let stepMs = 60000; // 默认最大跨度
+    for (let step of niceSteps) {
+        if (range / step <= 12) { // 找到第一个能让分段数控制在12段以内的完美步长
+            stepMs = step;
+            break;
+        }
+    }
+    // 如果所有的成绩都一模一样（range === 0），给一个默认兜底区间
+    if (range === 0) stepMs = 500;
 
     // 强制锁定最快和最慢所在的绝对区间
     let startBin = Math.floor(minMs / stepMs) * stepMs;
@@ -1836,30 +1794,44 @@ function openTimerDistModal() {
     let bins = {};
     let maxCount = 0;
 
-    // 核心修复：强制补齐从最快到最慢中间的所有区间，哪怕是 0 次，也必须在纵轴上留出空位！
+    // 强制补齐从最快到最慢中间的所有区间，维持连续性
     for (let b = startBin; b <= endBin; b += stepMs) {
         bins[b] = 0;
     }
 
     validMs.forEach(ms => {
         let binStart = Math.floor(ms / stepMs) * stepMs;
-        bins[binStart]++;
-        if (bins[binStart] > maxCount) maxCount = bins[binStart];
+        if (bins[binStart] !== undefined) {
+            bins[binStart]++;
+            if (bins[binStart] > maxCount) maxCount = bins[binStart];
+        }
     });
 
     const sortedBinKeys = Object.keys(bins).map(Number).sort((a, b) => a - b);
     container.innerHTML = '';
+
+    // 👇 刻度字符智能格式化：自动隐藏多余小数点，超长则按分:秒格式化 👇
+    const getTickStr = (val) => {
+        if (val >= 60000) {
+            let m = Math.floor(val / 60000);
+            let s = (val % 60000) / 1000;
+            let sStr = s % 1 === 0 ? s.toString().padStart(2, '0') : s.toFixed(1).padStart(4, '0');
+            return `${m}:${sStr}`;
+        }
+        let sec = val / 1000;
+        return sec % 1 === 0 ? sec.toString() : sec.toFixed(1);
+    };
 
     sortedBinKeys.forEach((start, index) => {
         let count = bins[start];
         let end = start + stepMs;
         let percentage = maxCount === 0 ? 0 : (count / maxCount) * 100;
 
-        let startStr = stepMs >= 1000 ? formatTimerOutput(start) : (start/1000).toFixed(1);
-        let endStr = stepMs >= 1000 ? formatTimerOutput(end) : (end/1000).toFixed(1);
+        let startStr = getTickStr(start);
+        let endStr = getTickStr(end);
 
         let endLabelHtml = '';
-        // 只有最后一个柱子，才在底部额外画一个封底的下刻度
+        // 只有最后一个柱子，才在底部画一个封底的下刻度
         if (index === sortedBinKeys.length - 1) {
             endLabelHtml = `<div class="dist-y-tick-bottom">${endStr}</div>`;
         }
@@ -1869,7 +1841,6 @@ function openTimerDistModal() {
                 <div class="dist-y-tick-top">${startStr}</div>
                 ${endLabelHtml}
                 <div class="dist-bar-track">
-                    <!-- 如果该区间没有成绩，就渲染透明的 0% 长度，只维持网格形状 -->
                     <div class="dist-bar-fill" style="width: 0%; ${count === 0 ? 'background: transparent;' : ''}" data-width="${percentage}%">
                         ${count > 0 ? `<span class="dist-bar-label">${count}</span>` : ''}
                     </div>
@@ -1880,12 +1851,14 @@ function openTimerDistModal() {
 
     document.getElementById('timer-dist-modal').style.display = 'flex';
 
+    // 触发横向生长动画
     setTimeout(() => {
         container.querySelectorAll('.dist-bar-fill').forEach(bar => {
             bar.style.width = bar.getAttribute('data-width');
         });
     }, 50);
 }
+
 function closeTimerDistModal() {
     document.getElementById('timer-dist-modal').style.display = 'none';
 }
@@ -2203,10 +2176,18 @@ function renderTimerHistory() {
     });
 
     if (records.length > 0) {
+        // 👇 核心新增：实时计算有效成绩次数并更新显示 👇
+        let validCount = records.filter(r => r.penalty !== 'DNF').length;
+        let countEl = document.getElementById('timer-stat-count');
+        if (countEl) countEl.innerText = `${validCount}/${records.length}`;
+
         document.getElementById('timer-stat-best').innerText = `best: ` + (currentSessionBestMs !== Infinity ? formatTimerOutput(currentSessionBestMs) : 'DNF');
         document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? formatTimerOutput(currentSessionBestStat1Ms) : '-');
         document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? formatTimerOutput(currentSessionBestStat2Ms) : '-');
     } else {
+        let countEl = document.getElementById('timer-stat-count');
+        if (countEl) countEl.innerText = `0/0`;
+
         document.getElementById('timer-stat-best').innerText = `best: -`;
         document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: -`;
         document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: -`;
@@ -2643,9 +2624,23 @@ function getScrambleByEvent(ev) {
         scramble = res.join(" ");
     } else if (ev === 'sq1') {
         let res = [];
-        for(let i=0; i<12; i++) {
-            let top = Math.floor(Math.random()*12)-5;
-            let bot = Math.floor(Math.random()*12)-5;
+        // 3代表90度，选取3的倍数即可保证不破坏方形
+        let safeMoves = [-3, 0, 3, 6];
+
+        for(let i = 0; i < 12; i++) {
+            let top, bot;
+            do {
+                if (i < 5) {
+                    // 前 5 个括号限制在安全度数内，保持形状
+                    top = safeMoves[Math.floor(Math.random() * safeMoves.length)];
+                    bot = safeMoves[Math.floor(Math.random() * safeMoves.length)];
+                } else {
+                    // 5 个括号之后，恢复完全随机，开始破坏形状
+                    top = Math.floor(Math.random() * 12) - 5;
+                    bot = Math.floor(Math.random() * 12) - 5;
+                }
+            } while (top === 0 && bot === 0); // 顺便加个拦截，防止出现 (0,0) 的无效打乱
+
             res.push(`(${top},${bot})`);
         }
         scramble = res.join(" / ");
@@ -2665,15 +2660,9 @@ function getScrambleByEvent(ev) {
         res.push("y2");
         clockMoves2.forEach(p => res.push(p + getClockVal()));
 
-        // 随机处理末尾需要按下的拨柱
-        let pins = ["UR", "DR", "DL", "UL"];
-        let finalPins = [];
-        pins.forEach(p => { if (Math.random() > 0.5) finalPins.push(p); });
-        if (finalPins.length > 0) res.push(finalPins.join(" "));
+        // 已经移除了根据 WCA 早期规则在末尾随机按立柱的代码，完美适配新规
 
         scramble = res.join(" ");
-    } else {
-        scramble = "无打乱规则";
     }
     return scramble;
 }
@@ -3051,52 +3040,6 @@ document.addEventListener('touchend', (e) => {
 }, { passive: false });
 
 // =========================================
-// 手机端悬浮导航：点击展开与点空白处收回逻辑
-// =========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const nav = document.getElementById('floating-nav');
-    const mainBtn = document.getElementById('nav-main-btn');
-
-    if(nav) {
-        // 核心新增：终极防御机制。在“捕获阶段”拦截事件，一旦正在计时，悬浮窗彻底“石化”
-        const blockNavIfTiming = (e) => {
-            if (typeof timerState !== 'undefined' && timerState !== 'IDLE') {
-                e.preventDefault();             // 阻止浏览器默认行为（包括手机端的悬浮弹出）
-                e.stopImmediatePropagation();   // 强制切断该元素上的所有其他监听器（包括拖拽代码）
-            }
-        };
-        // capture: true 是关键，确保这道防火墙比任何点击和拖拽事件都更早触发
-        nav.addEventListener('touchstart', blockNavIfTiming, { capture: true, passive: false });
-        nav.addEventListener('mousedown', blockNavIfTiming, { capture: true, passive: false });
-        nav.addEventListener('click', blockNavIfTiming, { capture: true });
-    }
-
-    if(nav && mainBtn) {
-        mainBtn.addEventListener('click', (e) => {
-            // 第二道防线
-            if (typeof timerState !== 'undefined' && timerState !== 'IDLE') return;
-
-            if (window.innerWidth <= 650 || ('ontouchstart' in window)) {
-                nav.classList.toggle('touch-expanded');
-                e.stopPropagation();
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!nav.contains(e.target)) {
-                nav.classList.remove('touch-expanded');
-            }
-        });
-
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                nav.classList.remove('touch-expanded');
-            });
-        });
-    }
-});
-
-// =========================================
 // NB Challenge 核心逻辑引擎 (含独立赛点/胜利特写系统)
 // =========================================
 let chalScoreTop = 0;
@@ -3127,8 +3070,6 @@ function initChallenge() {
         generateChallengeScramble();
         chalHasInit = true;
     }
-    const nav = document.getElementById('floating-nav');
-    if (nav) nav.style.display = 'none';
 }
 
 function exitChallenge() {
@@ -3220,6 +3161,38 @@ function openChalSettingsModal(type) {
             if (!isNaN(b) && b >= 0) chalScoreBottom = b;
             updateChallengeScores();
             checkChalWinCondition();
+            closeChalSettings();
+        };
+    }
+    // 👇 从这里开始追加全新的字体调节模块 👇
+    else if (type === 'font') {
+        titleEl.innerText = '调整字体大小';
+        let curScramble = uiSettings.chalScrambleSize || 100;
+        let curTimer = uiSettings.chalTimerSize || 100;
+
+        // 界面结构：复用了主界面的同款 UI 风格
+        bodyEl.innerHTML = `
+            <div style="margin-top: 10px;">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: left; font-weight: 600;">打乱公式</div>
+                <div class="ui-slider-wrapper" style="width: 100%; margin-bottom: 20px;">
+                    <span id="chal-scramble-size-val" style="width: 45px; text-align: left; font-family: monospace; font-size: 14px; color: var(--text-main);">${curScramble}%</span>
+                    <input type="range" id="chal-scramble-size-slider" min="50" max="200" value="${curScramble}" oninput="document.getElementById('chal-scramble-size-val').innerText = this.value + '%'" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
+                </div>
+                
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: left; font-weight: 600;">计时器</div>
+                <div class="ui-slider-wrapper" style="width: 100%;">
+                    <span id="chal-timer-size-val" style="width: 45px; text-align: left; font-family: monospace; font-size: 14px; color: var(--text-main);">${curTimer}%</span>
+                    <input type="range" id="chal-timer-size-slider" min="50" max="200" value="${curTimer}" oninput="document.getElementById('chal-timer-size-val').innerText = this.value + '%'" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
+                </div>
+            </div>
+        `;
+
+        // 逻辑：点击确定后保存到全局设置，触发重新渲染，并存入本地数据库
+        confirmBtn.onclick = () => {
+            uiSettings.chalScrambleSize = parseInt(document.getElementById('chal-scramble-size-slider').value);
+            uiSettings.chalTimerSize = parseInt(document.getElementById('chal-timer-size-slider').value);
+            applyUiSettings();
+            saveTimerData();
             closeChalSettings();
         };
     }
@@ -3488,6 +3461,7 @@ const isChalActive = () => document.querySelector('.page-container.active')?.id 
 
 document.addEventListener('touchstart', (e) => {
     if (!isChalActive()) return;
+    if (e.target.closest('.global-nav-header')) return; // <--- 新增这行，放行顶部导航栏！
     if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
     if (e.cancelable) e.preventDefault();
 
@@ -3509,6 +3483,7 @@ document.addEventListener('touchend', (e) => {
 
 document.addEventListener('mousedown', (e) => {
     if (!isChalActive()) return;
+    if (e.target.closest('.global-nav-header')) return; // <--- 新增这行，放行顶部导航栏！
     if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
 
     if (e.target.closest('#challenge-top-area')) handleChalPress('top');
@@ -3585,6 +3560,14 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+
+    // 👇 新增：每次应用 UI 设置时，同步更新 Challenge 的缩放参数 👇
+    let scScale = (uiSettings.chalScrambleSize || 100) / 100;
+    let tmScale = (uiSettings.chalTimerSize || 100) / 100;
+    document.documentElement.style.setProperty('--chal-scramble-scale', scScale);
+    document.documentElement.style.setProperty('--chal-timer-scale', tmScale);
+    // 👆 新增结束 👆
+
     let fontObj = fontOptions.find(f => f.id === uiSettings.font) || fontOptions[0];
     document.documentElement.style.setProperty('--timer-font', fontObj.family);
 
@@ -3622,16 +3605,10 @@ function applyUiSettings() {
     let avgHex = document.getElementById('color-avg-hex');
     if (avgHex) avgHex.value = uiSettings.colorAvg.toUpperCase();
 
-    // 核心修复：在此处统一接管两处排版滑动开关的状态
-    let btnSimple = document.getElementById('btn-layout-simple');
-    let btn3d = document.getElementById('btn-layout-3d');
+    // 控制全局设置页面的排版滑动开关状态
     let btnSimpleGlobal = document.getElementById('btn-layout-simple-global');
     let btn3dGlobal = document.getElementById('btn-layout-3d-global');
 
-    if (btnSimple && btn3d) {
-        btnSimple.classList.toggle('active', uiSettings.homeLayout === 'simple');
-        btn3d.classList.toggle('active', uiSettings.homeLayout === '3d');
-    }
     if (btnSimpleGlobal && btn3dGlobal) {
         btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'simple');
         btn3dGlobal.classList.toggle('active', uiSettings.homeLayout === '3d');
@@ -3918,27 +3895,38 @@ function getCurrentMonthKey() {
     return `${now.getFullYear()}_${now.getMonth() + 1}`;
 }
 
+// 👇 核心新增：标准的 ISO 国际周数计算引擎 👇
+function getCurrentWeekKey() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getFullYear()}_W${weekNo}`;
+}
+
 function getEventFormat(evId) {
     if (['666', '777', '333bf', '444bf', '555bf', '333fm'].includes(evId)) return { count: 3 };
     return { count: 5 };
 }
 
+// 👇 将以下三个函数的密钥从 MonthKey 改为 WeekKey，释放每周刷榜限制 👇
 function getMonthlyAttempts(eventId) {
     let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
-    let key = getCurrentMonthKey();
+    let key = getCurrentWeekKey(); // 替换为 WeekKey
     return data[key] ? data[key][eventId] : null;
 }
 
 function markMonthlyParticipated(eventId, attemptsArr) {
     let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
-    let key = getCurrentMonthKey();
+    let key = getCurrentWeekKey(); // 替换为 WeekKey
     if (!data[key]) data[key] = {};
     data[key][eventId] = attemptsArr || 'DNF';
     localStorage.setItem('monthlyParticipation', JSON.stringify(data));
 }
 
 function ensureMonthlyScrambles() {
-    const key = 'monthlyScrambles_' + getCurrentMonthKey();
+    const key = 'monthlyScrambles_' + getCurrentWeekKey();
     let cached = localStorage.getItem(key);
     if (cached) return JSON.parse(cached);
 
@@ -4063,93 +4051,209 @@ function confirmMonthlyName() {
     navigateTo('monthly-page');
 }
 
-function renderMonthlyList() {
+// ---------------- 巅峰月赛 列表主页渲染引擎 (带全网人数与实时排名) ----------------
+async function renderMonthlyList() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     document.getElementById('monthly-date-range').innerText = `${month}.01 - ${month}.${lastDay}`;
 
     const list = document.getElementById('monthly-event-list');
-    list.innerHTML = '';
+
+    // 先展示骨架屏转圈动画，极大地提升加载体验
+    list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>数据同步中...</div>';
 
     ensureMonthlyScrambles();
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+    const validEvents = eventDict.filter(ev => !excludedEvents.includes(ev.id));
 
-    eventDict.forEach(ev => {
-        if (!excludedEvents.includes(ev.id)) {
-            let cnName = ev.name.split('（')[0].split('(')[0].trim();
-            let attemptsData = getMonthlyAttempts(ev.id);
+    // 1. 核心提速黑科技：一次性请求全网所有成绩，极大地节省网络握手时间
+    let allCloudData = [];
+    try {
+        // 只拉取计算排名必需的关键字段，不拉取体积大的明细，节省流量
+        const { data, error } = await supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms');
+        if (!error && data) allCloudData = data;
+    } catch (e) {
+        console.warn("拉取云端统计数据失败", e);
+    }
 
-            let btnAction = `event.stopPropagation(); openMonthlyEntry('${ev.id}', '${cnName}')`;
-            let resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">参加</button>`;
+    // 2. 按比赛项目把全网数据进行分组装桶
+    let eventLeaderboards = {};
+    allCloudData.forEach(row => {
+        if (!eventLeaderboards[row.event_id]) eventLeaderboards[row.event_id] = [];
+        eventLeaderboards[row.event_id].push(row);
+    });
 
-            if (attemptsData) {
-                let res = processMonthlyResults(attemptsData, ev.id);
-                btnAction = `event.stopPropagation(); alert('您已完成或中途退出了本月该项目的比赛，无法再次进入！')`;
+    list.innerHTML = ''; // 数据处理完毕，清空转圈动画
 
-                resultHtml = `
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
-                        <!-- 核心修改：取消所有条件判断，固定使用 var(--primary-color) -->
-                        <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${res.avgDisp}</div>
-                        <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${res.detailsStr}</div>
-                    </div>
-                `;
-            }
+    // 3. 逐个渲染项目卡片
+    validEvents.forEach(ev => {
+        let cnName = ev.name.split('（')[0].split('(')[0].trim();
+        let attemptsData = getMonthlyAttempts(ev.id);
 
-            let row = document.createElement('div');
-            row.className = 'monthly-event-row';
-            row.style.cursor = 'pointer';
-            row.onclick = () => { openMonthlyRanking(ev.id, cnName); };
+        // ================= 开始智能计算本项目的参赛人数与我的名次 =================
+        let cloudData = eventLeaderboards[ev.id] || [];
 
-            row.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: bold; color: var(--text-main);">
-                    <span class="cubing-icon event-${ev.id}" style="font-size: 24px; color: var(--primary-color);"></span>
-                    <span>${cnName}</span>
-                </div>
-                ${resultHtml}
-            `;
-            list.appendChild(row);
+        // 关键逻辑：把你手机本地的最新成绩也丢进池子里一起比，防漏算
+        if (attemptsData) {
+            let res = processMonthlyResults(attemptsData, ev.id);
+            cloudData.push({
+                username: uiSettings.username,
+                wca_id: uiSettings.wcaId || '',
+                raw_ms: res.sortAvgMs === Infinity ? 99999999 : res.sortAvgMs
+            });
         }
+
+        // 智能去重 (同一个选手如果打过好几次，只留下他最快的那次)
+        let userMap = {};
+        cloudData.forEach(entry => {
+            let key = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
+            if (!userMap[key] || entry.raw_ms < userMap[key].raw_ms) {
+                userMap[key] = entry;
+            }
+        });
+
+        let finalEntries = Object.values(userMap);
+
+        // 按时间从快到慢排序
+        finalEntries.sort((a, b) => a.raw_ms - b.raw_ms);
+
+        let totalParticipants = finalEntries.length;
+        let myRank = -1;
+
+        // 遍历这批人，找出“我”排在第几个
+        if (uiSettings.username) {
+            let myKey1 = uiSettings.wcaId ? uiSettings.wcaId.toUpperCase() : null;
+            let myKey2 = uiSettings.username;
+
+            for (let i = 0; i < finalEntries.length; i++) {
+                let entry = finalEntries[i];
+                let entryKey = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
+                // 如果 WCA ID 匹配，或者在没有 ID 时用户名匹配，就锁定名次
+                if ((myKey1 && entryKey === myKey1) || (!myKey1 && entryKey === myKey2)) {
+                    myRank = i + 1;
+                    break;
+                }
+            }
+        }
+
+        // 完美构建你想要的 [1/2] 或 [2] 样式
+        let rankHtml = '';
+        if (totalParticipants > 0) {
+            if (myRank !== -1) {
+                rankHtml = `<span style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[${myRank}/${totalParticipants}]</span>`;
+            } else {
+                rankHtml = `<span style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[${totalParticipants}]</span>`;
+            }
+        }
+        // =========================================================================
+
+        let btnAction = `event.stopPropagation(); openMonthlyEntry('${ev.id}', '${cnName}')`;
+        let resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">参加</button>`;
+
+        if (attemptsData) {
+            let res = processMonthlyResults(attemptsData, ev.id);
+            // 顺便把提醒文本改成了贴合新机制的“本周”
+            btnAction = `event.stopPropagation(); alert('您已完成或中途退出了本周该项目的比赛，无法再次进入！')`;
+
+            resultHtml = `
+                <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
+                    <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${res.avgDisp}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${res.detailsStr}</div>
+                </div>
+            `;
+        }
+
+        let row = document.createElement('div');
+        row.className = 'monthly-event-row';
+        row.style.cursor = 'pointer';
+        row.onclick = () => { openMonthlyRanking(ev.id, cnName); };
+
+        row.innerHTML = `
+            <div style="display: flex; align-items: center; font-size: 16px; font-weight: bold; color: var(--text-main);">
+                <span class="cubing-icon event-${ev.id}" style="font-size: 24px; color: var(--primary-color); margin-right: 12px;"></span>
+                <span>${cnName}</span>
+                ${rankHtml}
+            </div>
+            ${resultHtml}
+        `;
+        list.appendChild(row);
     });
 }
 
-// ---------------- 巅峰月赛 排行榜渲染引擎 ----------------
 // ---------------- 巅峰月赛 排行榜渲染引擎 (核心升级：直连全网云端) ----------------
 async function openMonthlyRanking(evId, cnName) {
     document.getElementById('monthly-ranking-title').innerText = `月赛排行榜 - ${cnName}`;
     const list = document.getElementById('monthly-ranking-list');
 
-    // 1. 弹出页面并显示全网同步的转圈动画
-    list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>正在同步全网数据...</div>';
+    list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>数据同步中...</div>';
     navigateTo('monthly-ranking-page', true);
 
-    // 2. 真正从 Supabase 云端拉取排行数据
     let cloudData = await fetchWeeklyLeaderboard(evId);
-    list.innerHTML = ''; // 数据拉取完毕，清空转圈动画
+    let allEntries = [];
 
-    if (!cloudData || cloudData.length === 0) {
-        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">本月暂无全网成绩<br>快来抢下首杀吧！</div>';
+    // 把本地的最新的这一组成绩也临时加进来一起比对
+    let attemptsData = getMonthlyAttempts(evId);
+    if (attemptsData) {
+        let res = processMonthlyResults(attemptsData, evId);
+        allEntries.push({
+            username: uiSettings.username,
+            wca_id: uiSettings.wcaId || '',
+            details: res.detailsStr,
+            raw_ms: res.sortAvgMs === Infinity ? 99999999 : res.sortAvgMs,
+            sortSingleMs: res.sortSingleMs
+        });
+    }
+
+    if (cloudData && cloudData.length > 0) {
+        allEntries = allEntries.concat(cloudData);
+    }
+
+    // 核心新增：基于 WCA ID 或 用户名 进行智能去重，同一个选手只取他最好的一次成绩
+    let userMap = {};
+    allEntries.forEach(entry => {
+        let key = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
+        if (!userMap[key] || entry.raw_ms < userMap[key].raw_ms) {
+            userMap[key] = entry;
+        }
+    });
+
+    let finalEntries = Object.values(userMap);
+
+    if (finalEntries.length === 0) {
+        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">本月全网暂无成绩</div>';
         return;
     }
 
-    // 3. 渲染云端排行榜 (Supabase 已经帮我们在拉取时用 raw_ms 排好序了)
-    cloudData.forEach((entry, index) => {
+    // 重新排序
+    finalEntries.sort((a, b) => {
+        if (a.raw_ms !== b.raw_ms) return a.raw_ms - b.raw_ms;
+        return (a.sortSingleMs || Infinity) - (b.sortSingleMs || Infinity);
+    });
+
+    list.innerHTML = '';
+
+    finalEntries.forEach((entry, index) => {
         let row = document.createElement('div');
         row.className = 'monthly-event-row';
         row.style.cursor = 'default';
 
-        // 组装选手信息显示
+        let finalTimeDisp = entry.raw_ms >= 99999999 ? 'DNF' : formatTimerOutput(entry.raw_ms);
+
+        // 核心新增：无痕点击跳转交互判定
+        let clickStyle = entry.wca_id ? 'cursor: pointer;' : '';
+        let clickAction = entry.wca_id ? `onclick="handleMonthlyRankingClick('${entry.wca_id}')"` : '';
+
         let userDisplay = entry.wca_id
             ? `${entry.username}<br><span style="font-size:12px; color:var(--text-muted); font-weight:normal;">${entry.wca_id}</span>`
             : `${entry.username}`;
 
-        // 核心还原：把我们在云端垫底用的 DNF 数值 99999999 转换回 DNF 文本
-        let finalTimeDisp = entry.raw_ms >= 99999999 ? 'DNF' : formatTimerOutput(entry.raw_ms);
-
         row.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: var(--text-muted); width: 24px; text-align: center;">${index + 1}</span>
-                <div style="font-size: 15px; font-weight: bold; color: var(--text-main); line-height: 1.3;">${userDisplay}</div>
+                <div style="font-size: 15px; font-weight: bold; color: var(--text-main); line-height: 1.3; ${clickStyle}" ${clickAction}>
+                    ${userDisplay}
+                </div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
                 <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${finalTimeDisp}</div>
@@ -4158,6 +4262,74 @@ async function openMonthlyRanking(evId, cnName) {
         `;
         list.appendChild(row);
     });
+}
+
+// ---------------- 巅峰月赛 个人主页跳转与校验引擎 ----------------
+let wcaidCheckTimer = null;
+
+async function handleMonthlyRankingClick(wcaId) {
+    if (!wcaId) return;
+
+    // 1. 弹出专属卡片，展示“载入中”状态
+    const modal = document.getElementById('wcaid-check-modal');
+    const spinner = document.getElementById('wcaid-check-spinner');
+    const textEl = document.getElementById('wcaid-check-text');
+
+    clearTimeout(wcaidCheckTimer);
+    modal.classList.remove('popup-fade-out');
+    modal.style.display = 'flex';
+
+    // 初始化卡片为加载状态
+    spinner.style.display = 'block';
+    textEl.innerText = '载入中...';
+    textEl.style.color = 'var(--text-main)';
+
+    let player = null;
+    // 2. 本地全量库内秒查
+    let exact = allCubersData.find(c => c && c.person && c.person.wca_id.toUpperCase() === wcaId.toUpperCase());
+
+    if (exact) {
+        player = exact;
+    } else {
+        // 3. 本地查无此人，静默去 WCA 官方库捞数据
+        try {
+            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${wcaId.toUpperCase()}`);
+            if (res.ok) player = await res.json();
+        } catch(e) {}
+    }
+
+    if (player) {
+        // 4. 找到数据，直接隐藏卡片并跳转
+        modal.style.display = 'none';
+        addSearchHistory(player);
+        renderPersonPage(player);
+    } else {
+        // 5. 查无此人，卡片就地无缝变身错误提示
+        spinner.style.display = 'none'; // 隐藏转圈动画
+        textEl.innerText = 'WCA ID 不存在';
+        textEl.style.color = 'var(--text-main)'; // 保持和“载入中”同款的高级灰黑底色
+
+        // 3秒后自动解封关闭
+        wcaidCheckTimer = setTimeout(() => {
+            closeWcaidCheckModal();
+        }, 3000);
+    }
+}
+
+function closeWcaidCheckModal(e) {
+    if (e) {
+        // 绝对防御：强行吃掉所有的点击穿透事件，确保不会误点到下面的其他选手
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    const modal = document.getElementById('wcaid-check-modal');
+    if (modal.style.display === 'none') return;
+
+    modal.classList.add('popup-fade-out');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        modal.classList.remove('popup-fade-out');
+    }, 200);
 }
 
 // ---------------- 弹窗与进出控制 ----------------
@@ -4746,4 +4918,391 @@ async function fetchWeeklyLeaderboard(eventId) {
         return [];
     }
     return data;
+}
+
+// =========================================
+// 全新简约版首页及衍生页面核心数据引擎
+// =========================================
+
+if (typeof window.hasHomeEngineInit === 'undefined') {
+    window.hasHomeEngineInit = true;
+
+    window.allCompsData = [];
+    window.currentCompsPage = 1;
+    window.COMPS_PER_PAGE = 10;
+
+    window.allNewsData = [];
+    window.currentNewsPage = 1;
+    window.NEWS_PER_PAGE = 10;
+
+    window.originalInitData = initData;
+    initData = async function() {
+        await window.originalInitData();
+        if (isDataReady) {
+            initHomeData();
+        }
+    };
+}
+
+// ================= 新增：全局搜索跳转直连引擎 =================
+window.executeHomeSearch = function() {
+    const input = document.getElementById('home-search-input');
+    const val = input.value.trim();
+    if (!val) return;
+
+    openSearchPage();
+    document.getElementById('search-input').value = val;
+    input.value = '';
+    performSearch();
+};
+
+async function initHomeData() {
+    setupAutocomplete('home-search-input', 'autocomplete-home', (wcaId) => {
+        document.getElementById('home-search-input').value = '';
+        showPerson(wcaId);
+    });
+
+    document.getElementById('home-search-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            executeHomeSearch();
+        }
+    });
+
+    renderHomeRecords();
+    buildNewsTimeline();
+    await fetchCompetitions();
+}
+
+// ---------------- 1. 赛事引擎 ----------------
+async function fetchCompetitions() {
+    const grid = document.getElementById('recent-comps-grid');
+    try {
+        const d = new Date();
+        const todayStr = d.toISOString().split('T')[0];
+
+        const resUp = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&start=${todayStr}&sort=start_date`);
+        let upcomingComps = resUp.ok ? await resUp.json() : [];
+
+        const [resPast1, resPast2] = await Promise.all([
+            fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&sort=-start_date&per_page=100&page=1`),
+            fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&sort=-start_date&per_page=100&page=2`)
+        ]);
+
+        let pastCompsAll = [];
+        if (resPast1.ok) pastCompsAll.push(...await resPast1.json());
+        if (resPast2.ok) pastCompsAll.push(...await resPast2.json());
+
+        let pastComps = pastCompsAll.filter(c => c.end_date < todayStr);
+
+        window.allCompsData = [];
+        upcomingComps.forEach(c => window.allCompsData.push(c));
+        pastComps.forEach(c => window.allCompsData.push(c));
+
+        let displayComps = [];
+        let homeUpcoming = upcomingComps.slice(0, 8);
+        displayComps.push(...homeUpcoming);
+
+        if (displayComps.length < 8) {
+            let needed = 8 - displayComps.length;
+            displayComps.push(...pastComps.slice(0, needed));
+        }
+
+        if (displayComps.length === 0) {
+            grid.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">近期暂无赛事</div>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        displayComps.forEach(comp => grid.appendChild(createCompCard(comp, false)));
+
+    } catch (e) {
+        grid.innerHTML = '<div style="color: #e63946; font-size: 14px;">赛事数据拉取失败，请检查网络连接</div>';
+    }
+}
+
+function createCompCard(comp, isListPage = false) {
+    const compName = comp.name;
+    const city = comp.city || '中国';
+    const formatId = comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
+    const cubingUrl = `https://cubing.com/competition/${formatId}`;
+
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${day}`;
+
+    let statusText = '';
+    let statusClass = '';
+
+    if (comp.end_date < todayStr) {
+        statusText = '已结束';
+        statusClass = 'status-ended';
+        if (isListPage) statusText = '';
+    } else if (comp.start_date > todayStr) {
+        statusText = '未开始';
+        statusClass = 'status-upcoming';
+    } else {
+        statusText = '进行中';
+        statusClass = 'status-active';
+    }
+
+    const card = document.createElement('div');
+    card.className = 'comp-card';
+    card.onclick = () => window.open(cubingUrl, '_blank');
+
+    let tagHtml = statusText ? `<div class="comp-status-tag ${statusClass}">${statusText}</div>` : '';
+
+    card.innerHTML = `
+        <div class="comp-title">${compName}</div>
+        <div class="comp-meta-col">
+            <span>📍 ${city}</span>
+            <span>📅 ${comp.start_date}</span>
+        </div>
+        ${tagHtml}
+    `;
+    return card;
+}
+
+// ---------------- 翻页组件与跳转引擎 ----------------
+function renderPaginationHTML(currentPage, totalItems, itemsPerPage, clickHandlerName) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) return '';
+
+    let html = `<button class="page-btn" onclick="${clickHandlerName}(1)" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
+    html += `<button class="page-btn" onclick="${clickHandlerName}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, currentPage + 2);
+
+    if (start > 1) {
+        html += `<button class="page-btn page-num-btn" onclick="${clickHandlerName}(1)">1</button>`;
+        if (start > 2) html += `<span class="page-dots">...</span>`;
+    }
+
+    for (let i = start; i <= end; i++) {
+        if (i === currentPage) {
+            html += `<button class="page-btn page-num-btn active">${i}</button>`;
+        } else {
+            html += `<button class="page-btn page-num-btn" onclick="${clickHandlerName}(${i})">${i}</button>`;
+        }
+    }
+
+    if (end < totalPages) {
+        if (end < totalPages - 1) html += `<span class="page-dots">...</span>`;
+        html += `<button class="page-btn page-num-btn" onclick="${clickHandlerName}(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `<button class="page-btn" onclick="${clickHandlerName}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+    html += `<button class="page-btn" onclick="${clickHandlerName}(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
+
+    return html;
+}
+
+function openCompsPage() {
+    navigateTo('comps-page', true);
+    window.currentCompsPage = 1;
+    renderCompsPage();
+}
+
+function goToCompsPage(page) {
+    const totalPages = Math.ceil(window.allCompsData.length / window.COMPS_PER_PAGE);
+    if (page < 1 || page > totalPages) return;
+    window.currentCompsPage = page;
+    renderCompsPage();
+}
+
+function renderCompsPage() {
+    const grid = document.getElementById('all-comps-grid');
+    grid.innerHTML = '';
+    const start = (window.currentCompsPage - 1) * window.COMPS_PER_PAGE;
+    const end = start + window.COMPS_PER_PAGE;
+    const pageData = window.allCompsData.slice(start, end);
+
+    pageData.forEach(comp => grid.appendChild(createCompCard(comp, true)));
+
+    const controlsWrap = document.querySelector('#comps-page .pagination-controls');
+    controlsWrap.innerHTML = renderPaginationHTML(window.currentCompsPage, window.allCompsData.length, window.COMPS_PER_PAGE, 'goToCompsPage');
+}
+
+function openNewsPage() {
+    navigateTo('news-page', true);
+    window.currentNewsPage = 1;
+    renderNewsPage();
+}
+
+function goToNewsPage(page) {
+    const totalPages = Math.ceil(window.allNewsData.length / window.NEWS_PER_PAGE);
+    if (page < 1 || page > totalPages) return;
+    window.currentNewsPage = page;
+    renderNewsPage();
+}
+
+function renderNewsPage() {
+    const list = document.getElementById('all-news-list');
+    list.innerHTML = '';
+    const start = (window.currentNewsPage - 1) * window.NEWS_PER_PAGE;
+    const end = start + window.NEWS_PER_PAGE;
+    const pageData = window.allNewsData.slice(start, end);
+    pageData.forEach(news => list.appendChild(createNewsCard(news, true)));
+
+    const controlsWrap = document.querySelector('#news-page .pagination-controls');
+    controlsWrap.innerHTML = renderPaginationHTML(window.currentNewsPage, window.allNewsData.length, window.NEWS_PER_PAGE, 'goToNewsPage');
+}
+
+// ---------------- 2. 资讯引擎 ----------------
+function buildNewsTimeline() {
+    let globalAttempts = [];
+
+    for (let wcaId in allHistoryData) {
+        let userEvents = allHistoryData[wcaId];
+        let cuber = allCubersData.find(c => c && c.person && c.person.wca_id === wcaId);
+        if (!cuber) continue;
+        let name = formatName(cuber.person.name);
+
+        for (let evId in userEvents) {
+            userEvents[evId].forEach(attempt => {
+                globalAttempts.push({ wcaId, name, evId, attempt, dateStr: attempt.date });
+            });
+        }
+    }
+
+    globalAttempts.sort((a, b) => new Date(a.dateStr) - new Date(b.dateStr));
+
+    let rollingNR = {};
+    let personalBest = {};
+    window.allNewsData = [];
+
+    globalAttempts.forEach(item => {
+        let attempt = item.attempt;
+        let evObj = eventDict.find(e => e.id === item.evId);
+        let evName = evObj ? evObj.name.split('（')[0] : item.evId;
+
+        ['single', 'average'].forEach(type => {
+            let score = attempt[type];
+            if (score && score > 0) {
+                let pbKey = `${item.wcaId}_${item.evId}_${type}`;
+                let nrKey = `${item.evId}_${type}`;
+                let isPB = false;
+                let isNR = false;
+
+                if (!personalBest[pbKey] || score < personalBest[pbKey]) {
+                    personalBest[pbKey] = score;
+                    isPB = true;
+                }
+                if (!rollingNR[nrKey] || score < rollingNR[nrKey]) {
+                    rollingNR[nrKey] = score;
+                    isNR = true;
+                }
+
+                if (isPB) {
+                    window.allNewsData.push({
+                        wcaId: item.wcaId, name: item.name, evId: item.evId, evName: evName,
+                        type: type === 'single' ? '单次' : '平均',
+                        score, isNR, date: attempt.date, comp: attempt.comp
+                    });
+                }
+            }
+        });
+    });
+
+    window.allNewsData.reverse();
+
+    const list = document.getElementById('news-list');
+    list.innerHTML = '';
+    const topNews = window.allNewsData.slice(0, 15);
+    topNews.forEach(news => list.appendChild(createNewsCard(news, false)));
+}
+
+function createNewsCard(news, isFullPage) {
+    let timeDisp = formatWcaResult(news.score, news.evId, news.type === '单次' ? 'single' : 'average');
+    let nrBadge = news.isNR ? `<span class="badge-nr-break">宁波纪录</span>` : '';
+    let levelText = news.isNR ? "宁波" : "个人";
+
+    let titleHtml = `
+        <div class="news-title">
+            <span class="news-name-link" onclick="showPerson('${news.wcaId}')">${news.name}</span> 
+            以 <span class="highlight">${timeDisp}</span> 的成绩刷新了 ${news.evName} ${news.type} ${levelText} 纪录！${nrBadge}
+        </div>
+    `;
+
+    let descHtml = `在 <strong>${news.comp}</strong> 赛场上，他凭借优异的发挥突破了极限。`;
+
+    let item = document.createElement('div');
+    item.className = isFullPage ? 'news-card-item' : 'news-item';
+    item.innerHTML = `
+        ${titleHtml}
+        <div class="news-desc">${descHtml}</div>
+        <div class="news-footer">🕒 发布时间: ${news.date} &nbsp;·&nbsp; WCA ID: ${news.wcaId}</div>
+    `;
+    return item;
+}
+
+// ---------------- 3. 全景简约纪录引擎 ----------------
+function renderHomeRecords() {
+    const list = document.getElementById('mini-records-list');
+    list.innerHTML = '';
+
+    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
+    const targetEvents = eventDict.filter(ev => !excludedEvents.includes(ev.id));
+
+    targetEvents.forEach(evObj => {
+        let evId = evObj.id;
+        let bestSingle = { score: Infinity, name: '' };
+        let bestAverage = { score: Infinity, name: '' };
+
+        allCubersData.forEach(cuber => {
+            if (!cuber || !cuber.personal_records || !cuber.personal_records[evId]) return;
+            const rec = cuber.personal_records[evId];
+
+            if (rec.single && rec.single.best < bestSingle.score) {
+                bestSingle.score = rec.single.best;
+                bestSingle.name = formatName(cuber.person.name);
+            }
+            if (rec.average && rec.average.best < bestAverage.score) {
+                bestAverage.score = rec.average.best;
+                bestAverage.name = formatName(cuber.person.name);
+            }
+        });
+
+        let hasSingle = bestSingle.score !== Infinity;
+        let hasAvg = bestAverage.score !== Infinity;
+
+        if (hasSingle) {
+            let item = document.createElement('div');
+            item.className = 'mini-record-row';
+            item.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-main);">
+                    <span class="cubing-icon event-${evId}" style="font-size: 18px; color: var(--primary-color); width: 18px; text-align: center;"></span>
+                    <span style="color: var(--text-muted); font-size: 12px; width: 26px;">单次</span>
+                    <span>${bestSingle.name}</span>
+                </div>
+                <div style="font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: bold; color: var(--primary-color);">
+                    ${formatWcaResult(bestSingle.score, evId, 'single')}
+                </div>
+            `;
+            list.appendChild(item);
+        }
+
+        if (hasAvg) {
+            let item = document.createElement('div');
+            item.className = 'mini-record-row';
+            let iconHtml = hasSingle
+                ? `<span style="width: 18px; display: inline-block;"></span>`
+                : `<span class="cubing-icon event-${evId}" style="font-size: 18px; color: var(--primary-color); width: 18px; text-align: center;"></span>`;
+
+            item.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-main);">
+                    ${iconHtml}
+                    <span style="color: var(--text-muted); font-size: 12px; width: 26px;">平均</span>
+                    <span>${bestAverage.name}</span>
+                </div>
+                <div style="font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: bold; color: var(--primary-color);">
+                    ${formatWcaResult(bestAverage.score, evId, 'average')}
+                </div>
+            `;
+            list.appendChild(item);
+        }
+    });
 }
