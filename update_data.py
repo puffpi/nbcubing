@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
 import zipfile
@@ -27,35 +28,35 @@ HEADERS = {
     )
 }
 
-
 # ============================================================
-# 宁波选手名单
+# 宁波选手名单 (动态从 database.js 读取)
 # ============================================================
 
-NB_IDS = [
-    '2024GUOC01', '2024FENG08', '2023WANY03', '2018WANH02',
-    '2016WUJI01', '2018HUAN49', '2019ZHOU88', '2025CHEJ08',
-    '2026QIAN04', '2025HUAN11', '2025JIAN23', '2025WANB01',
-    '2018ZHAX04', '2018SUNK01', '2024WANG52', '2025QING03',
-    '2023CHEJ12', '2023CHEN30', '2018ZHAJ16', '2016HEZH01',
-    '2018WANZ50', '2011HUAN10', '2018SHAO02', '2017DONG13',
-    '2015CAIT01', '2017YANY06', '2021HUAN17', '2015ZHUJ05',
-    '2018ZHUH05', '2017ZHUY03', '2014CHEN33', '2018WANH29',
-    '2021WENZ02', '2026DING03', '2017PANL01', '2014LITI01',
-    '2009FENG07', '2011YANX02', '2016ZHOU21', '2016ZHOU16',
-    '2015LINX02', '2018GUOZ07', '2018ZHAO61', '2018WANG12',
-    '2018GOUS01', '2018XIEN01', '2018XUSH07', '2018QIZI01',
-    '2018LIHA15', '2018ZHAO59', '2018SHIY09', '2018LINY10',
-    '2018ZOUZ02', '2018ZHAO62', '2017ZHOU10', '2015LIJI05',
-    '2011FANG03', '2019CHEQ01', '2026JIAN17', '2016HEJI02',
-    '2015FUYU01', '2026ZHEN08', '2025CHEN46', '2025SHEN26',
-    '2025QIHA02', '2025HUAY04', '2024XULI01', '2025LIZH05',
-    '2025WANG45', '2019CHEY56', '2019CHEN92', '2014ZHUC01',
-    '2025LOUJ01', '2019GUAN18', '2024GUAN02', '2025WUBO02',
-    '2024LUOK01', '2025ZHEN27', '2025SHEN27', '2025LICH03',
-    '2025ZHAZ11', '2026ZHAN79', '2025TANW01'
-]
+def load_ids_from_js():
+    """
+    自动读取同一目录下的 database.js，并提取其中的 rosterIds 列表
+    """
+    js_path = os.path.join(os.path.dirname(__file__), "database.js")
 
+    # 为了兼容直接在根目录运行的情况
+    if not os.path.exists(js_path):
+        js_path = "database.js"
+
+    with open(js_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 用正则抓取 const rosterIds = [...] 里面的内容
+    match = re.search(r"const\s+rosterIds\s*=\s*\[(.*?)\];", content, re.DOTALL)
+    if not match:
+        raise ValueError("在 database.js 中找不到 rosterIds 列表，请检查文件格式！")
+
+    # 提取所有被单引号包裹的 WCA ID
+    ids = re.findall(r"'([A-Z0-9]+)'", match.group(1))
+    return ids
+
+
+# 动态获取名单
+NB_IDS = load_ids_from_js()
 NB_ID_SET = set(NB_IDS)
 
 
