@@ -4114,40 +4114,37 @@ function renderMonthlyList() {
 }
 
 // ---------------- 巅峰月赛 排行榜渲染引擎 ----------------
-function openMonthlyRanking(evId, cnName) {
+// ---------------- 巅峰月赛 排行榜渲染引擎 (核心升级：直连全网云端) ----------------
+async function openMonthlyRanking(evId, cnName) {
     document.getElementById('monthly-ranking-title').innerText = `月赛排行榜 - ${cnName}`;
     const list = document.getElementById('monthly-ranking-list');
-    list.innerHTML = '';
 
-    let attemptsData = getMonthlyAttempts(evId);
-    let entries = [];
+    // 1. 弹出页面并显示全网同步的转圈动画
+    list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>正在同步全网数据...</div>';
+    navigateTo('monthly-ranking-page', true);
 
-    if (attemptsData) {
-        let res = processMonthlyResults(attemptsData, evId);
-        entries.push({
-            name: uiSettings.username,
-            wcaId: uiSettings.wcaId,
-            avgDisp: res.avgDisp,
-            detailsStr: res.detailsStr,
-            sortAvgMs: res.sortAvgMs,
-            sortSingleMs: res.sortSingleMs
-        });
+    // 2. 真正从 Supabase 云端拉取排行数据
+    let cloudData = await fetchWeeklyLeaderboard(evId);
+    list.innerHTML = ''; // 数据拉取完毕，清空转圈动画
+
+    if (!cloudData || cloudData.length === 0) {
+        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">本月暂无全网成绩<br>快来抢下首杀吧！</div>';
+        return;
     }
 
-    // 核心修改：已彻底删除“泡芙老师”的虚拟数据注入块
-
-    // WCA 官方排名逻辑：优先比拼有效平均(单次)，若是 DNF 选手，则再比拼他们的最快单次进行底端排位
-    entries.sort((a, b) => {
-        if (a.sortAvgMs !== b.sortAvgMs) return a.sortAvgMs - b.sortAvgMs;
-        return a.sortSingleMs - b.sortSingleMs;
-    });
-
-    entries.forEach((entry, index) => {
+    // 3. 渲染云端排行榜 (Supabase 已经帮我们在拉取时用 raw_ms 排好序了)
+    cloudData.forEach((entry, index) => {
         let row = document.createElement('div');
         row.className = 'monthly-event-row';
         row.style.cursor = 'default';
 
-        let userDisplay = entry.wcaId ? `${entry.name}<br><span style="font-size:12px; color:var(--text-muted); font-weight:normal;">${entry.wcaId}</span>` : `${entry.name}`;
+        // 组装选手信息显示
+        let userDisplay = entry.wca_id
+            ? `${entry.username}<br><span style="font-size:12px; color:var(--text-muted); font-weight:normal;">${entry.wca_id}</span>`
+            : `${entry.username}`;
+
+        // 核心还原：把我们在云端垫底用的 DNF 数值 99999999 转换回 DNF 文本
+        let finalTimeDisp = entry.raw_ms >= 99999999 ? 'DNF' : formatTimerOutput(entry.raw_ms);
 
         row.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px;">
@@ -4155,19 +4152,12 @@ function openMonthlyRanking(evId, cnName) {
                 <div style="font-size: 15px; font-weight: bold; color: var(--text-main); line-height: 1.3;">${userDisplay}</div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
-                <!-- 核心修改：取消了对未完赛的颜色判定，固定使用 var(--primary-color) -->
-                <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${entry.avgDisp}</div>
-                <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${entry.detailsStr}</div>
+                <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${finalTimeDisp}</div>
+                <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${entry.details}</div>
             </div>
         `;
         list.appendChild(row);
     });
-
-    if (entries.length === 0) {
-        list.innerHTML = '<div style="padding: 30px; text-align: center; color: var(--text-muted);">暂无成绩记录</div>';
-    }
-
-    navigateTo('monthly-ranking-page', true);
 }
 
 // ---------------- 弹窗与进出控制 ----------------
