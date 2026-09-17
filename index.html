@@ -43,36 +43,129 @@
         </div>
     </div>
 
-    <!-- 全局智能悬浮导航 (高级黑灰质感) -->
-    <!-- 默认 class 带有 expand-left 表示在右侧时向左侧展开半圆 -->
-    <div id="floating-nav" class="floating-nav-container expand-left">
-        <div class="nav-menu">
-            <button class="nav-item" onclick="goHome()" title="返回主页">&#127968;&#xFE0E;</button>
-            <button class="nav-item" onclick="goBack()" title="返回上一页">❮</button>
+    <!-- =========================================
+         全局常驻顶部导航栏
+    ========================================= -->
+    <header class="home-nav-header global-nav-header">
+        <div class="nav-left">
+            <div class="nav-logo" onclick="goHome()" title="返回主页">
+                <span class="cubing-icon event-333" style="font-size: 26px; color: var(--primary-color);"></span>
+            </div>
+            <!-- 修改：增加了浅灰底色的方形返回按钮，替换了过大的箭头 -->
+            <div class="nav-logo" onclick="goBack()" title="返回上一页" style="background: #f1f5f9; border-radius: 10px; width: 40px; height: 40px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </div>
 
-            <!-- 第三按钮：跳转 NB Timer -->
-            <button class="nav-item" onclick="navigateTo('timer-page'); initTimer();" title="NB Timer" style="font-size: 18px;">⏱&#xFE0E;</button>
+            <div class="nav-search">
+                <!-- 输入框靠左，去除默认右边距 -->
+                <input type="text" id="home-search-input" placeholder="搜索选手、WCA ID" autocomplete="off" style="text-align: left; padding-right: 8px;">
+
+                <!-- 放大镜移至右侧，并绑定点击事件 -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; flex-shrink: 0;" onclick="executeHomeSearch()">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <div id="autocomplete-home" class="autocomplete-list"></div>
+            </div>
         </div>
-        <div class="nav-main-btn" id="nav-main-btn">
-            ⌘
+
+        <div class="nav-right">
+            <div class="nav-menu-item" onclick="openCompsPage()">赛事</div>
+            <div class="nav-menu-item has-dropdown">成绩
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <div class="dropdown-content">
+                    <a onclick="navigateTo('ranking-page')">成绩排行榜</a>
+                    <a onclick="navigateTo('records-page'); generateRecords();">宁波纪录</a>
+                    <a onclick="openSearchPage()">成绩查询 · PK</a>
+                </div>
+            </div>
+            <div class="nav-menu-item has-dropdown">工具
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <div class="dropdown-content">
+                    <a onclick="navigateTo('timer-page'); initTimer();">NB Timer</a>
+                    <a onclick="initChallenge(); navigateTo('challenge-page');">NB Challenge</a>
+                    <a onclick="initMonthly();">巅峰月赛</a>
+                </div>
+            </div>
+            <div class="nav-menu-item has-dropdown">其他
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <div class="dropdown-content">
+                    <a href="https://space.bilibili.com/351872771?spm_id_from=333.1007.0.0" target="_blank">关于作者</a>
+                </div>
+            </div>
+            <div class="nav-menu-item" onclick="navigateTo('settings-page')">设置</div>
+        </div>
+    </header>
+
+    <!-- 全新设计的简约版首页 -->
+    <div id="home-page" class="page-container" style="padding: 0; max-width: 100%; min-height: calc(100vh - 64px); overflow-y: auto; overflow-x: hidden; background: #f8fafc;">
+
+        <div class="home-content-wrapper">
+            <section class="home-section">
+                <div class="section-header">
+                    <h3 class="section-title">近期赛事</h3>
+                    <span class="more-link" onclick="openCompsPage()">更多赛事 ></span>
+                </div>
+                <div id="recent-comps-grid" class="comps-grid">
+                    <div style="color: var(--text-muted); font-size: 14px;">正在从 WCA 官方拉取赛事信息...</div>
+                </div>
+            </section>
+
+            <div class="home-split-layout">
+                <section class="home-section news-section">
+                    <div class="section-header">
+                        <h3 class="section-title">新闻资讯</h3>
+                        <span class="more-link" onclick="openNewsPage()">更多资讯 ></span>
+                    </div>
+                    <div id="news-list" class="news-list"></div>
+                </section>
+
+                <section class="home-section records-section">
+                    <div class="section-header">
+                        <h3 class="section-title">宁波纪录</h3>
+                        <span class="more-link" onclick="navigateTo('records-page'); generateRecords();">更多纪录 ></span>
+                    </div>
+                    <div id="mini-records-list" class="mini-records-list card" style="padding: 10px 20px; border-radius: 12px; margin-bottom: 0;">
+                    </div>
+                </section>
+            </div>
+
+            <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin-top: 20px;">作者：b站@泡芙老师k3</p>
         </div>
     </div>
 
-    <!-- 简约版首页 -->
-    <div id="home-page" class="page-container card home-flex" style="max-width: 650px; margin: 0 auto; min-height: calc(100vh - 40px); box-sizing: border-box;">
-        <h1>WCA 宁波魔方数据库</h1>
-        <p style="text-align: center; color: #8d99ae;">选择你想要查看的功能</p>
-       <div class="home-menu" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 40px; width: 100%;">
-            <button class="home-nav-btn" onclick="navigateTo('ranking-page')">宁波魔友成绩排行榜</button>
-            <button class="home-nav-btn" onclick="navigateTo('records-page'); generateRecords();">WCA 宁波纪录</button>
-            <button class="home-nav-btn" onclick="openSearchPage()">成绩查询 · PK</button>
-
-            <!-- 核心修复：删除了 <span> 标签和代码换行，与其他按钮结构保持绝对一致 -->
-            <button class="home-nav-btn" onclick="navigateTo('timer-page'); initTimer();">NB Timer</button>
-            <button class="home-nav-btn" onclick="initChallenge(); navigateTo('challenge-page');">NB Challenge</button>
-            <button class="home-nav-btn" onclick="navigateTo('settings-page')">设置</button>
+    <!-- 全量赛事列表页面 -->
+    <div id="comps-page" class="page-container">
+        <div class="page-header">
+            <button onclick="goBack()">返回上一页</button>
+            <h2>赛事列表</h2>
         </div>
-        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: auto; margin-bottom: 5px;">作者：b站@泡芙老师k3</p>
+        <div class="list-page-container">
+            <div id="all-comps-grid" class="comps-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));"></div>
+            <div class="pagination-controls">
+                <button class="page-btn" id="comps-prev-btn" onclick="changeCompsPage(-1)">上一页</button>
+                <span class="page-info" id="comps-page-info">第 1 页</span>
+                <button class="page-btn" id="comps-next-btn" onclick="changeCompsPage(1)">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全量资讯列表页面 -->
+    <div id="news-page" class="page-container">
+        <div class="page-header">
+            <button onclick="goBack()">返回上一页</button>
+            <h2>新闻资讯</h2>
+        </div>
+        <div class="list-page-container" style="max-width: 800px;">
+            <div id="all-news-list"></div>
+            <div class="pagination-controls">
+                <button class="page-btn" id="news-prev-btn" onclick="changeNewsPage(-1)">上一页</button>
+                <span class="page-info" id="news-page-info">第 1 页</span>
+                <button class="page-btn" id="news-next-btn" onclick="changeNewsPage(1)">下一页</button>
+            </div>
+        </div>
     </div>
 
     <!-- 新增：3D 立体交互版首页 -->
@@ -145,7 +238,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.17.2</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.24.0</span>
             </div>
         </div>
     </div>
@@ -298,6 +391,14 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 巅峰月赛：个人主页跳转加载与防误触拦截卡片 -->
+    <div id="wcaid-check-modal" class="edit-score-popup" style="z-index: 3500; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;" onclick="closeWcaidCheckModal(event)">
+        <div class="card pk-confirm-card" style="width: 240px; margin: 0; padding: 25px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center;" onclick="event.stopPropagation()">
+            <div id="wcaid-check-spinner" class="spinner" style="margin-bottom: 12px; width: 28px; height: 28px; border-width: 3px;"></div>
+            <h3 id="wcaid-check-text" style="margin: 0; font-size: 15px; font-weight: bold; color: var(--text-main);">载入中...</h3>
         </div>
     </div>
 
@@ -684,16 +785,6 @@
                     <hr class="settings-divider">
                     <div class="sidebar-settings-title">界面</div>
 
-                    <!-- 首页排版切换 -->
-                    <div class="ios-setting-group custom-ui-group">
-                        <span>首页排版</span>
-                        <div class="ios-segment-control" style="width: 140px; margin: 0; display: flex;">
-                            <div class="ios-segment-btn" id="btn-layout-simple" onclick="setHomeLayout('simple')" style="flex: 1; text-align: center; padding: 5px 0;">简约</div>
-                            <!-- 将 active 移到这里 -->
-                            <div class="ios-segment-btn active" id="btn-layout-3d" onclick="setHomeLayout('3d')" style="flex: 1; text-align: center; padding: 5px 0;">立体</div>
-                        </div>
-                    </div>
-
                     <!-- 找回丢失的字体选择行 -->
                     <div class="ios-setting-group custom-ui-group">
                         <span>计时器字体</span>
@@ -833,6 +924,7 @@
             <!-- Tab 1: 主计时页 -->
             <div class="timer-main card active-tab" id="timer-tab-main">
                 <div class="timer-stats-panel">
+                    <div id="timer-stat-count">0/0</div>
                     <div id="timer-stat-best">best: -</div>
                     <div id="timer-stat-stat1">ao5: -</div>
                     <div id="timer-stat-stat2">ao12: -</div>
@@ -1027,89 +1119,51 @@
         </div>
     </div>
 
-    <!-- 合并后的：成绩查询 & PK 对战页面 -->
+    <!-- =========================================
+         成绩查询 & PK 对战页面 (等宽重构版)
+    ========================================= -->
     <div id="search-page" class="page-container search-page-fixed">
-        <div class="page-header" style="margin-bottom: 15px; flex-shrink: 0;">
-            <button onclick="goBack()">返回上一页</button>
-            <div>
-                <h2 style="margin-bottom: 5px;">成绩查询 · PK</h2>
-                <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">支持输入全球任意选手的姓名或 WCA ID</div>
-            </div>
+        <div style="text-align: center; margin-bottom: 25px; flex-shrink: 0;">
+            <h2 style="margin-bottom: 5px; font-size: 24px;">成绩查询 · PK</h2>
+            <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">支持输入全球任意选手的姓名或 WCA ID</div>
         </div>
 
-        <!-- 个人查询模块 -->
-        <div class="card" style="margin-bottom: 15px; flex-shrink: 0; padding: 15px 24px;">
-            <div style="font-size: 15px; color: var(--primary-color); margin-bottom: 12px; font-weight: bold; text-align: center;">个人成绩查询</div>
-            <div class="pk-inputs-container" style="margin-bottom: 0;">
-                <div class="pk-input-wrapper">
-                    <input type="text" id="search-input" class="pk-input" placeholder="输入选手（姓名 或 WCAID）" autocomplete="off">
-                    <div id="autocomplete-search" class="autocomplete-list"></div>
+        <!-- 利用 wrapper 实现三个卡片绝对等宽 -->
+        <div class="search-pk-wrapper">
+            <!-- 个人查询模块 -->
+            <div class="card">
+                <div style="font-size: 15px; color: var(--text-main); margin-bottom: 16px; font-weight: bold; text-align: center;">个人成绩查询</div>
+                <div class="pk-inputs-container" style="margin-bottom: 15px;">
+                    <div class="pk-input-wrapper">
+                        <input type="text" id="search-input" class="pk-input" placeholder="输入选手 (姓名或WCAID)" autocomplete="off">
+                        <div id="autocomplete-search" class="autocomplete-list"></div>
+                    </div>
                 </div>
-                <!-- 缩小按钮内边距，节约垂直空间 -->
-                <button class="home-nav-btn" style="width: auto; max-width: 200px; padding: 12px 24px;" onclick="performSearch()">开始查询</button>
-            </div>
-        </div>
-
-        <!-- 选手PK模块 -->
-        <div class="card" style="margin-bottom: 15px; flex-shrink: 0; padding: 15px 24px;">
-            <div style="font-size: 15px; color: var(--primary-color); margin-bottom: 12px; font-weight: bold; text-align: center;">选手成绩 PK</div>
-            <div class="pk-inputs-container">
-                <div class="pk-input-wrapper">
-                    <input type="text" id="pk-input-a" class="pk-input" placeholder="输入选手A（姓名 或 WCAID）" autocomplete="off">
-                    <div id="autocomplete-a" class="autocomplete-list"></div>
-                </div>
-                <div class="pk-vs" style="margin-bottom: 0;">VS</div>
-                <div class="pk-input-wrapper">
-                    <input type="text" id="pk-input-b" class="pk-input" placeholder="输入选手B（姓名 或 WCAID）" autocomplete="off">
-                    <div id="autocomplete-b" class="autocomplete-list"></div>
-                </div>
-            </div>
-            <div style="text-align: center;">
-                <button class="home-nav-btn" style="width: 100%; max-width: 360px; margin: 0 auto; padding: 12px 24px;" onclick="handlePkClick()">开始对比</button>
-            </div>
-        </div>
-
-        <!-- 统一带滚动条的历史记录模块 -->
-        <div class="card combined-history-card" id="combined-history-container" style="display:none; padding: 15px 24px;">
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center; flex-shrink: 0;">最近查询与对战</div>
-            <div id="combined-history-list" class="history-scroll-container"></div>
-        </div>
-    </div>
-
-    <div id="pk-result-page" class="page-container">
-        <div class="page-header">
-            <button onclick="goBack()">返回上一页</button>
-            <div>
-                <h2 style="margin-bottom: 5px;">成绩对比详情</h2>
-            </div>
-        </div>
-
-        <div class="card" id="pk-result-card">
-            <div class="pk-score-board">
-                <div class="pk-score-item">
-                    <div class="pk-score-name" id="pk-board-name-a">选手A</div>
-                    <div class="pk-score-value" id="pk-board-score-a">0</div>
-                </div>
-                <div class="pk-score-item" style="font-size: 18px; font-weight: bold; color: var(--text-muted);">
-                    总比分
-                </div>
-                <div class="pk-score-item">
-                    <div class="pk-score-name" id="pk-board-name-b">选手B</div>
-                    <div class="pk-score-value" id="pk-board-score-b">0</div>
-                </div>
+                <button class="search-pk-btn" onclick="performSearch()">开始查询</button>
             </div>
 
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th id="pk-table-name-a" style="width: 35%">选手A</th>
-                            <th style="width: 30%">比赛项目</th>
-                            <th id="pk-table-name-b" style="width: 35%">选手B</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pk-tbody"></tbody>
-                </table>
+            <!-- 选手PK模块 -->
+            <div class="card">
+                <div style="font-size: 15px; color: var(--text-main); margin-bottom: 16px; font-weight: bold; text-align: center;">选手成绩 PK</div>
+                <!-- 核心修改：在这里加上了 class="pk-battle-inputs" -->
+                <div class="pk-battle-inputs" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
+                    <div class="pk-input-wrapper" style="margin: 0; flex: 1;">
+                        <input type="text" id="pk-input-a" class="pk-input" placeholder="输入选手 A" autocomplete="off" style="width: 100%;">
+                        <div id="autocomplete-a" class="autocomplete-list"></div>
+                    </div>
+                    <div class="pk-vs" style="margin: 0; flex-shrink: 0; font-size: 20px;">VS</div>
+                    <div class="pk-input-wrapper" style="margin: 0; flex: 1;">
+                        <input type="text" id="pk-input-b" class="pk-input" placeholder="输入选手 B" autocomplete="off" style="width: 100%;">
+                        <div id="autocomplete-b" class="autocomplete-list"></div>
+                    </div>
+                </div>
+                <button class="search-pk-btn" onclick="handlePkClick()">开始对比</button>
+            </div>
+
+            <!-- 统一带滚动条的历史记录模块 -->
+            <div class="card combined-history-card" id="combined-history-container" style="display:none;">
+                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center; flex-shrink: 0;">最近查询与对战</div>
+                <div id="combined-history-list" class="history-scroll-container"></div>
             </div>
         </div>
     </div>
@@ -1232,6 +1286,8 @@
                     <div class="timer-more-item" onclick="openChalSettingsModal('clear')">清空比分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('winScore')">设置胜利得分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('adjust')">手动调整比分</div>
+                    <!-- 👇 新增：调整字体大小入口 👇 -->
+                    <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('font')">调整字体大小</div>
                 </div>
             </div>
 
