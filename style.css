@@ -2722,7 +2722,7 @@ body {
     /* 两个计时器：标题和打乱公式继续向上移动，贴近顶部导航栏 */
     #timer-page.active .scramble-container,
     #monthly-timer-page.active .scramble-container {
-        top: -40px !important;  /* 这里改的是计时器上方项目名称和打乱公式的位置 */
+        top: 10px !important;  /* 这里改的是计时器上方项目名称和打乱公式的位置 */
     }
 
     /* NB Timer：底部导航栏上方保留少量间距 */
@@ -2766,4 +2766,95 @@ body {
         overflow:visible !important;
     }
 
+}
+
+/* =========================================
+   终极局部修复补丁区 (整合优化版)
+   ========================================= */
+
+/* 1. 修复 Loading 动画被遮挡：全屏绝对悬浮并居中 */
+#global-loading {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(248, 250, 252, 0.95) !important;
+    z-index: 9999 !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 2. 修复 NB Challenge 中间分界线偏移：强制两端 1:1 严格平分 */
+.challenge-half {
+    flex: 1 1 0% !important;
+}
+
+/* 3. 修复 PK 结果页及搜索页 VS 图标翻转：强制横向正立 */
+.pk-vs,
+#pk-result-card .pk-vs {
+    transform: none !important;
+    margin: 0 !important;
+}
+
+/* 4. 修复 PK 结果大卡片底部间距过大，使四周边距完美对称 */
+#pk-result-card .pk-score-board {
+    margin-bottom: 0 !important;
+}
+
+/* 5. 修复个人主页“粗饼主页”按钮：悬停与点击时显示专属橙黄色 */
+.btn-cubing:hover,
+.btn-cubing:active {
+    background-color: #f59e0b !important;
+    border-color: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+/* =========================================
+   手机端专属响应式修复区 (max-width: 768px)
+   ========================================= */
+@media (max-width: 768px) {
+
+    /* 1. 修复成绩查询与 PK 页面被锁死无法滑动，并隐藏滚动条 */
+    .search-page-fixed.active {
+        position: relative !important;
+        height: auto !important;
+        min-height: calc(100dvh - 64px) !important;
+        padding-bottom: 90px !important;
+        overflow-y: auto !important;
+    }
+    .search-page-fixed.active::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+    }
+
+    /* 2. 抹除计时器页面里隐形的占位表头，彻底消除顶部大块空隙 */
+    #timer-page .page-header,
+    #monthly-timer-page .page-header {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 3. 减小各页面顶部容器的内边距，让内容紧贴顶部导航栏 */
+    #timer-page.active,
+    #monthly-timer-page.active,
+    #timer-tab-list {
+        padding-top: 10px !important;
+    }
+    #sidebar-view-settings {
+        padding-top: 5px !important;
+    }
+
+    /* 4. 缩小 PK 结果表格左右内边距，给拆分后的多行姓名留出充足的横向空间 */
+    #pk-tbody td,
+    #pk-result-page th {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
 }
