@@ -238,7 +238,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.24.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.24.2</span>
             </div>
         </div>
     </div>
@@ -1164,6 +1164,35 @@
             <div class="card combined-history-card" id="combined-history-container" style="display:none;">
                 <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center; flex-shrink: 0;">最近查询与对战</div>
                 <div id="combined-history-list" class="history-scroll-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 丢失的 PK 结果页面补丁 -->
+    <div id="pk-result-page" class="page-container">
+        <div class="page-header">
+            <button onclick="goBack()">返回上一页</button>
+            <h2>对决结果</h2>
+        </div>
+        <div class="card" id="pk-result-card" style="max-width: 800px; margin: 0 auto 24px auto;">
+            <div class="pk-score-board">
+                <div class="pk-score-item"></div>
+                <div class="pk-vs">VS</div>
+                <div class="pk-score-item"></div>
+            </div>
+        </div>
+        <div class="card" style="max-width: 800px; margin: 0 auto;">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="pk-table-name-a" style="width: 35%;">选手 A</th>
+                            <th style="width: 30%;">项目</th>
+                            <th id="pk-table-name-b" style="width: 35%;">选手 B</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pk-tbody"></tbody>
+                </table>
             </div>
         </div>
     </div>
