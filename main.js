@@ -586,16 +586,26 @@ function showSelectionModal(matches, sideLabel) {
 }
 
 function renderPK(pA, pB) {
+    // 专属姓名处理工具：智能过滤，去繁就简
+    function getPkDisplayName(rawName) {
+        const match = rawName.match(/^(.*?)\s*[（\(](.*?)[）\)]$/);
+        if (match) {
+            return match[2]; // 如果有括号，只返回括号里的母语名（中文）
+        }
+        return rawName; // 如果没括号（如纯外国选手），保留原名
+    }
+
+    // 1. 渲染上方卡片
     let nameAHtml = `
         <div class="pk-player-card" onclick="showPerson('${pA.person.wca_id}')">
-            <div class="pk-score-name">${formatName(pA.person.name)}</div>
+            <div class="pk-score-name" style="line-height: 1.4; font-size: 18px;">${getPkDisplayName(pA.person.name)}</div>
             <div class="pk-score-id">${pA.person.wca_id}</div>
             <div class="pk-score-value" id="pk-board-score-a">0</div>
         </div>
     `;
     let nameBHtml = `
         <div class="pk-player-card" onclick="showPerson('${pB.person.wca_id}')">
-            <div class="pk-score-name">${formatName(pB.person.name)}</div>
+            <div class="pk-score-name" style="line-height: 1.4; font-size: 18px;">${getPkDisplayName(pB.person.name)}</div>
             <div class="pk-score-id">${pB.person.wca_id}</div>
             <div class="pk-score-value" id="pk-board-score-b">0</div>
         </div>
@@ -606,8 +616,9 @@ function renderPK(pA, pB) {
     boardA.innerHTML = nameAHtml;
     boardB.innerHTML = nameBHtml;
 
-    document.getElementById('pk-table-name-a').innerHTML = `${formatName(pA.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pA.person.wca_id}</span>`;
-    document.getElementById('pk-table-name-b').innerHTML = `${formatName(pB.person.name)}<br><span style="font-size:13px; font-weight:normal; color:var(--text-muted);">${pB.person.wca_id}</span>`;
+    // 2. 渲染下方表格头部（姓名另起一行写 WCA ID）
+    document.getElementById('pk-table-name-a').innerHTML = `${getPkDisplayName(pA.person.name)}<br><span style="font-size:12px; font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pA.person.wca_id}</span>`;
+    document.getElementById('pk-table-name-b').innerHTML = `${getPkDisplayName(pB.person.name)}<br><span style="font-size:12px; font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pB.person.wca_id}</span>`;
 
     let scoreA = 0; let scoreB = 0;
     const tbody = document.getElementById('pk-tbody');
@@ -629,9 +640,10 @@ function renderPK(pA, pB) {
                 else if (valB < valA) { scoreB++; classB = 'pk-cell-win'; classA = 'pk-cell-lose'; }
                 else if (valA === valB && valA !== Infinity) { classA = 'pk-cell-tie'; classB = 'pk-cell-tie'; }
 
+                // 3. 生成表格行数据
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="${classA}">${timeA}</td>
+                    <td class="${classA}" style="font-size: 16px; font-weight: 600;">${timeA}</td>
                     <td>
                         <div style="font-weight:bold; color:var(--text-main); font-size:1.05em; display:flex; justify-content:center; align-items:center; gap:5px;">
                             <span class="cubing-icon event-${ev.id}" style="color:var(--text-main); font-size:16px; margin-top:-2px;"></span>
@@ -639,13 +651,14 @@ function renderPK(pA, pB) {
                         </div>
                         <div style="font-size:0.85em; color:var(--text-muted); margin-top:2px;">${type.label}</div>
                     </td>
-                    <td class="${classB}">${timeB}</td>
+                    <td class="${classB}" style="font-size: 16px; font-weight: 600;">${timeB}</td>
                 `;
                 tbody.appendChild(tr);
             }
         });
     });
 
+    // 4. 结算计分板总分
     const scoreElA = document.getElementById('pk-board-score-a');
     const scoreElB = document.getElementById('pk-board-score-b');
     scoreElA.innerText = scoreA; scoreElB.innerText = scoreB;
@@ -664,7 +677,7 @@ function renderPersonPage(cuber) {
     if (wcaLinkContainer) {
         wcaLinkContainer.innerHTML = `
             <a href="https://www.worldcubeassociation.org/persons/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">🔗 WCA 官方</a>
-            <a href="https://cubing.com/results/person/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; border-color: #f59e0b; color: #f59e0b; margin-left: 8px;">📊 粗饼主页</a>
+            <a href="https://cubing.com/results/person/${cuber.person.wca_id}" target="_blank" class="btn btn-outline btn-cubing" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; border-color: #f59e0b; color: #f59e0b; margin-left: 8px;">📊 粗饼主页</a>
         `;
     }
 
@@ -1382,6 +1395,7 @@ function generateCurrentRecords(tbody) {
     const types = [{id: 'single', label: '单次'}, {id: 'average', label: '平均'}];
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf'];
 
+    // 1. 遍历生成 WCA 官方正常项目
     eventDict.forEach(ev => {
         if (excludedEvents.includes(ev.id)) return;
 
@@ -1430,6 +1444,47 @@ function generateCurrentRecords(tbody) {
             }
         });
     });
+
+    // 2. 👇 核心追加：全项目综合排名专属彩蛋 (补充了比赛名称与时间，去除了“全项”二字) 👇
+    const customTrSingle = document.createElement('tr');
+    customTrSingle.innerHTML = `
+        <td>
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px;">
+                <span>全项目综合排名</span>
+            </div>
+        </td>
+        <td><span class="type-badge">单次</span></td>
+        <td class="clickable-name-cell">
+            <span class="clickable-name" style="cursor:default;">孙凯霖（Kailin Sun）</span>
+        </td>
+        <td class="highlight-score">5278</td>
+        <td><span class="rank-top100">NR 67</span></td>
+        <td>AsR 267</td>
+        <td>WR 1531</td>
+        <td>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Vietnam Championship 2023</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2023-07-16</div>
+        </td>
+    `;
+    tbody.appendChild(customTrSingle);
+
+    const customTrAvg = document.createElement('tr');
+    customTrAvg.innerHTML = `
+        <td></td>
+        <td><span class="type-badge">平均</span></td>
+        <td class="clickable-name-cell">
+            <span class="clickable-name" style="cursor:default;">郭畅（Chang Guo）</span>
+        </td>
+        <td class="highlight-score">5266</td>
+        <td><span class="rank-top100">NR 68</span></td>
+        <td>AsR 295</td>
+        <td>WR 1524</td>
+        <td>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Hefei August Open 2026</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2026-08-15</div>
+        </td>
+    `;
+    tbody.appendChild(customTrAvg);
 }
 
 // 渲染时间轴破纪录历史
@@ -4051,7 +4106,7 @@ function confirmMonthlyName() {
     navigateTo('monthly-page');
 }
 
-// ---------------- 巅峰月赛 列表主页渲染引擎 (带全网人数与实时排名) ----------------
+// ---------------- 巅峰月赛 列表主页渲染引擎 (异步秒开版) ----------------
 async function renderMonthlyList() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -4059,101 +4114,25 @@ async function renderMonthlyList() {
     document.getElementById('monthly-date-range').innerText = `${month}.01 - ${month}.${lastDay}`;
 
     const list = document.getElementById('monthly-event-list');
-
-    // 先展示骨架屏转圈动画，极大地提升加载体验
-    list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>数据同步中...</div>';
+    list.innerHTML = ''; // 取消转圈动画，瞬间清空
 
     ensureMonthlyScrambles();
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
     const validEvents = eventDict.filter(ev => !excludedEvents.includes(ev.id));
 
-    // 1. 核心提速黑科技：一次性请求全网所有成绩，极大地节省网络握手时间
-    let allCloudData = [];
-    try {
-        // 只拉取计算排名必需的关键字段，不拉取体积大的明细，节省流量
-        const { data, error } = await supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms');
-        if (!error && data) allCloudData = data;
-    } catch (e) {
-        console.warn("拉取云端统计数据失败", e);
-    }
-
-    // 2. 按比赛项目把全网数据进行分组装桶
-    let eventLeaderboards = {};
-    allCloudData.forEach(row => {
-        if (!eventLeaderboards[row.event_id]) eventLeaderboards[row.event_id] = [];
-        eventLeaderboards[row.event_id].push(row);
-    });
-
-    list.innerHTML = ''; // 数据处理完毕，清空转圈动画
-
-    // 3. 逐个渲染项目卡片
+    // 第一步：瞬间把 UI 画出来，人数暂留占位符 [...]
     validEvents.forEach(ev => {
         let cnName = ev.name.split('（')[0].split('(')[0].trim();
         let attemptsData = getMonthlyAttempts(ev.id);
 
-        // ================= 开始智能计算本项目的参赛人数与我的名次 =================
-        let cloudData = eventLeaderboards[ev.id] || [];
-
-        // 关键逻辑：把你手机本地的最新成绩也丢进池子里一起比，防漏算
-        if (attemptsData) {
-            let res = processMonthlyResults(attemptsData, ev.id);
-            cloudData.push({
-                username: uiSettings.username,
-                wca_id: uiSettings.wcaId || '',
-                raw_ms: res.sortAvgMs === Infinity ? 99999999 : res.sortAvgMs
-            });
-        }
-
-        // 智能去重 (同一个选手如果打过好几次，只留下他最快的那次)
-        let userMap = {};
-        cloudData.forEach(entry => {
-            let key = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
-            if (!userMap[key] || entry.raw_ms < userMap[key].raw_ms) {
-                userMap[key] = entry;
-            }
-        });
-
-        let finalEntries = Object.values(userMap);
-
-        // 按时间从快到慢排序
-        finalEntries.sort((a, b) => a.raw_ms - b.raw_ms);
-
-        let totalParticipants = finalEntries.length;
-        let myRank = -1;
-
-        // 遍历这批人，找出“我”排在第几个
-        if (uiSettings.username) {
-            let myKey1 = uiSettings.wcaId ? uiSettings.wcaId.toUpperCase() : null;
-            let myKey2 = uiSettings.username;
-
-            for (let i = 0; i < finalEntries.length; i++) {
-                let entry = finalEntries[i];
-                let entryKey = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
-                // 如果 WCA ID 匹配，或者在没有 ID 时用户名匹配，就锁定名次
-                if ((myKey1 && entryKey === myKey1) || (!myKey1 && entryKey === myKey2)) {
-                    myRank = i + 1;
-                    break;
-                }
-            }
-        }
-
-        // 完美构建你想要的 [1/2] 或 [2] 样式
-        let rankHtml = '';
-        if (totalParticipants > 0) {
-            if (myRank !== -1) {
-                rankHtml = `<span style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[${myRank}/${totalParticipants}]</span>`;
-            } else {
-                rankHtml = `<span style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[${totalParticipants}]</span>`;
-            }
-        }
-        // =========================================================================
+        // 预留排名的 span，给它一个专属 ID 方便等下填入数据
+        let rankHtml = `<span id="monthly-rank-${ev.id}" style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[...]</span>`;
 
         let btnAction = `event.stopPropagation(); openMonthlyEntry('${ev.id}', '${cnName}')`;
         let resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">参加</button>`;
 
         if (attemptsData) {
             let res = processMonthlyResults(attemptsData, ev.id);
-            // 顺便把提醒文本改成了贴合新机制的“本周”
             btnAction = `event.stopPropagation(); alert('您已完成或中途退出了本周该项目的比赛，无法再次进入！')`;
 
             resultHtml = `
@@ -4179,6 +4158,68 @@ async function renderMonthlyList() {
         `;
         list.appendChild(row);
     });
+
+    // 第二步：后台静默拉取云端数据，不阻塞页面交互
+    try {
+        const { data, error } = await supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms');
+        if (!error && data) {
+            let eventLeaderboards = {};
+            data.forEach(row => {
+                if (!eventLeaderboards[row.event_id]) eventLeaderboards[row.event_id] = [];
+                eventLeaderboards[row.event_id].push(row);
+            });
+
+            // 数据回来后，悄悄把每个项目的人数填进去
+            validEvents.forEach(ev => {
+                let cloudData = eventLeaderboards[ev.id] || [];
+                let attemptsData = getMonthlyAttempts(ev.id);
+
+                if (attemptsData) {
+                    let res = processMonthlyResults(attemptsData, ev.id);
+                    cloudData.push({
+                        username: uiSettings.username,
+                        wca_id: uiSettings.wcaId || '',
+                        raw_ms: res.sortAvgMs === Infinity ? 99999999 : res.sortAvgMs
+                    });
+                }
+
+                let userMap = {};
+                cloudData.forEach(entry => {
+                    let key = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
+                    if (!userMap[key] || entry.raw_ms < userMap[key].raw_ms) userMap[key] = entry;
+                });
+
+                let finalEntries = Object.values(userMap);
+                finalEntries.sort((a, b) => a.raw_ms - b.raw_ms);
+
+                let totalParticipants = finalEntries.length;
+                let myRank = -1;
+
+                if (uiSettings.username) {
+                    let myKey1 = uiSettings.wcaId ? uiSettings.wcaId.toUpperCase() : null;
+                    let myKey2 = uiSettings.username;
+                    for (let i = 0; i < finalEntries.length; i++) {
+                        let entry = finalEntries[i];
+                        let entryKey = entry.wca_id ? entry.wca_id.toUpperCase() : entry.username;
+                        if ((myKey1 && entryKey === myKey1) || (!myKey1 && entryKey === myKey2)) {
+                            myRank = i + 1; break;
+                        }
+                    }
+                }
+
+                let rankEl = document.getElementById(`monthly-rank-${ev.id}`);
+                if (rankEl) {
+                    if (totalParticipants > 0) {
+                        rankEl.innerText = myRank !== -1 ? `[${myRank}/${totalParticipants}]` : `[${totalParticipants}]`;
+                    } else {
+                        rankEl.innerText = '';
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.warn("后台拉取云端统计数据失败", e);
+    }
 }
 
 // ---------------- 巅峰月赛 排行榜渲染引擎 (核心升级：直连全网云端) ----------------
@@ -5234,7 +5275,7 @@ function createNewsCard(news, isFullPage) {
     item.innerHTML = `
         ${titleHtml}
         <div class="news-desc">${descHtml}</div>
-        <div class="news-footer">🕒 发布时间: ${news.date} &nbsp;·&nbsp; WCA ID: ${news.wcaId}</div>
+        <div class="news-footer">️发布时间: ${news.date} &nbsp;·&nbsp; WCA ID: ${news.wcaId}</div>
     `;
     return item;
 }
@@ -5305,4 +5346,29 @@ function renderHomeRecords() {
             list.appendChild(item);
         }
     });
+
+    // 👇 核心新增：在最底部追加“全项目综合排名”专属彩蛋 👇
+    const customHtml = `
+        <div class="mini-record-row">
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-main);">
+                <div style="font-size: 12px; font-weight: 900; color: var(--primary-color); width: 18px; display: flex; justify-content: center; white-space: nowrap;">全项</div>
+                <span style="color: var(--text-muted); font-size: 12px; width: 26px;">单次</span>
+                <span>孙凯霖（Kailin Sun）</span>
+            </div>
+            <div style="font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: bold; color: var(--primary-color);">
+                NR67
+            </div>
+        </div>
+        <div class="mini-record-row">
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-main);">
+                <span style="width: 18px; display: inline-block;"></span>
+                <span style="color: var(--text-muted); font-size: 12px; width: 26px;">平均</span>
+                <span>郭畅（Chang Guo）</span>
+            </div>
+            <div style="font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; font-weight: bold; color: var(--primary-color);">
+                NR68
+            </div>
+        </div>
+    `;
+    list.insertAdjacentHTML('beforeend', customHtml);
 }
