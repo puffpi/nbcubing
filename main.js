@@ -154,6 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
         showPerson(wcaId);
     });
 
+    const audio = document.getElementById('cs-bgm');
+    if(audio) audio.volume = 0.6;
+
     const nameInput = document.getElementById('monthly-input-name');
     if (nameInput) {
         nameInput.addEventListener('focus', function() {
@@ -233,7 +236,7 @@ function navigateTo(pageId, isForward = false) {
 // 统跳主页的路由函数
 function goHome() {
     let is3D = uiSettings.homeLayout === '3d';
-    navigateTo(is3D ? 'home-page-3d' : 'home-page');
+    navigateTo(is3D ? 'home-page-3d' : 'home-page'); // 商务版其实就是复用原本的 dom 结构，直接跳转 home-page
 }
 
 function goBack() {
@@ -3592,6 +3595,9 @@ function loadTimerData() {
         }
     } catch (e) { console.warn("读取本地历史数据失败", e); }
 
+    // 👇 绝对强制令：无论本地存了什么，所有人都必须用商务版！
+    uiSettings.homeLayout = 'business';
+
     // 核心防御：包裹 UI 设置，就算报错也绝不中断网页启动
     try { applyUiSettings(); } catch(e) { console.warn("UI配置应用失败", e); }
 }
@@ -3665,7 +3671,7 @@ function applyUiSettings() {
     let btn3dGlobal = document.getElementById('btn-layout-3d-global');
 
     if (btnSimpleGlobal && btn3dGlobal) {
-        btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'simple');
+        btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'business');
         btn3dGlobal.classList.toggle('active', uiSettings.homeLayout === '3d');
     }
 
@@ -5372,3 +5378,960 @@ function renderHomeRecords() {
     `;
     list.insertAdjacentHTML('beforeend', customHtml);
 }
+
+// =========================================================================
+// 🚀 魔方空间 (Cube Space) 3D 物理沙盒引擎核心逻辑 (含持久化存档)
+// =========================================================================
+
+let csScene, csCamera, csRenderer, csOrbitCtrl, csTransformCtrl;
+let csObjects = [];
+let csFloor;
+let csHemiLight, csDirLight;
+let csCurrentMode = 'observe';
+let csCurrentCategory = 'cube';
+let isCsExpanded = false;
+let isCsInitialized = false;
+let csSelectedObject = null;
+let csPendingAction = null;
+
+let csTimeState = 1;
+let csCurrentFloorType = 'floor_brick';
+
+// ==================== 持久化存档引擎 ====================
+function saveCsConfig() {
+    const config = {
+        timeState: csTimeState,
+        floorType: csCurrentFloorType,
+        objects: csObjects.map(obj => ({
+            id: obj.userData.id,
+            type: obj.userData.type,
+            pos: obj.position.toArray(),
+            rot: obj.rotation.toArray(),
+            scale: obj.scale.toArray(),
+            lampInt: obj.userData.isLamp ? obj.userData.lightObj.intensity : 1
+        }))
+    };
+    localStorage.setItem('nbCubeSpaceConfig', JSON.stringify(config));
+}
+
+function loadCsConfig() {
+    try {
+        const saved = localStorage.getItem('nbCubeSpaceConfig');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.floorType) changeFloorTexture(parsed.floorType);
+            if (parsed.timeState !== undefined) {
+                csTimeState = (parsed.timeState + 3) % 4;
+                cycleCsTime();
+            }
+            if (parsed.objects && parsed.objects.length > 0) {
+                parsed.objects.forEach(o => addObjToSpace(o.id, o.type, o));
+            } else {
+                generateDefaultScene();
+            }
+        } else {
+            generateDefaultScene();
+        }
+    } catch (e) {
+        generateDefaultScene();
+    }
+}
+
+function generateDefaultScene() {
+    changeFloorTexture('floor_brick');
+    csTimeState = 1;
+    cycleCsTime();
+
+    addObjToSpace('smart_tv', 'smart', {pos: [0, 0, -2], rot: [0, 0, 0], scale: [1, 1, 1]});
+    addObjToSpace('smart_speaker', 'smart', {pos: [-4.5, 0, -1.5], rot: [0, 0.4, 0], scale: [1, 1, 1]});
+    addObjToSpace('smart_msg', 'smart', {pos: [4.5, 0, -1.5], rot: [0, -0.4, 0], scale: [1, 1, 1]});
+    addObjToSpace('mc_grass', 'mc', {pos: [-3.5, 0, 3], rot: [0, 0.2, 0], scale: [1, 1, 1]});
+    addObjToSpace('mc_crack', 'mc', {pos: [0, 0, 2.5], rot: [0, -0.1, 0], scale: [1, 1, 1]});
+    addObjToSpace('mc_brick', 'mc', {pos: [3.5, 0, 3], rot: [0, -0.3, 0], scale: [1, 1, 1]});
+    addObjToSpace('777', 'cube', {pos: [-3.5, 2, 3], rot: [0, 0.5, 0], scale: [0.85, 0.85, 0.85]});
+    addObjToSpace('smart_lamp', 'smart', {pos: [7, 0, 1], rot: [0, 0, 0], scale: [1, 1, 1], lampInt: 1.5});
+
+    saveCsConfig();
+}
+
+function updateCsLighting() {
+    if (!csDirLight) return;
+    const hasLamp = csObjects.some(o => o.userData && o.userData.isLamp);
+
+    if (csTimeState === 3) {
+        if (hasLamp) {
+            csDirLight.castShadow = false;
+            csDirLight.intensity = 0;
+        } else {
+            csDirLight.castShadow = true;
+            csDirLight.intensity = 0.05;
+        }
+    } else {
+        csDirLight.castShadow = true;
+        if (csTimeState === 0) csDirLight.intensity = 0.5;
+        else if (csTimeState === 1) csDirLight.intensity = 0.65;
+        else if (csTimeState === 2) csDirLight.intensity = 0.4;
+    }
+}
+
+function cycleCsTime() {
+    csTimeState = (csTimeState + 1) % 4;
+    const iconEl = document.getElementById('cs-time-icon');
+    let bgColor, fogColor, hemiSky, hemiGround, hemiInt;
+
+    if (csTimeState === 0) {
+        iconEl.innerText = '🌅'; bgColor = 0xfff0e6; fogColor = 0xfff0e6;
+        hemiSky = 0xffe4e1; hemiGround = 0x87ceeb; hemiInt = 0.5;
+    } else if (csTimeState === 1) {
+        iconEl.innerText = '☀️'; bgColor = 0xf8fafc; fogColor = 0xf8fafc;
+        hemiSky = 0xffffff; hemiGround = 0xe2e8f0; hemiInt = 0.7;
+    } else if (csTimeState === 2) {
+        iconEl.innerText = '🌇'; bgColor = 0xfed7aa; fogColor = 0xfed7aa;
+        hemiSky = 0xfdba74; hemiGround = 0x94a3b8; hemiInt = 0.4;
+    } else if (csTimeState === 3) {
+        iconEl.innerText = '🌙'; bgColor = 0x0f172a; fogColor = 0x0f172a;
+        hemiSky = 0x1e293b; hemiGround = 0x020617; hemiInt = 0.1;
+    }
+
+    csScene.background.setHex(bgColor); csScene.fog.color.setHex(fogColor);
+    csHemiLight.color.setHex(hemiSky); csHemiLight.groundColor.setHex(hemiGround);
+    csHemiLight.intensity = hemiInt;
+
+    updateCsLighting();
+    saveCsConfig();
+}
+
+let csHistory = [];
+let csTransformStartParams = null;
+
+function pushCsHistory(action) {
+    csHistory.push(action);
+    if(csHistory.length > 30) csHistory.shift();
+    document.getElementById('cs-action-undo').classList.remove('disabled');
+}
+
+function undoCsAction() {
+    if(csHistory.length === 0) return;
+    const action = csHistory.pop();
+
+    if(action.type === 'add') {
+        csScene.remove(action.obj);
+        csObjects = csObjects.filter(o => o !== action.obj);
+        if(csSelectedObject === action.obj) { csTransformCtrl.detach(); csSelectedObject=null; hideInfoCard(); }
+    } else if (action.type === 'delete') {
+        csScene.add(action.obj);
+        csObjects.push(action.obj);
+    } else if (action.type === 'transform') {
+        action.obj.position.copy(action.oldPos);
+        action.obj.rotation.copy(action.oldRot);
+        action.obj.scale.copy(action.oldScale);
+        if(csSelectedObject === action.obj) updateInfoCardValues();
+    }
+
+    if(csHistory.length === 0) document.getElementById('cs-action-undo').classList.add('disabled');
+
+    updateCsLighting();
+    saveCsConfig();
+}
+
+function csShowAlert(msg) {
+    document.getElementById('cs-alert-text').innerText = msg;
+    document.getElementById('cs-alert-modal').style.display = 'flex';
+}
+
+function openCubeSpace() {
+    window.closeNavDropdowns();
+    document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
+    document.getElementById('cube-space-page').classList.add('active');
+
+    if (!isCsInitialized) {
+        initCubeSpace3D();
+        loadCsConfig();
+        isCsInitialized = true;
+    }
+    setCubeSpaceMode('observe');
+    isCsExpanded = false;
+    updateCsPanelState();
+}
+
+function exitCubeSpace() { goBack(); }
+
+function toggleCubeSpacePanel() {
+    if (!isCsExpanded) {
+        setCubeSpaceMode('edit');
+        isCsExpanded = true;
+    } else {
+        setCubeSpaceMode('observe');
+        isCsExpanded = false;
+    }
+    updateCsPanelState();
+}
+
+// ==================== 音量调节 ====================
+function updateCsSpeakerVol(val) {
+    const audio = document.getElementById('cs-bgm');
+    if(audio) audio.volume = val / 100;
+}
+
+// ==================== UI 交互控制 ====================
+function switchCsCategory(cat) {
+    if (csCurrentMode !== 'edit') {
+        setCubeSpaceMode('edit');
+    }
+    csCurrentCategory = cat;
+    ['cube', 'mc', 'smart', 'scene'].forEach(c => {
+        document.getElementById(`cs-cat-${c}`).classList.toggle('active', cat === c);
+    });
+    populateCsPanel();
+    if (!isCsExpanded) {
+        isCsExpanded = true;
+        updateCsPanelState();
+    }
+}
+
+function updateCsPanelState() {
+    const panel = document.getElementById('cs-dock-panel');
+    const arrow = document.getElementById('cs-toggle-arrow');
+    if (isCsExpanded) {
+        panel.style.height = '115px'; panel.style.opacity = '1'; panel.style.pointerEvents = 'auto';
+        arrow.style.transform = 'rotate(0deg)';
+        populateCsPanel();
+    } else {
+        panel.style.height = '0'; panel.style.opacity = '0'; panel.style.pointerEvents = 'none';
+        arrow.style.transform = 'rotate(180deg)';
+    }
+}
+
+function setCubeSpaceMode(mode) {
+    csCurrentMode = mode;
+    document.getElementById('cs-mode-observe').classList.toggle('active', mode === 'observe');
+    document.getElementById('cs-mode-edit').classList.toggle('active', mode === 'edit');
+
+    ['mc', 'smart', 'scene'].forEach(c => {
+        document.getElementById(`cs-cat-${c}`).classList.toggle('disabled', mode === 'observe');
+    });
+    const hint = document.getElementById('cube-space-hint');
+
+    hideInteractCards();
+
+    if (mode === 'observe') {
+        hint.innerText = "观察者模式：左键旋转 / 右键平移 / 滚轮缩放";
+        if (csTransformCtrl) csTransformCtrl.detach();
+        hideInfoCard();
+
+        if (isCsExpanded) {
+            isCsExpanded = false;
+            updateCsPanelState();
+        }
+    } else {
+        hint.innerText = "编辑模式：可添加、移动、旋转、缩放场景物件";
+    }
+}
+
+function clearCubeSpace() {
+    csPendingAction = 'clear_all';
+    document.getElementById('cs-delete-title').innerText = "确定要清空空间里的所有物件吗？";
+    document.getElementById('cs-delete-modal').style.display = 'flex';
+}
+
+function populateCsPanel() {
+    const content = document.getElementById('cs-panel-content');
+    content.innerHTML = '';
+
+    if (csCurrentCategory === 'cube') {
+        const items = ['222', '333', '444', '555', '666', '777', 'clock'];
+        items.forEach(evId => {
+            let evObj = eventDict.find(e => e.id === evId);
+            let name = evObj ? evObj.name.split('（')[0] : evId;
+            let btn = document.createElement('div');
+            btn.className = 'cs-item-btn';
+            btn.innerHTML = `<span class="cubing-icon event-${evId}" style="font-size: 32px;"></span><span style="font-size: 14px; font-weight:bold;">${name}</span>`;
+            btn.onclick = () => { addObjToSpace(evId, 'cube'); };
+            content.appendChild(btn);
+        });
+    } else if (csCurrentCategory === 'mc') {
+        const mcs = [
+            { id: 'mc_grass', icon: '🟩', name: '草方块' },
+            { id: 'mc_stone', icon: '🪨', name: '原石' },
+            { id: 'mc_crack', icon: '🌑', name: '裂纹原石' },
+            { id: 'mc_brick', icon: '🧱', name: '红砖块' }
+        ];
+        mcs.forEach(item => {
+            let btn = document.createElement('div');
+            btn.className = 'cs-item-btn';
+            btn.innerHTML = `<span style="font-size: 32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.onclick = () => { addObjToSpace(item.id, 'mc'); };
+            content.appendChild(btn);
+        });
+    } else if (csCurrentCategory === 'smart') {
+        const smarts = [
+            { id: 'smart_speaker', icon: '🔈', name: '音响' },
+            { id: 'smart_tv', icon: '🖥️', name: '现代电视' },
+            { id: 'smart_lamp', icon: '💡', name: '发光路灯' },
+            { id: 'smart_msg', icon: '📦', name: '命令方块' }
+        ];
+        smarts.forEach(item => {
+            let btn = document.createElement('div');
+            btn.className = 'cs-item-btn';
+            btn.innerHTML = `<span style="font-size: 32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.onclick = () => { addObjToSpace(item.id, 'smart'); };
+            content.appendChild(btn);
+        });
+    } else if (csCurrentCategory === 'scene') {
+        const scenes = [
+            { id: 'floor_brick', icon: '<div style="width:24px;height:24px;background:#64748b;border-radius:4px;border:2px solid #475569;margin:auto;"></div>', name: '青石砖块' },
+            { id: 'floor_grass', icon: '🟩', name: '自然草地' },
+            { id: 'floor_grid', icon: '⬜', name: '空白网格' }
+        ];
+        scenes.forEach(item => {
+            let btn = document.createElement('div');
+            btn.className = 'cs-item-btn';
+            btn.innerHTML = `<span style="font-size: 32px; display:flex; align-items:center; justify-content:center; height:32px; width:32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.onclick = () => { changeFloorTexture(item.id); };
+            content.appendChild(btn);
+        });
+    }
+}
+
+function createMCTexture(type) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    const addNoise = (color1, color2, prob) => {
+        for(let i=0; i<64; i+=4) {
+            for(let j=0; j<64; j+=4) {
+                ctx.fillStyle = Math.random()>prob ? color1 : color2;
+                ctx.fillRect(i, j, 4, 4);
+            }
+        }
+    };
+
+    if (type === 'grass_top') { addNoise('#5B8C51', '#4A7A40', 0.5); }
+    else if (type === 'grass_side') {
+        addNoise('#784A32', '#5A3520', 0.5);
+        ctx.fillStyle = '#5B8C51'; ctx.fillRect(0,0,64,16);
+        ctx.fillStyle = '#4A7A40'; for(let i=0;i<64;i+=8) ctx.fillRect(i, 16, 4, Math.random()*8);
+    }
+    else if (type === 'dirt') { addNoise('#784A32', '#5A3520', 0.5); }
+    else if (type === 'stone') { addNoise('#94a3b8', '#64748b', 0.5); }
+    else if (type === 'red_brick') {
+        ctx.fillStyle = '#fca5a5'; ctx.fillRect(0,0,64,64);
+        ctx.fillStyle = '#ef4444';
+        for(let y=0; y<64; y+=16) {
+            let offset = (y/16)%2===0 ? 0 : -16;
+            for(let x=offset; x<64; x+=32) ctx.fillRect(x+2, y+2, 28, 12);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        for(let i=0;i<50;i++) ctx.fillRect(Math.random()*64, Math.random()*64, 4, 4);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+}
+
+function changeFloorTexture(type) {
+    csCurrentFloorType = type;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    if (type === 'floor_grid') {
+        csFloor.material.map = null;
+        csFloor.material.color.setHex(0xf8fafc);
+        csFloor.material.needsUpdate = true;
+        saveCsConfig();
+        return;
+    }
+
+    if (type === 'floor_brick') {
+        ctx.fillStyle = '#64748b'; ctx.fillRect(0,0,512,512);
+        ctx.fillStyle = '#475569';
+        for(let i=0; i<8; i++) {
+            ctx.fillRect(0, i*64, 512, 6);
+            for(let j=0; j<8; j++) { ctx.fillRect(j*64 + (i%2===0?0:32), i*64, 6, 64); }
+        }
+    } else if (type === 'floor_grass') {
+        ctx.fillStyle = '#5B8C51'; ctx.fillRect(0,0,512,512);
+        for(let i=0; i<2000; i++) { ctx.fillStyle=Math.random()>0.5?'#4A7A40':'#669E5A'; ctx.fillRect(Math.random()*512, Math.random()*512, 6, 6); }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(15, 15);
+    csFloor.material.color.setHex(0xffffff);
+    csFloor.material.map = tex;
+    csFloor.material.needsUpdate = true;
+    saveCsConfig();
+}
+
+// ==================== 互动配件全息引擎 ====================
+let csInteractObject = null;
+let isCsMsgActive = false;
+let csMsgSourceObj = null;
+let csMsgInterval = null;
+let csNewsIndex = 0;
+
+function toggleCsSpeaker(isPlaying) {
+    const audio = document.getElementById('cs-bgm');
+    if(isPlaying) {
+        audio.play().catch(e => console.warn("音频播放被浏览器拦截，请先与页面交互", e));
+    } else {
+        audio.pause();
+    }
+    hideInteractCards();
+}
+
+function replayCsSpeaker() {
+    const audio = document.getElementById('cs-bgm');
+    audio.currentTime = 0;
+    document.getElementById('cs-speaker-toggle').checked = true;
+    audio.play().catch(e => console.warn("音频播放被拦截", e));
+    hideInteractCards();
+}
+
+function toggleCsMsg(isBroadcasting) {
+    const holo = document.getElementById('cs-msg-hologram');
+    isCsMsgActive = isBroadcasting;
+    csMsgSourceObj = csInteractObject;
+
+    if (isBroadcasting) {
+        holo.style.display = 'block';
+        updateCsHologramText();
+        csMsgInterval = setInterval(updateCsHologramText, 4000);
+    } else {
+        holo.style.display = 'none';
+        clearInterval(csMsgInterval);
+    }
+    hideInteractCards();
+}
+
+function updateCsHologramText() {
+    if (window.allNewsData && window.allNewsData.length > 0) {
+        const news = window.allNewsData[csNewsIndex];
+        let text = `📣 ${news.name} 以 ${formatWcaResult(news.score, news.evId, news.type === '单次' ? 'single' : 'average')} 刷新了 ${news.evName} ${news.type} 纪录!`;
+        document.getElementById('cs-hologram-text').innerText = text;
+        csNewsIndex = (csNewsIndex + 1) % window.allNewsData.length;
+    } else {
+        document.getElementById('cs-hologram-text').innerText = "暂无最新赛事资讯...";
+    }
+}
+
+function updateInteractCardPos(type) {
+    if (!csInteractObject) return;
+    const pos = csInteractObject.position.clone().project(csCamera);
+    const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+
+    let cardId = type === 'speaker' ? 'cs-speaker-card' : 'cs-msg-card';
+    const card = document.getElementById(cardId);
+    if(card) {
+        card.style.left = (x + 40) + 'px';
+        card.style.top = (y - 80) + 'px';
+    }
+}
+
+function updateDynamicHolograms() {
+    if (isCsMsgActive && csMsgSourceObj) {
+        const pos = csMsgSourceObj.position.clone();
+        pos.y += 2.5;
+        pos.project(csCamera);
+        const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+
+        const holo = document.getElementById('cs-msg-hologram');
+        holo.style.left = x + 'px';
+        holo.style.top = y + 'px';
+        holo.style.display = pos.z > 1 ? 'none' : 'block';
+    }
+
+    if (document.getElementById('cs-speaker-card').style.display !== 'none') {
+        updateInteractCardPos('speaker');
+    }
+    if (document.getElementById('cs-msg-card').style.display !== 'none') {
+        updateInteractCardPos('msg');
+    }
+}
+
+function hideInteractCards() {
+    document.getElementById('cs-speaker-card').style.display = 'none';
+    document.getElementById('cs-msg-card').style.display = 'none';
+    csInteractObject = null;
+}
+
+const originalHideInfoCard = hideInfoCard;
+hideInfoCard = function() {
+    originalHideInfoCard();
+    hideInteractCards();
+}
+
+// ==================== 核心 3D 渲染引擎 (终极防翻转版) ====================
+function initCubeSpace3D() {
+    const container = document.getElementById('cube-space-canvas');
+    csScene = new THREE.Scene();
+    csScene.background = new THREE.Color(0xf8fafc);
+    csScene.fog = new THREE.Fog(0xf8fafc, 20, 100);
+
+    csCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    csCamera.position.set(15, 12, 20);
+
+    csRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    csRenderer.setSize(container.clientWidth, container.clientHeight);
+    csRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    csRenderer.shadowMap.enabled = true;
+    csRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(csRenderer.domElement);
+
+    csHemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.7);
+    csHemiLight.position.set(0, 20, 0);
+    csScene.add(csHemiLight);
+
+    csDirLight = new THREE.DirectionalLight(0xffffff, 0.65);
+    csDirLight.position.set(12, 25, 15);
+    csDirLight.castShadow = true;
+    csDirLight.shadow.camera.top = 25;
+    csDirLight.shadow.camera.bottom = -25;
+    csDirLight.shadow.camera.left = -25;
+    csDirLight.shadow.camera.right = 25;
+    csDirLight.shadow.mapSize.width = 2048;
+    csDirLight.shadow.mapSize.height = 2048;
+    csDirLight.shadow.bias = -0.0005;
+    csScene.add(csDirLight);
+
+    const floorGeo = new THREE.PlaneGeometry(150, 150);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 1 });
+    csFloor = new THREE.Mesh(floorGeo, floorMat);
+    csFloor.rotation.x = -Math.PI / 2;
+    csFloor.receiveShadow = true;
+    csScene.add(csFloor);
+
+    const gridHelper = new THREE.GridHelper(50, 50, 0x000000, 0x000000);
+    gridHelper.material.opacity = 0.12;
+    gridHelper.material.transparent = true;
+    csScene.add(gridHelper);
+
+    csOrbitCtrl = new THREE.OrbitControls(csCamera, csRenderer.domElement);
+    csOrbitCtrl.enableDamping = false;
+    csOrbitCtrl.maxPolarAngle = Math.PI / 2 - 0.02;
+
+    csOrbitCtrl.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+    };
+
+    csTransformCtrl = new THREE.TransformControls(csCamera, csRenderer.domElement);
+
+    // 1. 隐藏多余的面和幽灵白线，只保留单纯的 XYZ 轴
+    csTransformCtrl.traverse(function(child) {
+        if (child.isMesh && ['XY', 'YZ', 'XZ', 'XYZE', 'E'].includes(child.name)) {
+            child.visible = false;
+        }
+        if (child.isLine) {
+            if (['X', 'Y', 'Z'].includes(child.name)) {
+                child.material.visible = true;
+            } else {
+                child.material.visible = false;
+            }
+        }
+    });
+
+    // 2. 核心大招：拦截 TransformControls 的底层矩阵更新！
+    // 强制把被系统为了“正对用户”而偷偷倒转的圆锥方向用绝对值掰回世界绝对正向！
+    const originalUpdateMatrixWorld = csTransformCtrl.updateMatrixWorld;
+    csTransformCtrl.updateMatrixWorld = function() {
+        originalUpdateMatrixWorld.apply(this, arguments);
+        this.traverse(function(child) {
+            if (child.name === 'X' || child.name === 'Y' || child.name === 'Z') {
+                child.scale.x = Math.abs(child.scale.x);
+                child.scale.y = Math.abs(child.scale.y);
+                child.scale.z = Math.abs(child.scale.z);
+                child.updateMatrix();
+                if (child.parent) {
+                    child.matrixWorld.multiplyMatrices(child.parent.matrixWorld, child.matrix);
+                }
+            }
+        });
+    };
+
+    csTransformCtrl.addEventListener('dragging-changed', function (event) {
+        csOrbitCtrl.enabled = !event.value;
+        if (event.value) {
+            hideInfoCard();
+            csTransformStartParams = { pos: csSelectedObject.position.clone(), rot: csSelectedObject.rotation.clone(), scale: csSelectedObject.scale.clone() };
+        } else {
+            updateInfoCardValues();
+            if (csTransformStartParams && csSelectedObject) {
+                pushCsHistory({ type: 'transform', obj: csSelectedObject, oldPos: csTransformStartParams.pos, oldRot: csTransformStartParams.rot, oldScale: csTransformStartParams.scale });
+                saveCsConfig();
+            }
+        }
+    });
+
+    csTransformCtrl.addEventListener('change', function () {
+        if (csTransformCtrl.dragging) return;
+        updateInfoCardPos();
+    });
+
+    csOrbitCtrl.addEventListener('change', updateInfoCardPos);
+    csScene.add(csTransformCtrl);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    csRenderer.domElement.addEventListener('pointerdown', (e) => {
+        if (csTransformCtrl.dragging) return;
+
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        const rect = csRenderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, csCamera);
+        const intersects = raycaster.intersectObjects(csObjects, true);
+
+        if (csCurrentMode === 'edit') {
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && obj.parent.type === 'Group' && !csObjects.includes(obj)) {
+                    obj = obj.parent;
+                }
+                csTransformCtrl.attach(obj);
+                csSelectedObject = obj;
+                updateInfoCardValues();
+            } else {
+                csTransformCtrl.detach();
+                csSelectedObject = null;
+                hideInfoCard();
+            }
+        }
+        else if (csCurrentMode === 'observe') {
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && obj.parent.type === 'Group' && !csObjects.includes(obj)) {
+                    obj = obj.parent;
+                }
+
+                if (obj.userData && obj.userData.id === 'smart_speaker') {
+                    csInteractObject = obj;
+                    updateInteractCardPos('speaker');
+                    document.getElementById('cs-speaker-card').style.display = 'flex';
+                    document.getElementById('cs-msg-card').style.display = 'none';
+                }
+                else if (obj.userData && obj.userData.id === 'smart_msg') {
+                    csInteractObject = obj;
+                    updateInteractCardPos('msg');
+                    document.getElementById('cs-msg-card').style.display = 'flex';
+                    document.getElementById('cs-speaker-card').style.display = 'none';
+                } else {
+                    hideInteractCards();
+                }
+            } else {
+                hideInteractCards();
+            }
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (!document.getElementById('cube-space-page').classList.contains('active')) return;
+        csCamera.aspect = container.clientWidth / container.clientHeight;
+        csCamera.updateProjectionMatrix();
+        csRenderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    const animate = function () {
+        requestAnimationFrame(animate);
+        csOrbitCtrl.update();
+        updateDynamicHolograms();
+        csRenderer.render(csScene, csCamera);
+    };
+    animate();
+    initInfoCardListeners();
+}
+
+// ==================== 物件生成与精准贴地算法 ====================
+function addObjToSpace(id, type, restoreData = null) {
+    const group = new THREE.Group();
+    let size = 2;
+
+    group.userData = { id: id, type: type };
+
+    if (type === 'cube') {
+        let order = 3;
+        if (id === '222') { order = 2; size = 1.6; }
+        else if (id === '333') { order = 3; size = 2; }
+        else if (id === '444') { order = 4; size = 2.4; }
+        else if (id === '555') { order = 5; size = 2.8; }
+        else if (id === '666') { order = 6; size = 3.2; }
+        else if (id === '777') { order = 7; size = 3.6; }
+        else order = 0;
+
+        if (order > 0) {
+            const pSize = size / order;
+            const gapScale = 0.88;
+            const mats = [
+                new THREE.MeshStandardMaterial({ color: 0xf87171, roughness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0xfb923c, roughness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.2 }),
+                new THREE.MeshStandardMaterial({ color: 0x60a5fa, roughness: 0.2 })
+            ];
+            const black = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+            const offset = (size - pSize) / 2;
+            for (let x = 0; x < order; x++) {
+                for (let y = 0; y < order; y++) {
+                    for (let z = 0; z < order; z++) {
+                        const piece = new THREE.Mesh(new THREE.BoxGeometry(pSize * gapScale, pSize * gapScale, pSize * gapScale), [
+                            x === order - 1 ? mats[0] : black, x === 0 ? mats[1] : black,
+                            y === order - 1 ? mats[2] : black, y === 0 ? mats[3] : black,
+                            z === order - 1 ? mats[4] : black, z === 0 ? mats[5] : black
+                        ]);
+                        piece.position.set(x * pSize - offset, y * pSize - offset, z * pSize - offset);
+                        piece.castShadow = true; piece.receiveShadow = true;
+                        group.add(piece);
+                    }
+                }
+            }
+        } else if (id === 'clock') {
+            size = 2.4;
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(size, size, 0.45, 32), new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.4 }));
+            base.rotation.x = Math.PI / 2; base.castShadow = true; base.receiveShadow = true;
+            group.add(base);
+            const cMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.8 });
+            const hMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const pinMat = new THREE.MeshStandardMaterial({ color: 0xfacc15 });
+            for(let side=0; side<2; side++) {
+                let zOffset = side === 0 ? 0.23 : -0.23;
+                for(let i=0; i<9; i++) {
+                    let cx = (i%3 - 1) * (size*0.55); let cy = (Math.floor(i/3) - 1) * (size*0.55);
+                    let c = new THREE.Mesh(new THREE.CircleGeometry(size*0.23, 32), cMat);
+                    c.position.set(cx, cy, zOffset);
+                    if(side === 1) c.rotation.y = Math.PI;
+                    group.add(c);
+                    let hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, size*0.2, 0.02), hMat);
+                    hand.position.set(cx, cy, zOffset + (side===0?0.01:-0.01));
+                    hand.rotation.z = Math.random() * Math.PI * 2;
+                    group.add(hand);
+                }
+            }
+            for(let i=0; i<4; i++) {
+                let px = (i%2 - 0.5) * (size*0.55); let py = (Math.floor(i/2) - 0.5) * (size*0.55);
+                let pin = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.7), pinMat);
+                pin.rotation.x = Math.PI/2; pin.position.set(px, py, 0);
+                group.add(pin);
+            }
+        }
+    } else if (type === 'mc') {
+        const geo = new THREE.BoxGeometry(2, 2, 2);
+        let mats;
+        if (id === 'mc_grass') mats = [createMCTexture('grass_side'), createMCTexture('grass_side'), createMCTexture('grass_top'), createMCTexture('dirt'), createMCTexture('grass_side'), createMCTexture('grass_side')];
+        else if (id === 'mc_stone') mats = createMCTexture('stone');
+        else if (id === 'mc_brick') mats = createMCTexture('red_brick');
+
+        let block = new THREE.Mesh(geo, mats);
+        block.castShadow = true; block.receiveShadow = true;
+        group.add(block);
+
+    } else if (type === 'smart') {
+        if (id === 'smart_lamp') {
+            let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 4.5), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            pole.position.y = 2.25; pole.castShadow = true; pole.receiveShadow = true;
+
+            let bulb = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshBasicMaterial({ color: 0xfffbeb }));
+            bulb.position.y = 4.8;
+            bulb.castShadow = false; // 核心光影修复：灯泡绝对不能产生阴影遮挡自身光线
+
+            let light = new THREE.PointLight(0xfff5b6, 1.5, 25, 2);
+            light.position.y = 4.8;
+            light.castShadow = true;
+            light.shadow.mapSize.width = 1024;
+            light.shadow.mapSize.height = 1024;
+            light.shadow.bias = -0.01; // 核心光影修复：增加阴影偏移，彻底消除自身黑斑
+
+            group.add(pole, bulb, light);
+
+            group.userData.isLamp = true;
+            group.userData.lightObj = light;
+            if (restoreData && restoreData.lampInt !== undefined) {
+                light.intensity = restoreData.lampInt;
+                light.distance = restoreData.lampInt * 16 + 5;
+            }
+
+        } else if (id === 'smart_tv') {
+            let body = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.6, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            body.position.y = 2.4; body.castShadow = true; body.receiveShadow = true;
+            let screen = new THREE.Mesh(new THREE.BoxGeometry(6.1, 3.4, 0.02), new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x38bdf8, emissiveIntensity: 0.3 }));
+            screen.position.set(0, 2.4, 0.08);
+            let neck = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.15), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            neck.position.set(0, 0.4, 0); neck.castShadow = true;
+            let base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.05, 1.2), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            base.position.set(0, 0.025, 0); base.castShadow = true;
+            group.add(body, screen, neck, base);
+
+        } else if (id === 'smart_speaker') {
+            let box = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x1f2937 }));
+            box.position.y = 1.2; box.castShadow = true; box.receiveShadow = true;
+            let woofer = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            woofer.rotation.x = Math.PI/2; woofer.position.set(0, 0.8, 0.61);
+            let tweeter = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            tweeter.rotation.x = Math.PI/2; tweeter.position.set(0, 1.8, 0.61);
+            group.add(box, woofer, tweeter);
+
+        } else if (id === 'smart_msg') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#c87e4f'; ctx.fillRect(0,0,64,64);
+            ctx.fillStyle = '#3a2618'; ctx.fillRect(0,0,64,4); ctx.fillRect(0,60,64,4); ctx.fillRect(0,0,4,64); ctx.fillRect(60,0,4,64);
+            ctx.fillStyle = '#6b4a31'; ctx.fillRect(20,20,24,24);
+            for(let i=0; i<30; i++) { ctx.fillStyle=Math.random()>0.5?'#e8a071':'#8c5836'; ctx.fillRect(Math.random()*60, Math.random()*60, 4, 4); }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.magFilter = THREE.NearestFilter;
+            let block = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1.8), new THREE.MeshStandardMaterial({ map: tex }));
+            block.position.y = 0.9; block.castShadow = true; block.receiveShadow = true;
+            group.add(block);
+        }
+    }
+
+    // 核心物理引擎修复：无论之前状态如何，必须先算出几何体底部Y边距并重置原点，之后才能应用坐标系！
+    group.updateMatrixWorld();
+    let bbox = new THREE.Box3().setFromObject(group);
+    let bottomY = bbox.min.y;
+    let centerOffset = new THREE.Vector3();
+    bbox.getCenter(centerOffset);
+
+    // 把该 Group 内所有物体的局部坐标系原点强制拉到其底部中心
+    group.children.forEach(c => {
+        c.position.x -= centerOffset.x;
+        c.position.z -= centerOffset.z;
+        c.position.y -= bottomY;
+    });
+
+    // 原点对齐完毕后，再将其置于世界坐标中，方可完美贴地
+    if (restoreData) {
+        group.position.fromArray(restoreData.pos);
+        group.rotation.fromArray(restoreData.rot);
+        group.scale.fromArray(restoreData.scale);
+    } else {
+        group.position.set(0, 0, 0);
+    }
+
+    csObjects.push(group);
+    csScene.add(group);
+
+    if (!restoreData) {
+        csTransformCtrl.attach(group);
+        csSelectedObject = group;
+        pushCsHistory({ type: 'add', obj: group });
+        updateInfoCardValues();
+    }
+
+    updateCsLighting();
+    saveCsConfig();
+}
+
+// ==================== 卡片参数联动 ====================
+function setCsTransformMode(mode) {
+    csTransformCtrl.setMode(mode);
+    document.getElementById('cs-btn-translate').style.background = mode === 'translate' ? 'var(--primary-color)' : '#f1f5f9';
+    document.getElementById('cs-btn-translate').style.color = mode === 'translate' ? 'white' : 'var(--text-main)';
+    document.getElementById('cs-btn-rotate').style.background = mode === 'rotate' ? 'var(--primary-color)' : '#f1f5f9';
+    document.getElementById('cs-btn-rotate').style.color = mode === 'rotate' ? 'white' : 'var(--text-main)';
+}
+
+function updateInfoCardValues() {
+    if (!csSelectedObject) return;
+
+    document.getElementById('cs-pos-x').value = csSelectedObject.position.x.toFixed(1);
+    document.getElementById('cs-pos-y').value = csSelectedObject.position.y.toFixed(1);
+    document.getElementById('cs-pos-z').value = csSelectedObject.position.z.toFixed(1);
+    document.getElementById('cs-rot-x').value = THREE.MathUtils.radToDeg(csSelectedObject.rotation.x).toFixed(0);
+    document.getElementById('cs-rot-y').value = THREE.MathUtils.radToDeg(csSelectedObject.rotation.y).toFixed(0);
+    document.getElementById('cs-rot-z').value = THREE.MathUtils.radToDeg(csSelectedObject.rotation.z).toFixed(0);
+
+    document.getElementById('cs-scale-val').value = csSelectedObject.scale.x.toFixed(1);
+
+    if (csSelectedObject.userData && csSelectedObject.userData.isLamp) {
+        document.getElementById('cs-lamp-label').style.display = 'block';
+        document.getElementById('cs-lamp-val').style.display = 'block';
+        document.getElementById('cs-lamp-val').value = csSelectedObject.userData.lightObj.intensity.toFixed(1);
+    } else {
+        document.getElementById('cs-lamp-label').style.display = 'none';
+        document.getElementById('cs-lamp-val').style.display = 'none';
+    }
+
+    updateInfoCardPos();
+    document.getElementById('cs-info-card').style.display = 'block';
+}
+
+function updateInfoCardPos() {
+    if (!csSelectedObject || !document.getElementById('cs-info-card')) return;
+    const pos = csSelectedObject.position.clone().project(csCamera);
+    const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+
+    const card = document.getElementById('cs-info-card');
+    card.style.left = (x + 100) + 'px';
+    card.style.top = (y - 120) + 'px';
+}
+
+function hideInfoCard() {
+    document.getElementById('cs-info-card').style.display = 'none';
+}
+
+function initInfoCardListeners() {
+    const bindAttr = (id, callback) => {
+        document.getElementById(id).addEventListener('change', function() {
+            if (!csSelectedObject) return;
+            pushCsHistory({ type: 'transform', obj: csSelectedObject, oldPos: csSelectedObject.position.clone(), oldRot: csSelectedObject.rotation.clone(), oldScale: csSelectedObject.scale.clone() });
+            callback(parseFloat(this.value));
+            saveCsConfig();
+        });
+    };
+
+    bindAttr('cs-pos-x', val => csSelectedObject.position.x = val);
+    bindAttr('cs-pos-y', val => csSelectedObject.position.y = val);
+    bindAttr('cs-pos-z', val => csSelectedObject.position.z = val);
+    bindAttr('cs-rot-x', val => csSelectedObject.rotation.x = THREE.MathUtils.degToRad(val));
+    bindAttr('cs-rot-y', val => csSelectedObject.rotation.y = THREE.MathUtils.degToRad(val));
+    bindAttr('cs-rot-z', val => csSelectedObject.rotation.z = THREE.MathUtils.degToRad(val));
+    bindAttr('cs-scale-val', val => csSelectedObject.scale.set(val, val, val));
+
+    bindAttr('cs-lamp-val', val => {
+        if (csSelectedObject.userData && csSelectedObject.userData.isLamp) {
+            csSelectedObject.userData.lightObj.intensity = val;
+            // 完美绑定：亮度增加的同时照射距离也线性增加
+            csSelectedObject.userData.lightObj.distance = val * 16 + 5;
+        }
+    });
+}
+
+function showDeleteCsModal() {
+    csPendingAction = 'delete_single';
+    document.getElementById('cs-delete-title').innerText = "确定删除该物件吗？";
+    document.getElementById('cs-delete-modal').style.display = 'flex';
+}
+function closeDeleteCsModal() { document.getElementById('cs-delete-modal').style.display = 'none'; }
+document.getElementById('cs-delete-confirm-btn').onclick = function() {
+    if (csPendingAction === 'clear_all') {
+        csObjects.forEach(obj => csScene.remove(obj));
+        csObjects = [];
+        if (csTransformCtrl) csTransformCtrl.detach();
+        hideInfoCard();
+        csHistory = []; document.getElementById('cs-action-undo').classList.add('disabled');
+    } else if (csPendingAction === 'delete_single') {
+        if (csSelectedObject) {
+            pushCsHistory({ type: 'delete', obj: csSelectedObject });
+            csScene.remove(csSelectedObject);
+            csObjects = csObjects.filter(o => o !== csSelectedObject);
+            csTransformCtrl.detach();
+            csSelectedObject = null;
+            hideInfoCard();
+        }
+    }
+    updateCsLighting();
+    saveCsConfig();
+    closeDeleteCsModal();
+};
