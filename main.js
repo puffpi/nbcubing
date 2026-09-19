@@ -5380,7 +5380,7 @@ function renderHomeRecords() {
 }
 
 // =========================================================================
-// 🚀 魔方空间 (Cube Space) 3D 物理沙盒引擎核心逻辑 (含持久化存档)
+// 🚀 魔方空间 (Cube Space) 3D 物理沙盒引擎核心逻辑 (含高级吸附与像素画)
 // =========================================================================
 
 let csScene, csCamera, csRenderer, csOrbitCtrl, csTransformCtrl;
@@ -5393,9 +5393,75 @@ let isCsExpanded = false;
 let isCsInitialized = false;
 let csSelectedObject = null;
 let csPendingAction = null;
-
 let csTimeState = 1;
 let csCurrentFloorType = 'floor_brick';
+
+// ==================== 恢复出厂设置 ====================
+function showResetCsModal() { document.getElementById('cs-reset-modal').style.display = 'flex'; }
+function closeResetCsModal() { document.getElementById('cs-reset-modal').style.display = 'none'; }
+function confirmCsReset() {
+    closeResetCsModal();
+    document.getElementById('cs-manual-modal').style.display = 'none';
+
+    csObjects.forEach(obj => csScene.remove(obj));
+    csObjects = [];
+    if (csTransformCtrl) csTransformCtrl.detach();
+    hideInfoCard();
+    csHistory = [];
+    document.getElementById('cs-action-undo').classList.add('disabled');
+
+    generateDefaultScene();
+}
+
+// ==================== 极简纯代码像素画生成引擎 ====================
+function createPixelIcon(id) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x*2, y*2, w*2, h*2); };
+
+    if (id === 'cat_mc' || id === 'mc_grass') {
+        rect(2, 4, 12, 8, '#784A32'); rect(2, 4, 12, 3, '#5B8C51'); rect(4, 7, 2, 2, '#5B8C51');
+    } else if (id === 'cat_smart') {
+        rect(2, 5, 12, 4, '#f8fafc'); rect(3, 9, 2, 5, '#e2e8f0'); rect(11, 9, 2, 5, '#e2e8f0');
+    } else if (id === 'cat_scene' || id === 'floor_brick') {
+        rect(2, 2, 12, 12, '#64748b'); rect(2, 8, 12, 2, '#475569'); rect(8, 2, 2, 12, '#475569');
+    } else if (id === 'mc_stone') {
+        rect(2, 4, 12, 8, '#94a3b8'); rect(4, 6, 2, 2, '#64748b'); rect(10, 8, 2, 2, '#64748b');
+    } else if (id === 'mc_brick') {
+        rect(2, 4, 12, 8, '#fca5a5'); rect(2, 4, 5, 3, '#ef4444'); rect(8, 4, 6, 3, '#ef4444'); rect(2, 8, 8, 4, '#ef4444'); rect(11, 8, 3, 4, '#ef4444');
+    } else if (id === 'smart_desk') {
+        rect(1, 6, 14, 3, '#f8fafc'); rect(2, 9, 2, 5, '#cbd5e1'); rect(12, 9, 2, 5, '#cbd5e1');
+    } else if (id === 'smart_chair') {
+        rect(7, 8, 2, 5, '#334155'); rect(4, 12, 8, 2, '#111111'); rect(4, 7, 8, 2, '#111111'); rect(10, 4, 2, 4, '#111111');
+    } else if (id === 'smart_sofa') {
+        rect(1, 7, 14, 5, '#e2e8f0'); rect(1, 4, 14, 3, '#cbd5e1'); rect(0, 6, 3, 6, '#cbd5e1'); rect(13, 6, 3, 6, '#cbd5e1');
+    } else if (id === 'smart_tv') {
+        rect(2, 4, 12, 6, '#111111'); rect(3, 5, 10, 4, '#bae6fd'); rect(7, 10, 2, 2, '#333333'); rect(5, 12, 6, 1, '#222222');
+    } else if (id === 'smart_speaker') {
+        rect(4, 3, 8, 10, '#1f2937'); rect(6, 5, 4, 4, '#334155'); rect(5, 9, 6, 3, '#111111');
+    } else if (id === 'smart_lamp') {
+        rect(7, 5, 2, 9, '#334155'); rect(5, 14, 6, 2, '#1e293b'); rect(5, 1, 6, 4, '#fffbeb');
+    } else if (id === 'smart_msg') {
+        rect(3, 4, 10, 8, '#c87e4f'); rect(6, 6, 4, 4, '#6b4a31');
+    } else if (id === 'smart_kb') {
+        rect(3, 6, 10, 4, '#f8fafc'); rect(4, 7, 8, 2, '#e2e8f0');
+    } else if (id === 'smart_mouse') {
+        rect(4, 4, 8, 8, '#64748b'); rect(6, 6, 4, 5, '#ffffff'); rect(7, 7, 2, 2, '#111111');
+    } else if (id === 'floor_grass') {
+        rect(2, 2, 12, 12, '#5B8C51'); rect(4, 4, 2, 2, '#4A7A40'); rect(10, 10, 2, 2, '#669E5A');
+    } else if (id === 'floor_grid') {
+        rect(2, 2, 12, 12, '#f8fafc'); rect(2, 8, 12, 1, '#e2e8f0'); rect(8, 2, 1, 12, '#e2e8f0');
+    }
+    return canvas.toDataURL();
+}
+
+function initCategoryIcons() {
+    document.getElementById('icon-cat-mc').src = createPixelIcon('cat_mc');
+    document.getElementById('icon-cat-smart').src = createPixelIcon('cat_smart');
+    document.getElementById('icon-cat-scene').src = createPixelIcon('cat_scene');
+}
 
 // ==================== 持久化存档引擎 ====================
 function saveCsConfig() {
@@ -5408,7 +5474,9 @@ function saveCsConfig() {
             pos: obj.position.toArray(),
             rot: obj.rotation.toArray(),
             scale: obj.scale.toArray(),
-            lampInt: obj.userData.isLamp ? obj.userData.lightObj.intensity : 1
+            lampInt: obj.userData.isLamp ? obj.userData.lightObj.intensity : 1,
+            lampSoft: obj.userData.isLamp ? obj.userData.lightObj.shadow.radius : 1,
+            isTvOn: obj.userData.id === 'smart_tv' ? obj.userData.isTvOn : undefined // 新增电视机状态保存
         }))
     };
     localStorage.setItem('nbCubeSpaceConfig', JSON.stringify(config));
@@ -5437,19 +5505,35 @@ function loadCsConfig() {
     }
 }
 
+// 核心重制：修复坐标陷底，移除杂散方块，魔方空间初始设置
 function generateDefaultScene() {
     changeFloorTexture('floor_brick');
-    csTimeState = 1;
-    cycleCsTime();
+    csTimeState = 1; cycleCsTime(); // 设为傍晚
 
-    addObjToSpace('smart_tv', 'smart', {pos: [0, 0, -2], rot: [0, 0, 0], scale: [1, 1, 1]});
-    addObjToSpace('smart_speaker', 'smart', {pos: [-4.5, 0, -1.5], rot: [0, 0.4, 0], scale: [1, 1, 1]});
-    addObjToSpace('smart_msg', 'smart', {pos: [4.5, 0, -1.5], rot: [0, -0.4, 0], scale: [1, 1, 1]});
-    addObjToSpace('mc_grass', 'mc', {pos: [-3.5, 0, 3], rot: [0, 0.2, 0], scale: [1, 1, 1]});
-    addObjToSpace('mc_crack', 'mc', {pos: [0, 0, 2.5], rot: [0, -0.1, 0], scale: [1, 1, 1]});
-    addObjToSpace('mc_brick', 'mc', {pos: [3.5, 0, 3], rot: [0, -0.3, 0], scale: [1, 1, 1]});
-    addObjToSpace('777', 'cube', {pos: [-3.5, 2, 3], rot: [0, 0.5, 0], scale: [0.85, 0.85, 0.85]});
-    addObjToSpace('smart_lamp', 'smart', {pos: [7, 0, 1], rot: [0, 0, 0], scale: [1, 1, 1], lampInt: 1.5});
+    // 旋转参数说明：rot 参数数组为 [X轴旋转, Y轴旋转, Z轴旋转]，单位为弧度
+    // Math.PI 代表 180 度，Math.PI / 2 代表 90 度。
+
+    // 中央：宽大的现代带抽屉书桌 (靠后)
+    addObjToSpace('smart_desk', 'smart', {pos: [0, 0, -2.5], rot: [0, 0, 0], scale: [1.2, 1, 1]});
+
+    // 桌面 Y 坐标统一设定为 3.0，精确放置在桌面上方不陷进去
+    addObjToSpace('smart_tv', 'smart', {pos: [0, 3.0, -3.2], rot: [0, 0, 0], scale: [0.8, 0.8, 0.8]});
+    addObjToSpace('smart_kb', 'smart', {pos: [0, 3.0, -2.0], rot: [0, 0, 0], scale: [1, 1, 1]});
+    addObjToSpace('smart_mouse', 'smart', {pos: [2.0, 3.0, -2.0], rot: [0, 0, 0], scale: [1, 1, 1]});
+    addObjToSpace('777', 'cube', {pos: [-2.2, 3.0, -2.0], rot: [0, 0.4, 0], scale: [0.12, 0.12, 0.12]});
+
+    // 左右地面物品
+    addObjToSpace('smart_speaker', 'smart', {pos: [-5.5, 0, -2.0], rot: [0, 0.4, 0], scale: [1, 1, 1]});
+    addObjToSpace('smart_msg', 'smart', {pos: [5.5, 0, -2.0], rot: [0, -0.4, 0], scale: [1, 1, 1]});
+
+    // 前方：带扶手人体工学椅 (Math.PI 即 180度，面向电脑)
+    addObjToSpace('smart_chair', 'smart', {pos: [0, 0, 1.5], rot: [0, Math.PI, 0], scale: [1, 1, 1]});
+
+    // 左侧：发光台灯
+    addObjToSpace('smart_lamp', 'smart', {pos: [-7, 0, 1], rot: [0, 0, 0], scale: [1, 1, 1], lampInt: 1.5, lampSoft: 3});
+
+    // 台灯左侧：新增的灰色高级沙发 (Math.PI / 2 即 90度旋转)
+    addObjToSpace('smart_sofa', 'smart', {pos: [-11, 0, 7], rot: [0, Math.PI / 2, 0], scale: [1, 1, 1]});
 
     saveCsConfig();
 }
@@ -5534,17 +5618,13 @@ function undoCsAction() {
     saveCsConfig();
 }
 
-function csShowAlert(msg) {
-    document.getElementById('cs-alert-text').innerText = msg;
-    document.getElementById('cs-alert-modal').style.display = 'flex';
-}
-
 function openCubeSpace() {
     window.closeNavDropdowns();
     document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
     document.getElementById('cube-space-page').classList.add('active');
 
     if (!isCsInitialized) {
+        initCategoryIcons();
         initCubeSpace3D();
         loadCsConfig();
         isCsInitialized = true;
@@ -5552,6 +5632,14 @@ function openCubeSpace() {
     setCubeSpaceMode('observe');
     isCsExpanded = false;
     updateCsPanelState();
+
+    // 【新增】：进入空间自动播放音乐。
+    // （注：浏览器由于防打扰机制，若用户在网页刷新后没有任何点击动作就直接进了空间，可能会被浏览器静默拦截）
+    const audio = document.getElementById('cs-bgm');
+    if (audio && audio.paused) {
+        document.getElementById('cs-speaker-toggle').checked = true;
+        audio.play().catch(e => console.warn("浏览器自动播放拦截：", e));
+    }
 }
 
 function exitCubeSpace() { goBack(); }
@@ -5560,6 +5648,7 @@ function toggleCubeSpacePanel() {
     if (!isCsExpanded) {
         setCubeSpaceMode('edit');
         isCsExpanded = true;
+        switchCsCategory(csCurrentCategory);
     } else {
         setCubeSpaceMode('observe');
         isCsExpanded = false;
@@ -5567,14 +5656,42 @@ function toggleCubeSpacePanel() {
     updateCsPanelState();
 }
 
-// ==================== 音量调节 ====================
-function updateCsSpeakerVol(val) {
-    const audio = document.getElementById('cs-bgm');
-    if(audio) audio.volume = val / 100;
+// 核心升级：一键无缝删除逻辑
+function executeDeleteCsObject() {
+    if (csSelectedObject) {
+        pushCsHistory({ type: 'delete', obj: csSelectedObject });
+        csScene.remove(csSelectedObject);
+        csObjects = csObjects.filter(o => o !== csSelectedObject);
+        csTransformCtrl.detach();
+        csSelectedObject = null;
+        hideInfoCard();
+        updateCsLighting();
+        saveCsConfig();
+    }
 }
 
-// ==================== UI 交互控制 ====================
+// 清空全部：唯一的弹窗防误触
+function clearCubeSpace() {
+    csPendingAction = 'clear_all';
+    document.getElementById('cs-delete-title').innerText = "确定要清空空间里的所有物件吗？";
+    document.getElementById('cs-delete-modal').style.display = 'flex';
+}
+
+// 修复失效的清空按钮功能
+function confirmClearCubeSpace() {
+    csObjects.forEach(obj => csScene.remove(obj));
+    csObjects = [];
+    if (csTransformCtrl) csTransformCtrl.detach();
+    hideInfoCard();
+    csHistory = [];
+    document.getElementById('cs-action-undo').classList.add('disabled');
+    updateCsLighting();
+    saveCsConfig();
+    document.getElementById('cs-delete-modal').style.display = 'none';
+}
+
 function switchCsCategory(cat) {
+    // 点击任何图标自动切换到编辑模式
     if (csCurrentMode !== 'edit') {
         setCubeSpaceMode('edit');
     }
@@ -5582,23 +5699,31 @@ function switchCsCategory(cat) {
     ['cube', 'mc', 'smart', 'scene'].forEach(c => {
         document.getElementById(`cs-cat-${c}`).classList.toggle('active', cat === c);
     });
-    populateCsPanel();
+
     if (!isCsExpanded) {
         isCsExpanded = true;
-        updateCsPanelState();
     }
+    updateCsPanelState();
 }
 
 function updateCsPanelState() {
     const panel = document.getElementById('cs-dock-panel');
     const arrow = document.getElementById('cs-toggle-arrow');
+    const dock = document.getElementById('cs-main-dock');
+
     if (isCsExpanded) {
         panel.style.height = '115px'; panel.style.opacity = '1'; panel.style.pointerEvents = 'auto';
         arrow.style.transform = 'rotate(0deg)';
+        dock.classList.remove('collapsed');
         populateCsPanel();
     } else {
         panel.style.height = '0'; panel.style.opacity = '0'; panel.style.pointerEvents = 'none';
         arrow.style.transform = 'rotate(180deg)';
+        dock.classList.add('collapsed');
+
+        ['cube', 'mc', 'smart', 'scene'].forEach(c => {
+            document.getElementById(`cs-cat-${c}`).classList.remove('active');
+        });
     }
 }
 
@@ -5607,12 +5732,14 @@ function setCubeSpaceMode(mode) {
     document.getElementById('cs-mode-observe').classList.toggle('active', mode === 'observe');
     document.getElementById('cs-mode-edit').classList.toggle('active', mode === 'edit');
 
-    ['mc', 'smart', 'scene'].forEach(c => {
-        document.getElementById(`cs-cat-${c}`).classList.toggle('disabled', mode === 'observe');
-    });
     const hint = document.getElementById('cube-space-hint');
 
     hideInteractCards();
+
+    // 【核心修复】：彻底删除了给图标加上 disabled 类名的代码，让它们永远可以被点击！
+    ['mc', 'smart', 'scene'].forEach(c => {
+        document.getElementById(`cs-cat-${c}`).classList.remove('disabled');
+    });
 
     if (mode === 'observe') {
         hint.innerText = "观察者模式：左键旋转 / 右键平移 / 滚轮缩放";
@@ -5626,12 +5753,6 @@ function setCubeSpaceMode(mode) {
     } else {
         hint.innerText = "编辑模式：可添加、移动、旋转、缩放场景物件";
     }
-}
-
-function clearCubeSpace() {
-    csPendingAction = 'clear_all';
-    document.getElementById('cs-delete-title').innerText = "确定要清空空间里的所有物件吗？";
-    document.getElementById('cs-delete-modal').style.display = 'flex';
 }
 
 function populateCsPanel() {
@@ -5651,42 +5772,47 @@ function populateCsPanel() {
         });
     } else if (csCurrentCategory === 'mc') {
         const mcs = [
-            { id: 'mc_grass', icon: '🟩', name: '草方块' },
-            { id: 'mc_stone', icon: '🪨', name: '原石' },
-            { id: 'mc_crack', icon: '🌑', name: '裂纹原石' },
-            { id: 'mc_brick', icon: '🧱', name: '红砖块' }
+            { id: 'mc_grass', name: '草方块' },
+            { id: 'mc_stone', name: '原石' },
+            { id: 'mc_brick', name: '红砖块' }
         ];
         mcs.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<span style="font-size: 32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
             btn.onclick = () => { addObjToSpace(item.id, 'mc'); };
             content.appendChild(btn);
         });
     } else if (csCurrentCategory === 'smart') {
+        // 全新追加键盘与鼠标分类
         const smarts = [
-            { id: 'smart_speaker', icon: '🔈', name: '音响' },
-            { id: 'smart_tv', icon: '🖥️', name: '现代电视' },
-            { id: 'smart_lamp', icon: '💡', name: '发光路灯' },
-            { id: 'smart_msg', icon: '📦', name: '命令方块' }
+            { id: 'smart_desk', name: '现代书桌' },
+            { id: 'smart_chair', name: '工学椅' },
+            { id: 'smart_sofa', name: '沙发' },
+            { id: 'smart_tv', name: '显示器' },
+            { id: 'smart_speaker', name: '音响' },
+            { id: 'smart_lamp', name: '台灯' },
+            { id: 'smart_msg', name: '消息盒子' },
+            { id: 'smart_kb', name: '键盘' },
+            { id: 'smart_mouse', name: '鼠标与垫' }
         ];
         smarts.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<span style="font-size: 32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
             btn.onclick = () => { addObjToSpace(item.id, 'smart'); };
             content.appendChild(btn);
         });
     } else if (csCurrentCategory === 'scene') {
         const scenes = [
-            { id: 'floor_brick', icon: '<div style="width:24px;height:24px;background:#64748b;border-radius:4px;border:2px solid #475569;margin:auto;"></div>', name: '青石砖块' },
-            { id: 'floor_grass', icon: '🟩', name: '自然草地' },
-            { id: 'floor_grid', icon: '⬜', name: '空白网格' }
+            { id: 'floor_brick', name: '青石砖块' },
+            { id: 'floor_grass', name: '自然草地' },
+            { id: 'floor_grid', name: '空白网格' }
         ];
         scenes.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<span style="font-size: 32px; display:flex; align-items:center; justify-content:center; height:32px; width:32px;">${item.icon}</span><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
             btn.onclick = () => { changeFloorTexture(item.id); };
             content.appendChild(btn);
         });
@@ -5766,17 +5892,28 @@ function changeFloorTexture(type) {
     saveCsConfig();
 }
 
-// ==================== 互动配件全息引擎 ====================
+// ==================== 互动配件全息与多曲目音乐引擎 ====================
 let csInteractObject = null;
 let isCsMsgActive = false;
 let csMsgSourceObj = null;
 let csMsgInterval = null;
 let csNewsIndex = 0;
 
+// 建议后期将这里的链接换成真实的本地路径，例如 "./assets/bgm1.mp3"
+const csBgmList = [
+    "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3"
+];
+let csBgmIndex = 0;
+
+function updateCsSpeakerVol(val) {
+    const audio = document.getElementById('cs-bgm');
+    if(audio) audio.volume = val / 100;
+}
+
 function toggleCsSpeaker(isPlaying) {
     const audio = document.getElementById('cs-bgm');
     if(isPlaying) {
-        audio.play().catch(e => console.warn("音频播放被浏览器拦截，请先与页面交互", e));
+        audio.play().catch(e => console.warn("播放被拦截", e));
     } else {
         audio.pause();
     }
@@ -5787,8 +5924,49 @@ function replayCsSpeaker() {
     const audio = document.getElementById('cs-bgm');
     audio.currentTime = 0;
     document.getElementById('cs-speaker-toggle').checked = true;
-    audio.play().catch(e => console.warn("音频播放被拦截", e));
+    audio.play().catch(e => console.warn("播放被拦截", e));
     hideInteractCards();
+}
+
+function nextCsBgm() {
+    csBgmIndex = (csBgmIndex + 1) % csBgmList.length;
+    let audio = document.getElementById('cs-bgm');
+    audio.src = csBgmList[csBgmIndex];
+    document.getElementById('cs-speaker-toggle').checked = true;
+    audio.play();
+}
+
+function prevCsBgm() {
+    csBgmIndex = (csBgmIndex - 1 + csBgmList.length) % csBgmList.length;
+    let audio = document.getElementById('cs-bgm');
+    audio.src = csBgmList[csBgmIndex];
+    document.getElementById('cs-speaker-toggle').checked = true;
+    audio.play();
+}
+
+// 台灯专属亮度控制
+function updateCsLampIntensity(val) {
+    if (csInteractObject && csInteractObject.userData.isLamp) {
+        csInteractObject.userData.lightObj.intensity = val / 100 * 2.5;
+        csInteractObject.userData.lightObj.distance = (val / 100) * 40 + 5;
+        saveCsConfig();
+    }
+}
+
+// 台灯专属柔光控制 (控制阴影模糊度)
+function updateCsLampSoftness(val) {
+    if (csInteractObject && csInteractObject.userData.isLamp) {
+        csInteractObject.userData.lightObj.shadow.radius = parseInt(val);
+        saveCsConfig();
+    }
+}
+
+// 台灯恢复默认设置
+function resetCsLampDefaults() {
+    document.getElementById('cs-lamp-slider-obs').value = 50;
+    document.getElementById('cs-lamp-slider-soft').value = 1;
+    updateCsLampIntensity(50);
+    updateCsLampSoftness(1);
 }
 
 function toggleCsMsg(isBroadcasting) {
@@ -5818,13 +5996,15 @@ function updateCsHologramText() {
     }
 }
 
+// ==================== 卡片联动函数 ====================
 function updateInteractCardPos(type) {
     if (!csInteractObject) return;
     const pos = csInteractObject.position.clone().project(csCamera);
     const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
     const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
 
-    let cardId = type === 'speaker' ? 'cs-speaker-card' : 'cs-msg-card';
+    // 加入了 tv 类型的卡片识别
+    let cardId = type === 'speaker' ? 'cs-speaker-card' : (type === 'msg' ? 'cs-msg-card' : (type === 'tv' ? 'cs-tv-card' : 'cs-lamp-card'));
     const card = document.getElementById(cardId);
     if(card) {
         card.style.left = (x + 40) + 'px';
@@ -5846,17 +6026,18 @@ function updateDynamicHolograms() {
         holo.style.display = pos.z > 1 ? 'none' : 'block';
     }
 
-    if (document.getElementById('cs-speaker-card').style.display !== 'none') {
-        updateInteractCardPos('speaker');
-    }
-    if (document.getElementById('cs-msg-card').style.display !== 'none') {
-        updateInteractCardPos('msg');
-    }
+    if (document.getElementById('cs-speaker-card') && document.getElementById('cs-speaker-card').style.display !== 'none') updateInteractCardPos('speaker');
+    if (document.getElementById('cs-msg-card') && document.getElementById('cs-msg-card').style.display !== 'none') updateInteractCardPos('msg');
+    if (document.getElementById('cs-lamp-card') && document.getElementById('cs-lamp-card').style.display !== 'none') updateInteractCardPos('lamp');
+    // 追加电脑卡片跟随
+    if (document.getElementById('cs-tv-card') && document.getElementById('cs-tv-card').style.display !== 'none') updateInteractCardPos('tv');
 }
 
 function hideInteractCards() {
-    document.getElementById('cs-speaker-card').style.display = 'none';
-    document.getElementById('cs-msg-card').style.display = 'none';
+    if(document.getElementById('cs-speaker-card')) document.getElementById('cs-speaker-card').style.display = 'none';
+    if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
+    if(document.getElementById('cs-lamp-card')) document.getElementById('cs-lamp-card').style.display = 'none';
+    if(document.getElementById('cs-tv-card')) document.getElementById('cs-tv-card').style.display = 'none';
     csInteractObject = null;
 }
 
@@ -5866,9 +6047,14 @@ hideInfoCard = function() {
     hideInteractCards();
 }
 
-// ==================== 核心 3D 渲染引擎 (终极防翻转版) ====================
+
+// ==================== 核心 3D 渲染引擎 ====================
 function initCubeSpace3D() {
     const container = document.getElementById('cube-space-canvas');
+
+    // =====================================================
+    // 1. 场景初始化
+    // =====================================================
     csScene = new THREE.Scene();
     csScene.background = new THREE.Color(0xf8fafc);
     csScene.fog = new THREE.Fog(0xf8fafc, 20, 100);
@@ -5883,6 +6069,9 @@ function initCubeSpace3D() {
     csRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(csRenderer.domElement);
 
+    // =====================================================
+    // 2. 灯光
+    // =====================================================
     csHemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.7);
     csHemiLight.position.set(0, 20, 0);
     csScene.add(csHemiLight);
@@ -5899,6 +6088,9 @@ function initCubeSpace3D() {
     csDirLight.shadow.bias = -0.0005;
     csScene.add(csDirLight);
 
+    // =====================================================
+    // 3. 地面与网格
+    // =====================================================
     const floorGeo = new THREE.PlaneGeometry(150, 150);
     const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 1 });
     csFloor = new THREE.Mesh(floorGeo, floorMat);
@@ -5911,77 +6103,146 @@ function initCubeSpace3D() {
     gridHelper.material.transparent = true;
     csScene.add(gridHelper);
 
+    // =====================================================
+    // 4. 轨道控制器
+    // =====================================================
     csOrbitCtrl = new THREE.OrbitControls(csCamera, csRenderer.domElement);
     csOrbitCtrl.enableDamping = false;
     csOrbitCtrl.maxPolarAngle = Math.PI / 2 - 0.02;
+    csOrbitCtrl.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
-    csOrbitCtrl.touches = {
-        ONE: THREE.TOUCH.ROTATE,
-        TWO: THREE.TOUCH.DOLLY_PAN
-    };
-
+    // =====================================================
+    // 5. 原生大轴 TransformControls 底层劫持
+    // =====================================================
     csTransformCtrl = new THREE.TransformControls(csCamera, csRenderer.domElement);
+    csTransformCtrl.setSpace('world');
 
-    // 1. 隐藏多余的面和幽灵白线，只保留单纯的 XYZ 轴
-    csTransformCtrl.traverse(function(child) {
-        if (child.isMesh && ['XY', 'YZ', 'XZ', 'XYZE', 'E'].includes(child.name)) {
-            child.visible = false;
-        }
-        if (child.isLine) {
-            if (['X', 'Y', 'Z'].includes(child.name)) {
-                child.material.visible = true;
-            } else {
-                child.material.visible = false;
+    // 拦截底层渲染，强杀翻面与白线
+    const origUpdateMatrixWorld = csTransformCtrl.updateMatrixWorld;
+    csTransformCtrl.updateMatrixWorld = function () {
+        origUpdateMatrixWorld.apply(this, arguments);
+
+        if (this.mode === 'translate') {
+            // 【剿灭白线】：彻底隐藏拖拽时出现的贯穿屏幕的无限长辅助网格层 (children[2])
+            if (this.children.length > 2) {
+                this.children[2].visible = false;
             }
-        }
-    });
 
-    // 2. 核心大招：拦截 TransformControls 的底层矩阵更新！
-    // 强制把被系统为了“正对用户”而偷偷倒转的圆锥方向用绝对值掰回世界绝对正向！
-    const originalUpdateMatrixWorld = csTransformCtrl.updateMatrixWorld;
-    csTransformCtrl.updateMatrixWorld = function() {
-        originalUpdateMatrixWorld.apply(this, arguments);
-        this.traverse(function(child) {
-            if (child.name === 'X' || child.name === 'Y' || child.name === 'Z') {
-                child.scale.x = Math.abs(child.scale.x);
-                child.scale.y = Math.abs(child.scale.y);
-                child.scale.z = Math.abs(child.scale.z);
-                child.updateMatrix();
-                if (child.parent) {
-                    child.matrixWorld.multiplyMatrices(child.parent.matrixWorld, child.matrix);
+            this.traverse(function (child) {
+                // 隐藏引擎杂生线条
+                if (child.isLine && !['X', 'Y', 'Z'].includes(child.name)) {
+                    child.visible = false;
                 }
-            }
-        });
+
+                // 【核心修正】：囊括所有的单轴 (X,Y,Z) 和操作面 (XY,YZ,XZ)
+                if (['X', 'Y', 'Z', 'XY', 'YZ', 'XZ'].includes(child.name)) {
+                    // 1. 将缩放强转为绝对值，杜绝负向象限翻转，把面和轴死死按在正夹角！
+                    child.scale.set(
+                        Math.abs(child.scale.x),
+                        Math.abs(child.scale.y),
+                        Math.abs(child.scale.z)
+                    );
+
+                    // 2. 将旋转彻底归零，剥夺其随摄像机旋转而翻背面的能力
+                    child.quaternion.identity();
+
+                    // 重新应用矩阵计算
+                    child.updateMatrix();
+                    if (child.parent) {
+                        child.matrixWorld.multiplyMatrices(child.parent.matrixWorld, child.matrix);
+                    }
+                }
+            });
+        }
     };
 
+    // =====================================================
+    // 6. 拖拽与吸附逻辑监听
+    // =====================================================
     csTransformCtrl.addEventListener('dragging-changed', function (event) {
         csOrbitCtrl.enabled = !event.value;
         if (event.value) {
             hideInfoCard();
-            csTransformStartParams = { pos: csSelectedObject.position.clone(), rot: csSelectedObject.rotation.clone(), scale: csSelectedObject.scale.clone() };
+            if (csSelectedObject) {
+                csTransformStartParams = {
+                    pos: csSelectedObject.position.clone(),
+                    rot: csSelectedObject.rotation.clone(),
+                    scale: csSelectedObject.scale.clone()
+                };
+            }
         } else {
             updateInfoCardValues();
             if (csTransformStartParams && csSelectedObject) {
-                pushCsHistory({ type: 'transform', obj: csSelectedObject, oldPos: csTransformStartParams.pos, oldRot: csTransformStartParams.rot, oldScale: csTransformStartParams.scale });
+                pushCsHistory({
+                    type: 'transform',
+                    obj: csSelectedObject,
+                    oldPos: csTransformStartParams.pos,
+                    oldRot: csTransformStartParams.rot,
+                    oldScale: csTransformStartParams.scale
+                });
                 saveCsConfig();
             }
         }
     });
 
     csTransformCtrl.addEventListener('change', function () {
-        if (csTransformCtrl.dragging) return;
-        updateInfoCardPos();
+        if (csTransformCtrl.dragging && csTransformCtrl.mode === 'translate') {
+            let obj = csSelectedObject;
+            if (!obj) return;
+            obj.updateMatrixWorld();
+            let bbox = new THREE.Box3().setFromObject(obj);
+            let bottomY = bbox.min.y;
+            let center = new THREE.Vector3();
+            bbox.getCenter(center);
+
+            let targetY = null;
+            let minDiff = 0.6;
+
+            // 吸附地面
+            if (Math.abs(bottomY - 0) < minDiff) {
+                targetY = 0;
+                minDiff = Math.abs(bottomY - 0);
+            }
+
+            // 吸附其他物体
+            csObjects.forEach(function (other) {
+                if (other === obj) return;
+                let oBox = new THREE.Box3().setFromObject(other);
+                if (
+                    center.x >= oBox.min.x - 0.2 && center.x <= oBox.max.x + 0.2 &&
+                    center.z >= oBox.min.z - 0.2 && center.z <= oBox.max.z + 0.2
+                ) {
+                    let topY = oBox.max.y;
+                    let diff = Math.abs(bottomY - topY);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        targetY = topY;
+                    }
+                }
+            });
+
+            if (targetY !== null) {
+                obj.position.y += targetY - bottomY;
+            }
+            updateInfoCardValues();
+        }
+
+        if (!csTransformCtrl.dragging) {
+            updateInfoCardPos();
+        }
     });
 
     csOrbitCtrl.addEventListener('change', updateInfoCardPos);
     csScene.add(csTransformCtrl);
 
+    // =====================================================
+    // 7. 鼠标射线检测与点选交互 (更新卡片弹出逻辑)
+    // =====================================================
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    csRenderer.domElement.addEventListener('pointerdown', (e) => {
+    csRenderer.domElement.addEventListener('pointerdown', function (e) {
         if (csTransformCtrl.dragging) return;
-
         if (e.pointerType === 'mouse' && e.button !== 0) return;
 
         const rect = csRenderer.domElement.getBoundingClientRect();
@@ -6005,8 +6266,7 @@ function initCubeSpace3D() {
                 csSelectedObject = null;
                 hideInfoCard();
             }
-        }
-        else if (csCurrentMode === 'observe') {
+        } else if (csCurrentMode === 'observe') {
             if (intersects.length > 0) {
                 let obj = intersects[0].object;
                 while (obj.parent && obj.parent.type === 'Group' && !csObjects.includes(obj)) {
@@ -6017,13 +6277,35 @@ function initCubeSpace3D() {
                     csInteractObject = obj;
                     updateInteractCardPos('speaker');
                     document.getElementById('cs-speaker-card').style.display = 'flex';
-                    document.getElementById('cs-msg-card').style.display = 'none';
-                }
-                else if (obj.userData && obj.userData.id === 'smart_msg') {
+                    if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
+                    if(document.getElementById('cs-lamp-card')) document.getElementById('cs-lamp-card').style.display = 'none';
+                    if(document.getElementById('cs-tv-card')) document.getElementById('cs-tv-card').style.display = 'none';
+                } else if (obj.userData && obj.userData.id === 'smart_msg') {
                     csInteractObject = obj;
                     updateInteractCardPos('msg');
                     document.getElementById('cs-msg-card').style.display = 'flex';
-                    document.getElementById('cs-speaker-card').style.display = 'none';
+                    if(document.getElementById('cs-speaker-card')) document.getElementById('cs-speaker-card').style.display = 'none';
+                    if(document.getElementById('cs-lamp-card')) document.getElementById('cs-lamp-card').style.display = 'none';
+                    if(document.getElementById('cs-tv-card')) document.getElementById('cs-tv-card').style.display = 'none';
+                } else if (obj.userData && obj.userData.id === 'smart_lamp') {
+                    csInteractObject = obj;
+                    updateInteractCardPos('lamp');
+                    document.getElementById('cs-lamp-card').style.display = 'flex';
+                    if(document.getElementById('cs-speaker-card')) document.getElementById('cs-speaker-card').style.display = 'none';
+                    if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
+                    if(document.getElementById('cs-tv-card')) document.getElementById('cs-tv-card').style.display = 'none';
+                    document.getElementById('cs-lamp-slider-obs').value = (obj.userData.lightObj.intensity / 2.5) * 100;
+                    document.getElementById('cs-lamp-slider-soft').value = obj.userData.lightObj.shadow.radius;
+                } else if (obj.userData && obj.userData.id === 'smart_tv') {
+                    // 【新增】：点击电视唤醒电脑卡片
+                    csInteractObject = obj;
+                    updateInteractCardPos('tv');
+                    document.getElementById('cs-tv-card').style.display = 'flex';
+                    if(document.getElementById('cs-speaker-card')) document.getElementById('cs-speaker-card').style.display = 'none';
+                    if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
+                    if(document.getElementById('cs-lamp-card')) document.getElementById('cs-lamp-card').style.display = 'none';
+                    // 恢复当前开关UI状态
+                    document.getElementById('cs-tv-toggle').checked = obj.userData.isTvOn || false;
                 } else {
                     hideInteractCards();
                 }
@@ -6033,7 +6315,10 @@ function initCubeSpace3D() {
         }
     });
 
-    window.addEventListener('resize', () => {
+    // =====================================================
+    // 8. 窗口尺寸调整与动画循环 (新增震动引擎)
+    // =====================================================
+    window.addEventListener('resize', function () {
         if (!document.getElementById('cube-space-page').classList.contains('active')) return;
         csCamera.aspect = container.clientWidth / container.clientHeight;
         csCamera.updateProjectionMatrix();
@@ -6043,9 +6328,27 @@ function initCubeSpace3D() {
     const animate = function () {
         requestAnimationFrame(animate);
         csOrbitCtrl.update();
+
+        // ====== 新增：音响扬声器物理震动特效 ======
+        const audio = document.getElementById('cs-bgm');
+        const isPlaying = audio && !audio.paused;
+        csObjects.forEach(obj => {
+            if (obj.userData && obj.userData.id === 'smart_speaker' && obj.userData.wooferMembrane) {
+                if (isPlaying) {
+                    // 利用高速正弦波模拟低频带来的抽搐震动感 (修改 Y 轴即可改变锥体的深度)
+                    let pump = 1 + 0.3 * Math.sin(Date.now() * 0.05);
+                    obj.userData.wooferMembrane.scale.set(1, pump, 1);
+                } else {
+                    // 停止播放时瞬间回弹复位
+                    obj.userData.wooferMembrane.scale.set(1, 1, 1);
+                }
+            }
+        });
+
         updateDynamicHolograms();
         csRenderer.render(csScene, csCamera);
     };
+
     animate();
     initInfoCardListeners();
 }
@@ -6135,20 +6438,99 @@ function addObjToSpace(id, type, restoreData = null) {
         group.add(block);
 
     } else if (type === 'smart') {
-        if (id === 'smart_lamp') {
+        if (id === 'smart_desk') {
+            let top = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.3, 2.8), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1 }));
+            top.position.y = 2.85; top.castShadow = true; top.receiveShadow = true;
+            let legL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.7, 2.6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+            legL.position.set(-3.0, 1.35, 0); legL.castShadow = true; legL.receiveShadow = true;
+            let legR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.7, 2.6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+            legR.position.set(3.0, 1.35, 0); legR.castShadow = true; legR.receiveShadow = true;
+            let drawer1 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 2.4), new THREE.MeshStandardMaterial({ color: 0xf1f5f9 }));
+            drawer1.position.set(-1.2, 2.3, 0); drawer1.castShadow = true; drawer1.receiveShadow = true;
+            let drawer2 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 2.4), new THREE.MeshStandardMaterial({ color: 0xf1f5f9 }));
+            drawer2.position.set(1.2, 2.3, 0); drawer2.castShadow = true; drawer2.receiveShadow = true;
+            let knob1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.1), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            knob1.position.set(-1.2, 2.4, 1.25);
+            let knob2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.1), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            knob2.position.set(1.2, 2.4, 1.25);
+            group.add(top, legL, legR, drawer1, drawer2, knob1, knob2);
+
+        } else if (id === 'smart_chair') {
+            let seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 2.2), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            seat.position.set(0, 1.8, 0); seat.castShadow = true;
+            let back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.8, 0.3), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            back.position.set(0, 3.2, -0.95); back.castShadow = true;
+
+            let ll1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            ll1.position.set(-1.1, 0.9, 0.9); ll1.castShadow=true;
+            let ll2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2.0), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            ll2.position.set(-1.1, 0.1, 0); ll2.castShadow=true;
+            let ll3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            ll3.position.set(-1.1, 0.9, -0.9); ll3.castShadow=true;
+            let rl1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            rl1.position.set(1.1, 0.9, 0.9); rl1.castShadow=true;
+            let rl2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2.0), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            rl2.position.set(1.1, 0.1, 0); rl2.castShadow=true;
+            let rl3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness:0.5 }));
+            rl3.position.set(1.1, 0.9, -0.9); rl3.castShadow=true;
+
+            let armL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 1.6), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            armL.position.set(-1.1, 2.6, 0); armL.castShadow = true;
+            let armR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 1.6), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            armR.position.set(1.1, 2.6, 0); armR.castShadow = true;
+            let armL_p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+            armL_p.position.set(-1.1, 2.3, 0.6); armL_p.castShadow = true;
+            let armR_p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+            armR_p.position.set(1.1, 2.3, 0.6); armR_p.castShadow = true;
+
+            group.add(seat, back, ll1, ll2, ll3, rl1, rl2, rl3, armL, armR, armL_p, armR_p);
+
+        } else if (id === 'smart_sofa') {
+            let base = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.6, 3.0, 4, 1, 2), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 }));
+            base.position.y = 0.5; base.castShadow = true; base.receiveShadow = true;
+
+            let back = new THREE.Mesh(new THREE.BoxGeometry(7.0, 2.2, 0.8, 4, 2, 1), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 }));
+            back.position.set(0, 1.9, -1.1); back.castShadow = true;
+
+            let armL = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.6, 3.0, 1, 2, 2), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 }));
+            armL.position.set(-3.5, 1.4, 0); armL.castShadow = true;
+            let armR = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.6, 3.0, 1, 2, 2), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 }));
+            armR.position.set(3.5, 1.4, 0); armR.castShadow = true;
+
+            for(let i=0; i<3; i++) {
+                let seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 2.3, 2, 1, 2), new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 }));
+                seat.position.set(-2.3 + i*2.3, 1.1, 0.2);
+                seat.castShadow = true; seat.receiveShadow = true;
+                group.add(seat);
+
+                let backCushion = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.4, 2, 2, 1), new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 }));
+                backCushion.position.set(-2.3 + i*2.3, 2.0, -0.5);
+                backCushion.rotation.x = 0.1;
+                backCushion.castShadow = true;
+                group.add(backCushion);
+            }
+
+            for(let i=0; i<4; i++) {
+                let leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.08, 0.4), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 }));
+                leg.position.set((i%2===0?-3.2:3.2), 0.2, (i<2?-1.2:1.2));
+                group.add(leg);
+            }
+            group.add(base, back, armL, armR);
+
+        } else if (id === 'smart_lamp') {
             let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 4.5), new THREE.MeshStandardMaterial({ color: 0x334155 }));
             pole.position.y = 2.25; pole.castShadow = true; pole.receiveShadow = true;
-
             let bulb = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshBasicMaterial({ color: 0xfffbeb }));
             bulb.position.y = 4.8;
-            bulb.castShadow = false; // 核心光影修复：灯泡绝对不能产生阴影遮挡自身光线
+            bulb.castShadow = false;
 
             let light = new THREE.PointLight(0xfff5b6, 1.5, 25, 2);
             light.position.y = 4.8;
             light.castShadow = true;
-            light.shadow.mapSize.width = 1024;
-            light.shadow.mapSize.height = 1024;
-            light.shadow.bias = -0.01; // 核心光影修复：增加阴影偏移，彻底消除自身黑斑
+            light.shadow.mapSize.width = 1024; light.shadow.mapSize.height = 1024;
+            light.shadow.bias = -0.01;
+
+            light.shadow.radius = (restoreData && restoreData.lampSoft !== undefined) ? restoreData.lampSoft : 1;
 
             group.add(pole, bulb, light);
 
@@ -6162,22 +6544,55 @@ function addObjToSpace(id, type, restoreData = null) {
         } else if (id === 'smart_tv') {
             let body = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.6, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111 }));
             body.position.y = 2.4; body.castShadow = true; body.receiveShadow = true;
-            let screen = new THREE.Mesh(new THREE.BoxGeometry(6.1, 3.4, 0.02), new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x38bdf8, emissiveIntensity: 0.3 }));
+
+            // 【全新电视逻辑】：读取存档状态，应用开关机材质
+            let isTvOn = (restoreData && restoreData.isTvOn !== undefined) ? restoreData.isTvOn : false;
+            let screenMat = isTvOn
+                ? new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x38bdf8, emissiveIntensity: 0.3, roughness: 0.5, metalness: 0.1 })
+                : new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0x000000, roughness: 0.05, metalness: 0.9 }); // 关机状态的深色反光玻璃
+
+            let screen = new THREE.Mesh(new THREE.BoxGeometry(6.1, 3.4, 0.02), screenMat);
             screen.position.set(0, 2.4, 0.08);
+
             let neck = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.15), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             neck.position.set(0, 0.4, 0); neck.castShadow = true;
             let base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.05, 1.2), new THREE.MeshStandardMaterial({ color: 0x222222 }));
             base.position.set(0, 0.025, 0); base.castShadow = true;
+
             group.add(body, screen, neck, base);
+            // 绑定数据供外部调用
+            group.userData.screenMesh = screen;
+            group.userData.isTvOn = isTvOn;
 
         } else if (id === 'smart_speaker') {
-            let box = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x1f2937 }));
+            // 【全新音响模型】：增加细节环与独立振膜
+            let box = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 }));
             box.position.y = 1.2; box.castShadow = true; box.receiveShadow = true;
-            let woofer = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            woofer.rotation.x = Math.PI/2; woofer.position.set(0, 0.8, 0.61);
-            let tweeter = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x334155 }));
-            tweeter.rotation.x = Math.PI/2; tweeter.position.set(0, 1.8, 0.61);
-            group.add(box, woofer, tweeter);
+
+            // 低音炮外圈包边 (TorusGeometry 圆环)
+            let wooferRim = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.05, 16, 32), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 }));
+            wooferRim.position.set(0, 0.8, 0.61);
+
+            // 低音炮振膜 (Cone 凹陷锥体)
+            let wooferMembrane = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.2, 32), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 }));
+            wooferMembrane.rotation.x = -Math.PI / 2; // 让锥尖朝向音箱内部，形成凹陷感
+            wooferMembrane.position.set(0, 0.8, 0.55);
+
+            // 振膜防尘盖 (Sphere)
+            let wooferCap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 }));
+            wooferCap.position.set(0, 0.1, 0);
+            wooferMembrane.add(wooferCap); // 挂载到振膜上，随振膜一起震动
+
+            // 高音单元
+            let tweeterRim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.03, 16, 32), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+            tweeterRim.position.set(0, 1.8, 0.61);
+            let tweeterMembrane = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 32), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
+            tweeterMembrane.scale.z = 0.3;
+            tweeterMembrane.position.set(0, 1.8, 0.58);
+
+            group.add(box, wooferRim, wooferMembrane, tweeterRim, tweeterMembrane);
+            // 绑定振膜给震动引擎使用
+            group.userData.wooferMembrane = wooferMembrane;
 
         } else if (id === 'smart_msg') {
             const canvas = document.createElement('canvas');
@@ -6192,24 +6607,56 @@ function addObjToSpace(id, type, restoreData = null) {
             let block = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1.8), new THREE.MeshStandardMaterial({ map: tex }));
             block.position.y = 0.9; block.castShadow = true; block.receiveShadow = true;
             group.add(block);
+
+        } else if (id === 'smart_kb') {
+            let board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+            board.position.y = 0.05; board.castShadow = true;
+            for(let i=0; i<4; i++) {
+                for(let j=0; j<12; j++) {
+                    let key = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+                    key.position.set(-0.75 + j*0.13, 0.1, -0.2 + i*0.13);
+                    group.add(key);
+                }
+            }
+            group.add(board);
+
+        } else if (id === 'smart_mouse') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#64748b'; ctx.fillRect(0,0,64,64);
+            ctx.fillStyle = '#475569';
+            for(let i=0; i<100; i++) ctx.fillRect(Math.random()*64, Math.random()*64, 4, 4);
+            const tex = new THREE.CanvasTexture(canvas);
+
+            // 【核心修复】：在这里加上 THREE. 补全引用！
+            tex.magFilter = THREE.NearestFilter;
+
+            let pad = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 1.2), new THREE.MeshStandardMaterial({ map: tex }));
+            pad.position.set(0, 0.01, 0); pad.receiveShadow = true;
+
+            let mouseBody = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+            mouseBody.position.set(0, 0.08, 0); mouseBody.castShadow = true;
+
+            let wheel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.06), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            wheel.position.set(0, 0.16, -0.1);
+
+            group.add(pad, mouseBody, wheel);
         }
     }
 
-    // 核心物理引擎修复：无论之前状态如何，必须先算出几何体底部Y边距并重置原点，之后才能应用坐标系！
     group.updateMatrixWorld();
     let bbox = new THREE.Box3().setFromObject(group);
     let bottomY = bbox.min.y;
     let centerOffset = new THREE.Vector3();
     bbox.getCenter(centerOffset);
 
-    // 把该 Group 内所有物体的局部坐标系原点强制拉到其底部中心
     group.children.forEach(c => {
         c.position.x -= centerOffset.x;
         c.position.z -= centerOffset.z;
         c.position.y -= bottomY;
     });
 
-    // 原点对齐完毕后，再将其置于世界坐标中，方可完美贴地
     if (restoreData) {
         group.position.fromArray(restoreData.pos);
         group.rotation.fromArray(restoreData.rot);
@@ -6302,36 +6749,30 @@ function initInfoCardListeners() {
     bindAttr('cs-lamp-val', val => {
         if (csSelectedObject.userData && csSelectedObject.userData.isLamp) {
             csSelectedObject.userData.lightObj.intensity = val;
-            // 完美绑定：亮度增加的同时照射距离也线性增加
-            csSelectedObject.userData.lightObj.distance = val * 16 + 5;
+            csSelectedObject.userData.lightObj.distance = val * 25 + 15;
+            saveCsConfig();
         }
     });
 }
 
-function showDeleteCsModal() {
-    csPendingAction = 'delete_single';
-    document.getElementById('cs-delete-title').innerText = "确定删除该物件吗？";
-    document.getElementById('cs-delete-modal').style.display = 'flex';
-}
-function closeDeleteCsModal() { document.getElementById('cs-delete-modal').style.display = 'none'; }
-document.getElementById('cs-delete-confirm-btn').onclick = function() {
-    if (csPendingAction === 'clear_all') {
-        csObjects.forEach(obj => csScene.remove(obj));
-        csObjects = [];
-        if (csTransformCtrl) csTransformCtrl.detach();
-        hideInfoCard();
-        csHistory = []; document.getElementById('cs-action-undo').classList.add('disabled');
-    } else if (csPendingAction === 'delete_single') {
-        if (csSelectedObject) {
-            pushCsHistory({ type: 'delete', obj: csSelectedObject });
-            csScene.remove(csSelectedObject);
-            csObjects = csObjects.filter(o => o !== csSelectedObject);
-            csTransformCtrl.detach();
-            csSelectedObject = null;
-            hideInfoCard();
+// ==================== 电脑屏幕开机关机逻辑 ====================
+function toggleCsTv(isOn) {
+    if (csInteractObject && csInteractObject.userData.id === 'smart_tv') {
+        csInteractObject.userData.isTvOn = isOn;
+        const screen = csInteractObject.userData.screenMesh;
+        if (isOn) {
+            // 开机：好看的浅蓝发光屏幕
+            screen.material.color.setHex(0xbae6fd);
+            screen.material.emissive.setHex(0x38bdf8);
+            screen.material.roughness = 0.5;
+            screen.material.metalness = 0.1;
+        } else {
+            // 关机：纯黑且拥有高级反光的玻璃面板 (粗糙度极低，金属度极高)
+            screen.material.color.setHex(0x050505);
+            screen.material.emissive.setHex(0x000000);
+            screen.material.roughness = 0.05;
+            screen.material.metalness = 0.9;
         }
+        saveCsConfig();
     }
-    updateCsLighting();
-    saveCsConfig();
-    closeDeleteCsModal();
-};
+}
