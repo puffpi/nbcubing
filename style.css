@@ -2912,3 +2912,23 @@ body {
         display: none !important;
     }
 }
+
+/* 导航栏未展开时：除箭头外的所有图标强制变灰、减淡 */
+#cs-main-dock.collapsed .cs-dock-icon:not(#cs-toggle-arrow) {
+    filter: grayscale(100%);
+    opacity: 0.5;
+    background: transparent !important;
+}
+
+#cs-main-dock.collapsed .cs-dock-icon:not(#cs-toggle-arrow):hover {
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+/* 激活选中状态 */
+.cs-dock-icon.active {
+    filter: grayscale(0%) !important;
+    opacity: 1 !important;
+    color: var(--primary-color);
+    background: rgba(71, 85, 105, 0.1);
+}
