@@ -6316,7 +6316,7 @@ function initCubeSpace3D() {
     });
 
     // =====================================================
-    // 8. 窗口尺寸调整与动画循环 (新增震动引擎)
+    // 8. 窗口尺寸调整与动画循环
     // =====================================================
     window.addEventListener('resize', function () {
         if (!document.getElementById('cube-space-page').classList.contains('active')) return;
@@ -6329,17 +6329,17 @@ function initCubeSpace3D() {
         requestAnimationFrame(animate);
         csOrbitCtrl.update();
 
-        // ====== 新增：音响扬声器物理震动特效 ======
+        // ====== 音响扬声器物理震动特效 ======
         const audio = document.getElementById('cs-bgm');
         const isPlaying = audio && !audio.paused;
+
         csObjects.forEach(obj => {
             if (obj.userData && obj.userData.id === 'smart_speaker' && obj.userData.wooferMembrane) {
                 if (isPlaying) {
-                    // 利用高速正弦波模拟低频带来的抽搐震动感 (修改 Y 轴即可改变锥体的深度)
+                    // 利用高速正弦波模拟低频带来的抽搐震动感
                     let pump = 1 + 0.3 * Math.sin(Date.now() * 0.05);
                     obj.userData.wooferMembrane.scale.set(1, pump, 1);
                 } else {
-                    // 停止播放时瞬间回弹复位
                     obj.userData.wooferMembrane.scale.set(1, 1, 1);
                 }
             }
@@ -6351,7 +6351,7 @@ function initCubeSpace3D() {
 
     animate();
     initInfoCardListeners();
-}
+} // <--- 就是这个关键的大括号！之前少了这个导致整个页面崩溃
 
 // ==================== 物件生成与精准贴地算法 ====================
 function addObjToSpace(id, type, restoreData = null) {
@@ -6545,11 +6545,12 @@ function addObjToSpace(id, type, restoreData = null) {
             let body = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.6, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111 }));
             body.position.y = 2.4; body.castShadow = true; body.receiveShadow = true;
 
-            // 【全新电视逻辑】：读取存档状态，应用开关机材质
+            // 【核心修复】：读取存档里的开关机状态，刷新网页也能无缝衔接
             let isTvOn = (restoreData && restoreData.isTvOn !== undefined) ? restoreData.isTvOn : false;
+
             let screenMat = isTvOn
-                ? new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x38bdf8, emissiveIntensity: 0.3, roughness: 0.5, metalness: 0.1 })
-                : new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0x000000, roughness: 0.05, metalness: 0.9 }); // 关机状态的深色反光玻璃
+                ? new THREE.MeshStandardMaterial({ map: tvTexture, color: 0xffffff, emissive: 0x111111, roughness: 0.5, metalness: 0.1 })
+                : new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0x000000, roughness: 0.05, metalness: 0.9 });
 
             let screen = new THREE.Mesh(new THREE.BoxGeometry(6.1, 3.4, 0.02), screenMat);
             screen.position.set(0, 2.4, 0.08);
@@ -6560,6 +6561,7 @@ function addObjToSpace(id, type, restoreData = null) {
             base.position.set(0, 0.025, 0); base.castShadow = true;
 
             group.add(body, screen, neck, base);
+
             // 绑定数据供外部调用
             group.userData.screenMesh = screen;
             group.userData.isTvOn = isTvOn;
@@ -6755,23 +6757,47 @@ function initInfoCardListeners() {
     });
 }
 
-// ==================== 电脑屏幕开机关机逻辑 ====================
+// ==================== 电脑屏幕开机动画与控制逻辑 ====================
+
+// 创建全局后台画布
+const tvCanvas = document.createElement('canvas');
+tvCanvas.width = 512;
+tvCanvas.height = 256;
+const tvCtx = tvCanvas.getContext('2d');
+const tvTexture = new THREE.CanvasTexture(tvCanvas);
+
+// 提前画好高仿纯文字 Logo，保证随时取用绝对不黑屏
+tvCtx.fillStyle = '#050505';
+tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
+tvCtx.fillStyle = '#ffffff';
+tvCtx.font = 'italic bold 65px "Segoe UI", Arial, sans-serif';
+tvCtx.textAlign = 'center';
+tvCtx.textBaseline = 'middle';
+tvCtx.fillText('PuffPi', tvCanvas.width / 2, tvCanvas.height / 2);
+tvTexture.needsUpdate = true;
+
 function toggleCsTv(isOn) {
     if (csInteractObject && csInteractObject.userData.id === 'smart_tv') {
         csInteractObject.userData.isTvOn = isOn;
         const screen = csInteractObject.userData.screenMesh;
+
         if (isOn) {
-            // 开机：好看的浅蓝发光屏幕
-            screen.material.color.setHex(0xbae6fd);
-            screen.material.emissive.setHex(0x38bdf8);
-            screen.material.roughness = 0.5;
-            screen.material.metalness = 0.1;
+            // 开机：直接贴上画好的文字 Canvas
+            screen.material = new THREE.MeshStandardMaterial({
+                map: tvTexture,
+                color: 0xffffff,
+                emissive: 0x111111,
+                roughness: 0.5,
+                metalness: 0.1
+            });
         } else {
-            // 关机：纯黑且拥有高级反光的玻璃面板 (粗糙度极低，金属度极高)
-            screen.material.color.setHex(0x050505);
-            screen.material.emissive.setHex(0x000000);
-            screen.material.roughness = 0.05;
-            screen.material.metalness = 0.9;
+            // 关机：黑屏幕玻璃
+            screen.material = new THREE.MeshStandardMaterial({
+                color: 0x050505,
+                emissive: 0x000000,
+                roughness: 0.05,
+                metalness: 0.9
+            });
         }
         saveCsConfig();
     }
