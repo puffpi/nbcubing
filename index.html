@@ -250,7 +250,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.26.5</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.26.8</span>
             </div>
         </div>
     </div>
@@ -1379,7 +1379,6 @@
     ========================================= -->
     <div id="cube-space-page" class="page-container" style="padding: 0 !important; margin: 0 !important; width: 100vw; height: 100vh; overflow: hidden; position: fixed; top: 0; left: 0; z-index: 2000; background: #f8fafc; display: none;">
 
-        <!-- 3D 画布容器 -->
         <div id="cube-space-canvas" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; outline: none;"></div>
 
         <button onclick="exitCubeSpace()" class="btn btn-outline" style="position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-color: var(--border-color); color: var(--text-main); border-radius: 12px; padding: 8px 16px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">退出空间</button>
@@ -1388,7 +1387,6 @@
             观察者模式：左键旋转 / 右键平移 / 滚轮缩放
         </div>
 
-        <!-- 右侧工具栏：增加说明书图标 -->
         <div class="cs-toolbar" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 12px; background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(16px); padding: 16px 8px; border-radius: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.6);">
             <div id="cs-action-time" class="cs-mode-btn" onclick="cycleCsTime()" title="切换昼夜"><span id="cs-time-icon" style="font-size: 20px;">☀️</span></div>
             <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.15); margin: 2px 0;"></div>
@@ -1404,28 +1402,23 @@
             </div>
             <div id="cs-action-clear" class="cs-mode-btn" onclick="clearCubeSpace()" title="清空全部"><span style="font-size: 20px;">🗑️</span></div>
 
-            <!-- 说明书入口 -->
             <div id="cs-action-manual" class="cs-mode-btn" onclick="document.getElementById('cs-manual-modal').style.display='flex'" title="说明书">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </div>
         </div>
 
-        <!-- 核心升级：物件参数编辑悬浮卡片 (所有输入框完美垂直对齐) -->
         <div id="cs-info-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 240px;">
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button id="cs-btn-translate" onclick="setCsTransformMode('translate')" style="flex:1; padding:6px; font-size:13px; font-weight:bold; border-radius:8px; cursor:pointer; background:var(--primary-color); color:white; border:none;">平移</button>
                 <button id="cs-btn-rotate" onclick="setCsTransformMode('rotate')" style="flex:1; padding:6px; font-size:13px; font-weight:bold; border-radius:8px; cursor:pointer; background:#f1f5f9; color:var(--text-main); border:none;">旋转</button>
             </div>
 
-            <!-- 上方坐标网格 -->
             <div style="display: grid; grid-template-columns: 35px 1fr 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 10px;">
                 <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">坐标</span>
                 <input type="number" id="cs-pos-x" step="0.5" class="cs-input" style="width: 100%; box-sizing: border-box;">
                 <input type="number" id="cs-pos-y" step="0.5" class="cs-input" style="width: 100%; box-sizing: border-box;">
                 <input type="number" id="cs-pos-z" step="0.5" class="cs-input" style="width: 100%; box-sizing: border-box;">
             </div>
-
-            <!-- 中间角度网格 -->
             <div style="display: grid; grid-template-columns: 35px 1fr 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 12px;">
                 <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">角度</span>
                 <input type="number" id="cs-rot-x" step="15" class="cs-input" style="width: 100%; box-sizing: border-box;">
@@ -1433,19 +1426,19 @@
                 <input type="number" id="cs-rot-z" step="15" class="cs-input" style="width: 100%; box-sizing: border-box;">
             </div>
 
-            <!-- 下方缩放亮度：强制复用 35px 1fr 1fr 1fr 结构保证绝对对齐 -->
             <div style="border-top: 1px dashed var(--border-color); margin: 12px 0; padding-top: 12px; display: grid; grid-template-columns: 35px 1fr 1fr 1fr; gap: 8px; align-items: center;">
                 <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">缩放</span>
-                <input type="number" id="cs-scale-val" step="0.2" class="cs-input" style="width: 100%; box-sizing: border-box;">
+                <input type="number" id="cs-scale-val" step="0.2" class="cs-input" style="width: 100%; box-sizing: border-box; grid-column: 2 / 3;">
 
                 <span id="cs-lamp-label" style="display: none; font-size: 13px; color: var(--text-muted); font-weight: 600; text-align: right;">亮度</span>
-                <input type="number" id="cs-lamp-val" step="0.2" class="cs-input" style="display: none; width: 100%; box-sizing: border-box;">
+                <input type="number" id="cs-lamp-val" step="0.2" class="cs-input" style="display: none; width: 100%; box-sizing: border-box; grid-column: 4 / 5;">
             </div>
 
-            <button onclick="showDeleteCsModal()" style="width: 100%; padding: 8px; background: #f8fafc; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">删除该物件</button>
+            <!-- 核心升级：一键无缝删除（直接调用删除函数，抛弃确认弹窗） -->
+            <button onclick="executeDeleteCsObject()" style="width: 100%; padding: 8px; background: #f8fafc; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">删除该物件</button>
         </div>
 
-        <!-- 各种弹窗区域 -->
+        <!-- 各种系统弹窗 -->
         <div id="cs-alert-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3000; justify-content: center; align-items: center;">
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 <h3 id="cs-alert-text" style="margin-top:0; font-size:16px; color: var(--text-main); line-height: 1.5;">提示内容</h3>
@@ -1453,31 +1446,73 @@
             </div>
         </div>
 
+        <!-- 清空全部弹窗 -->
         <div id="cs-delete-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 2500; justify-content: center; align-items: center;">
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-                <h3 id="cs-delete-title" style="margin-top:0; font-size:17px; color: var(--text-main);">确定删除吗？</h3>
+                <h3 id="cs-delete-title" style="margin-top:0; font-size:17px; color: var(--text-main);">确定要清空空间里的所有物件吗？</h3>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
-                    <button onclick="closeDeleteCsModal()" class="btn btn-outline" style="flex:1; padding:10px;">取消</button>
-                    <button id="cs-delete-confirm-btn" class="btn" style="flex:1; padding:10px; background:#e63946;">确认</button>
+                    <button onclick="document.getElementById('cs-delete-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
+                    <button onclick="confirmClearCubeSpace()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
                 </div>
             </div>
         </div>
 
-        <!-- 新增：说明书弹窗 (点击外部不关闭，带独立叉号) -->
+        <!-- 恢复出厂设置确认弹窗 -->
+        <div id="cs-reset-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3500; justify-content: center; align-items: center;">
+            <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin-top:0; font-size:17px; color: var(--text-main);">确认恢复出厂设置</h3>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button onclick="closeResetCsModal()" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
+                    <button onclick="confirmCsReset()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 核心美化：说明书弹窗去除了圆点与下划线 -->
         <div id="cs-manual-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3000; justify-content: center; align-items: center;">
             <div style="background: #ffffff; padding: 24px 28px; border-radius: 16px; width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;">
-                <svg onclick="document.getElementById('cs-manual-modal').style.display='none'" style="position: absolute; top: 12px; right: 12px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <svg onclick="document.getElementById('cs-manual-modal').style.display='none'" style="position: absolute; top: 12px; right: 12px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" onmouseover="this.style.color='#475569'" onmouseout="this.style.color='#94a3b8'"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 <div style="font-size: 14px; color: var(--text-main); font-weight: 600; line-height: 1.8; text-align: left; margin-top: 5px;">
-                    <div style="margin-bottom: 6px; font-size: 15px;">在观察模式下：</div>
-                    <div style="color: var(--text-muted); margin-bottom: 4px;">点击音响可通过卡片播放音乐</div>
-                    <div style="color: var(--text-muted);">点击命令方块可通过卡片播报资讯</div>
+                    <div style="margin-bottom: 8px; font-size: 15px; font-weight: 800;">在观察模式下：</div>
+                    <div style="color: var(--text-muted); margin-bottom: 6px;">点击音响可通过卡片播放音乐</div>
+                    <div style="color: var(--text-muted);">点击消息盒子可通过卡片播报资讯</div>
+                </div>
+                <div style="text-align: center; margin-top: 24px;">
+                    <span onclick="showResetCsModal()" style="font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">恢复出厂魔方空间配置</span>
                 </div>
             </div>
         </div>
 
-        <!-- 音响控制悬浮卡片 -->
+        <!-- 台灯(路灯)控制悬浮卡片 -->
+        <div id="cs-lamp-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 12px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 160px; flex-direction: column; gap: 10px; align-items: center;">
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">台灯控制</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); font-weight: bold;">
+                <span>亮度</span>
+                <input type="range" id="cs-lamp-slider-obs" min="0" max="100" value="50" style="flex: 1; margin-left: 8px; accent-color: var(--primary-color);" oninput="updateCsLampIntensity(this.value)">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); font-weight: bold;">
+                <span>柔光</span>
+                <input type="range" id="cs-lamp-slider-soft" min="1" max="15" value="1" style="flex: 1; margin-left: 8px; accent-color: var(--primary-color);" oninput="updateCsLampSoftness(this.value)">
+            </div>
+            <!-- 新增：恢复默认设置按钮 -->
+            <button onclick="resetCsLampDefaults()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">恢复默认设置</button>
+        </div>
+
+        <!-- 新增：电脑屏幕控制卡片 -->
+        <div id="cs-tv-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 12px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 140px; flex-direction: column; gap: 10px; align-items: center;">
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">使用电脑</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); font-weight: bold;">
+                <span>关机</span>
+                <label class="cs-switch">
+                  <input type="checkbox" id="cs-tv-toggle" onchange="toggleCsTv(this.checked)">
+                  <span class="cs-slider"></span>
+                </label>
+                <span>开机</span>
+            </div>
+        </div>
+
         <div id="cs-speaker-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 12px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 160px; flex-direction: column; gap: 10px; align-items: center;">
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">🎵 音乐控制</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">音乐控制</div>
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); font-weight: bold; margin-bottom: 2px;">
                 <span>停止</span>
                 <label class="cs-switch">
@@ -1490,12 +1525,15 @@
                 <span>音量</span>
                 <input type="range" id="cs-speaker-vol" min="0" max="100" value="60" style="flex: 1; margin: 0 8px; accent-color: var(--primary-color);" oninput="updateCsSpeakerVol(this.value)">
             </div>
+            <div style="display: flex; justify-content: space-between; width: 100%; gap: 6px; margin-top: 4px;">
+                <button onclick="prevCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">上一首</button>
+                <button onclick="nextCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">下一首</button>
+            </div>
             <button onclick="replayCsSpeaker()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">重新播放</button>
         </div>
 
-        <!-- 命令方块控制悬浮卡片 -->
         <div id="cs-msg-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 10px 14px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 140px; flex-direction: column; gap: 10px; align-items: center;">
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">📡 广播控制</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 2px;">广播控制</div>
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); font-weight: bold;">
                 <span>停止</span>
                 <label class="cs-switch">
@@ -1506,25 +1544,22 @@
             </div>
         </div>
 
-        <!-- 3D 追踪全息信息窗 (Hologram) -->
         <div id="cs-msg-hologram" style="display: none; position: absolute; z-index: 12; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); padding: 8px 16px; border-radius: 12px; color: #f8fafc; font-size: 13px; font-weight: bold; white-space: nowrap; pointer-events: none; border: 1px solid rgba(255,255,255,0.15); transform: translate(-50%, -100%); transition: opacity 0.3s; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
             <span id="cs-hologram-text">这里是播报内容...</span>
         </div>
 
-        <!-- 隐藏的音频引擎 -->
         <audio id="cs-bgm" src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=calm-minecraft-style-music-111111.mp3" loop preload="auto"></audio>
 
-        <!-- 底部导航栏 -->
         <div id="cs-dock-wrapper" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px;">
-            <div class="cs-dock" style="background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(16px); padding: 8px 16px; border-radius: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.6); display: flex; align-items: center; gap: 15px;">
+            <div id="cs-main-dock" class="cs-dock collapsed" style="background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(16px); padding: 8px 16px; border-radius: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.6); display: flex; align-items: center; gap: 15px; transition: all 0.3s;">
                 <div id="cs-cat-cube" class="cs-dock-icon active" onclick="switchCsCategory('cube')" title="魔方物件"><span class="cubing-icon event-333" style="font-size: 26px;"></span></div>
-                <div id="cs-cat-mc" class="cs-dock-icon disabled" onclick="switchCsCategory('mc')" title="MC方块"><span style="font-size: 22px;">🟩</span></div>
-                <div id="cs-cat-smart" class="cs-dock-icon disabled" onclick="switchCsCategory('smart')" title="智能配件"><span style="font-size: 22px;">💡</span></div>
-                <div id="cs-cat-scene" class="cs-dock-icon disabled" onclick="switchCsCategory('scene')" title="场景地砖"><span style="font-size: 22px;">🖼️</span></div>
+                <div id="cs-cat-mc" class="cs-dock-icon disabled" onclick="switchCsCategory('mc')" title="MC方块"><img id="icon-cat-mc" style="width:26px; height:26px; image-rendering:pixelated; border-radius:4px;"></div>
+                <div id="cs-cat-smart" class="cs-dock-icon disabled" onclick="switchCsCategory('smart')" title="家具"><img id="icon-cat-smart" style="width:26px; height:26px; image-rendering:pixelated; border-radius:4px;"></div>
+                <div id="cs-cat-scene" class="cs-dock-icon disabled" onclick="switchCsCategory('scene')" title="场景地砖"><img id="icon-cat-scene" style="width:26px; height:26px; image-rendering:pixelated; border-radius:4px;"></div>
 
                 <div style="width: 1px; height: 26px; background: rgba(0,0,0,0.15);"></div>
-                <div class="cs-dock-icon" onclick="toggleCubeSpacePanel()" title="编辑/观察模式切换">
-                    <svg id="cs-toggle-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-main); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
+                <div class="cs-dock-icon" id="cs-toggle-arrow" onclick="toggleCubeSpacePanel()" title="编辑/观察模式切换">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-main); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
                         <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
                 </div>
