@@ -6052,6 +6052,10 @@ hideInfoCard = function() {
 function initCubeSpace3D() {
     const container = document.getElementById('cube-space-canvas');
 
+    // 【终极手机端修复】：彻底剥夺浏览器的默认滑动、缩放和下拉刷新权限
+    container.style.touchAction = 'none';
+    container.style.overscrollBehavior = 'none';
+
     // =====================================================
     // 1. 场景初始化
     // =====================================================
@@ -6067,6 +6071,13 @@ function initCubeSpace3D() {
     csRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     csRenderer.shadowMap.enabled = true;
     csRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // 【终极断触修复】：强制禁止渲染层的所有系统级滑动、双指缩放和下拉刷新
+    csRenderer.domElement.style.touchAction = 'none';
+    csRenderer.domElement.addEventListener('touchmove', function(e) {
+        e.preventDefault(); // 直接吃掉滑动事件，不让浏览器判定为下拉刷新
+    }, { passive: false });
+
     container.appendChild(csRenderer.domElement);
 
     // =====================================================
@@ -6759,22 +6770,17 @@ function initInfoCardListeners() {
 
 // ==================== 电脑屏幕开机动画与控制逻辑 ====================
 
-// 创建全局后台画布
+// 【4K超清画板】：匹配你的原图精度
 const tvCanvas = document.createElement('canvas');
-tvCanvas.width = 512;
-tvCanvas.height = 256;
+tvCanvas.width = 2048;
+tvCanvas.height = 1024;
 const tvCtx = tvCanvas.getContext('2d');
 const tvTexture = new THREE.CanvasTexture(tvCanvas);
 
-// 提前画好高仿纯文字 Logo，保证随时取用绝对不黑屏
-tvCtx.fillStyle = '#050505';
-tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
-tvCtx.fillStyle = '#ffffff';
-tvCtx.font = 'italic bold 65px "Segoe UI", Arial, sans-serif';
-tvCtx.textAlign = 'center';
-tvCtx.textBaseline = 'middle';
-tvCtx.fillText('PuffPi', tvCanvas.width / 2, tvCanvas.height / 2);
-tvTexture.needsUpdate = true;
+// 开启各向异性过滤与线性过滤，消除 3D 透视下的像素锯齿
+tvTexture.minFilter = THREE.LinearFilter;
+tvTexture.magFilter = THREE.LinearFilter;
+tvTexture.anisotropy = 16;
 
 function toggleCsTv(isOn) {
     if (csInteractObject && csInteractObject.userData.id === 'smart_tv') {
@@ -6782,16 +6788,38 @@ function toggleCsTv(isOn) {
         const screen = csInteractObject.userData.screenMesh;
 
         if (isOn) {
-            // 开机：直接贴上画好的文字 Canvas
+            // 【核心修复】：点开机的瞬间，立刻用纯黑填满画布并推给显卡，杜绝白屏！
+            tvCtx.fillStyle = '#050505';
+            tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
+            tvTexture.needsUpdate = true;
+
+            // 图片加载好之后的真正绘制逻辑
+            const drawLogo = (img) => {
+                if (!csInteractObject.userData.isTvOn) return;
+                tvCtx.fillStyle = '#050505';
+                tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
+
+                // 放大 Logo 尺寸
+                const logoSize = 600;
+                tvCtx.drawImage(img, (tvCanvas.width - logoSize) / 2, (tvCanvas.height - logoSize) / 2, logoSize, logoSize);
+                tvTexture.needsUpdate = true; // 提交给 GPU 渲染
+            };
+
+            const img = new Image();
+            img.src = 'PuffPi.jpg'; // 更新为你要求的正确文件名
+            img.onload = () => drawLogo(img);
+
+            // 开机屏幕材质
             screen.material = new THREE.MeshStandardMaterial({
                 map: tvTexture,
-                color: 0xffffff,
-                emissive: 0x111111,
+                color: 0xffffff, // 底色必须留白，但在加载出图片前被纯黑画布遮挡，所以呈现出黑屏效果
+                emissive: 0x111111, // 微弱背光
                 roughness: 0.5,
                 metalness: 0.1
             });
+
         } else {
-            // 关机：黑屏幕玻璃
+            // 关机屏幕材质
             screen.material = new THREE.MeshStandardMaterial({
                 color: 0x050505,
                 emissive: 0x000000,
