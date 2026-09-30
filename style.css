@@ -3146,7 +3146,7 @@ body {
 #cube-space-page.active { display: block !important; }
 
 /* Player HUD and the portrait-browser landscape fallback. */
-#cube-space-page { touch-action: none; z-index: 2000 !important; animation: none !important; --cs-nav-height: 64px; }
+#cube-space-page { touch-action: none; z-index: 2000 !important; animation: none !important; --cs-nav-height: 64px; --cs-pad-size: 64px; }
 #cube-space-page > .global-nav-header { width: 100% !important; }
 #cube-space-canvas { top: var(--cs-nav-height) !important; height: calc(100% - var(--cs-nav-height)) !important; }
 #cube-space-page > button { top: calc(var(--cs-nav-height) + 14px) !important; }
@@ -3189,7 +3189,7 @@ body {
     text-align: center; width: max-content;
 }
 .cs-player-mode.cs-touch #cs-player-pad {
-    display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px);
+    display: grid; grid-template-columns: repeat(3, var(--cs-pad-size)); grid-template-rows: repeat(3, var(--cs-pad-size));
     gap: 5px; position: absolute; left: max(24px, env(safe-area-inset-left));
     bottom: max(24px, env(safe-area-inset-bottom)); z-index: 12;
     touch-action: none; user-select: none; -webkit-user-select: none;
@@ -3197,7 +3197,7 @@ body {
 #cs-player-pad button {
     display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;
     border: 1px solid rgba(255,255,255,.7); border-radius: 13px;
-    color: #475569; background: rgba(241,245,249,.72); font-size: 18px;
+    color: #475569; background: rgba(241,245,249,.72); font-size: 20px;
     box-shadow: 0 3px 10px #0f172a18; touch-action: none; -webkit-touch-callout: none;
 }
 #cs-player-pad button.pressed { background: #94a3b8; color: white; transform: scale(.95); }
