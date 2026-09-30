@@ -850,6 +850,59 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .edit-popup-actions .edit-btn-confirm { background: var(--primary-color); color: white; }
 .edit-popup-actions .edit-btn-confirm:hover { background: var(--primary-hover); }
 
+/* Keep long solve details within the timer panel, with the controls always visible. */
+#edit-score-popup .edit-score-content {
+    max-height: min(660px, calc(100dvh - 150px));
+    min-height: 0;
+    overflow: hidden;
+    padding: 18px 20px;
+}
+#edit-score-popup #edit-time { margin: 5px 0; }
+#edit-score-popup #edit-timestamp { margin-bottom: 10px; }
+#edit-score-popup #edit-scramble {
+    width: 100%; min-height: 0; flex: 0 1 auto;
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: none; margin-bottom: 10px; line-height: 1.4;
+}
+#edit-score-popup #edit-scramble::-webkit-scrollbar { display: none; }
+#edit-score-popup .edit-scramble-preview {
+    display: flex; justify-content: center; align-items: center;
+    width: 100%; overflow: hidden; flex: 0 0 auto; margin-bottom: 10px;
+}
+#edit-score-popup .edit-scramble-preview twisty-player {
+    width: min(230px, 100%) !important; height: 190px !important;
+}
+#edit-score-popup .edit-penalty-row,
+#edit-score-popup .edit-popup-actions {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px; width: 100%;
+}
+#edit-score-popup .edit-penalty-row { align-items: center; margin-bottom: 10px; }
+#edit-score-popup .edit-penalty-choice {
+    grid-column: span 2; display: flex; width: 100%; min-width: 0;
+    padding: 2px; margin: 0;
+}
+#edit-score-popup .edit-penalty-choice .ios-segment-btn {
+    flex: 1; min-width: 0; padding: 5px 0; text-align: center;
+}
+#edit-score-popup .edit-btn-copy {
+    grid-column: 3; width: 100%; min-width: 0; margin: 0;
+    align-self: stretch; text-align: center; padding: 5px 0;
+    font-size: 13px;
+}
+#edit-score-popup .edit-popup-actions button { min-width: 0; }
+@media (max-width: 768px) {
+    #edit-score-popup .edit-score-content {
+        max-height: calc(100dvh - 185px); padding: 14px 16px;
+    }
+    #edit-score-popup .edit-scramble-preview twisty-player { height: 190px !important; }
+}
+@media (max-width: 360px) {
+    #edit-score-popup .edit-scramble-preview twisty-player {
+        width: 190px !important; height: 160px !important;
+    }
+}
+
 /* 统计设置页面排版 (iOS 风格) */
 .sidebar-settings-title {
     color: var(--text-muted);
@@ -1048,7 +1101,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 #scramble-text, #monthly-scramble-text {
     /* 核心修改：加入刚刚设置好的动态缩放变量 */
     font-size: calc(19px * var(--scramble-font-scale, 1)) !important;
-    font-weight: 700;
+    font-weight: 400;
     text-align: center;
     line-height: 1.4;
     font-family: 'SFMono-Regular', Consolas, monospace;
@@ -1128,12 +1181,15 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     display: flex; align-items: center;
 }
 .ui-slider-wrapper:hover { background: transparent; }
-#font-size-val, #scramble-size-val {
+#font-size-val, #scramble-size-val, #smart-cube-size-val {
     width: 36px; text-align: center; font-family: monospace; flex-shrink: 0;
 }
-#font-size-slider, #scramble-size-slider {
+#font-size-slider, #scramble-size-slider, #smart-cube-size-slider {
     flex: 1; min-width: 0; width: 100%; accent-color: var(--primary-color); cursor: pointer; pointer-events: auto;
 }
+#sidebar-view-settings .custom-ui-group { min-width: 0; gap: 8px; }
+#sidebar-view-settings .custom-ui-group > span { min-width: 0; }
+#sidebar-view-settings .ui-slider-wrapper { flex: 0 1 140px; min-width: 0; max-width: 100%; }
 
 .color-wrapper { background: transparent; padding: 0; width: 140px; gap: 6px; border: none; cursor: default; }
 .color-wrapper:hover { background: transparent; }
@@ -1204,10 +1260,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
     /* 新增：给单次成绩卡片里的打乱图做移动端大小适配 */
     #edit-scramble-display {
-        width: 210px !important;
-        height: 155px !important;
+        width: min(230px, 100%) !important;
+        height: 190px !important;
     }
-
     /* 把月赛计时页加进去，让它在手机端也能够沉浸式全屏 */
     #timer-page, #pk-page, #monthly-timer-page, #monthly-ranking-page {
         position: fixed;
@@ -2708,6 +2763,94 @@ body {
     color: #ffffff !important;
 }
 
+/* NB Timer smart-cube preview and event selector */
+.timer-event-actions { align-items: center; justify-content: space-between; }
+.timer-event-actions .edit-btn-confirm { flex: 0 0 104px; width: 104px; }
+.timer-mode-choice { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); align-items: center; gap: 3px; padding: 4px; border-radius: 999px; background: #edf1f5; min-width: 0; flex: 0 1 190px; overflow: hidden; }
+.timer-mode-choice::before { content: ''; position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 11px) / 2); border-radius: 999px; background: var(--primary-color); box-shadow: 0 2px 7px rgba(0,0,0,.12); transform: translateX(0); transition: transform .28s cubic-bezier(.22,.85,.35,1); }
+.timer-mode-choice:has(#timer-mode-smart.active)::before { transform: translateX(calc(100% + 3px)); }
+.timer-mode-choice button { position: relative; z-index: 1; min-width: 0; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); padding: 10px 0; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: color .2s ease, transform .2s ease; }
+.timer-mode-choice button:active { transform: scale(.96); }
+.timer-mode-choice button.active { background: transparent; color: white; box-shadow: none; }
+#timer-event-popup .chal-event-content { height: min(512px, calc(100vh - 32px)); overflow: hidden; align-items: stretch; }
+#timer-event-popup .chal-event-content h3 { text-align: center; flex: 0 0 auto; }
+#timer-event-grid { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; align-content: start; }
+#timer-event-grid { grid-auto-rows: auto; gap: 8px; }
+#timer-event-grid .chal-event-item { justify-content: center; height: 82px; min-height: 82px; padding: 5px 4px; box-sizing: border-box; }
+#timer-event-grid::-webkit-scrollbar { display: none; }
+#timer-event-popup .timer-event-actions { flex: 0 0 auto; }
+.timer-smart-group-title { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; font-weight: 700; margin: 2px 0 -2px; align-self: end; }
+.chal-event-item.timer-smart-disabled { color: #94a3b8; background: #f8fafc; cursor: not-allowed; pointer-events: none; }
+.chal-event-item.timer-smart-disabled .cubing-icon { color: #94a3b8; }
+.timer-smart-stage { display: contents; }
+#timer-page.active:not(.smart-cube-page) #timer-event-title { display: none; }
+#timer-event-watermark {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: clamp(145px, 23vw, 230px); line-height: 1; color: var(--text-muted);
+    opacity: .2; pointer-events: none; z-index: 1;
+}
+#monthly-event-watermark {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: clamp(180px, 26vw, 290px); line-height: 1; color: var(--text-muted);
+    opacity: .2; pointer-events: none; z-index: 1;
+}
+#timer-page .timer-main.smart-cube-mode #timer-event-watermark { display: none; }
+.timer-smart-visual, .smart-prompt { display: none; }
+#timer-page .timer-main.smart-cube-mode .timer-scramble-draw-panel,
+#timer-page .timer-main.smart-cube-mode #scramble-text,
+#timer-page .timer-main.smart-cube-mode .desktop-prompt,
+#timer-page .timer-main.smart-cube-mode .mobile-prompt { display: none !important; }
+@media (min-width: 769px) {
+  #timer-page.active, #monthly-timer-page.active, #challenge-page.active { height: 100dvh !important; box-sizing: border-box; padding-top: 28px !important; padding-bottom: 25px !important; overflow: hidden !important; overscroll-behavior: contain; animation: none !important; }
+  #timer-page.active .timer-layout, #monthly-timer-page.active .timer-layout, #challenge-page.active .challenge-wrapper { height: calc(100dvh - 125px) !important; min-height: 0 !important; }
+  #challenge-page.active .challenge-wrapper { box-sizing: border-box; }
+  #timer-page.active .timer-stats-panel { bottom: 12px !important; }
+  #timer-page .timer-main.smart-cube-mode .timer-smart-visual { gap: 55px; }
+}
+#timer-page .timer-main.smart-cube-mode { overflow-y: auto; scrollbar-width: none; }
+#timer-page .timer-main.smart-cube-mode::-webkit-scrollbar { display: none; }
+#timer-page .timer-main.smart-cube-mode .timer-smart-stage { position: absolute; inset: 62px 0 10px; display: flex; flex-direction: column; align-items: center; justify-content: safe center; width: 100%; gap: 18px; margin: 0; padding: 0 16px; box-sizing: border-box; overflow-y: auto; scrollbar-width: none; }
+#timer-page .timer-main.smart-cube-mode .timer-smart-stage::-webkit-scrollbar { display: none; }
+#timer-page .timer-main.smart-cube-mode .timer-smart-visual { display: flex; flex-direction: column; align-items: center; gap: 55px; min-width: 0; }
+#timer-page .timer-main.smart-cube-mode #timer-display { min-width: 0; max-width: 100%; white-space: nowrap; font-size: calc(clamp(60px, 20vw, 95px) * var(--timer-font-scale)) !important; }
+#timer-page .timer-main.smart-cube-mode .timer-prompt-text { display: none !important; }
+#timer-page .timer-main.smart-cube-mode .timer-stats-panel { display: none; }
+.timer-virtual-cube { --cube-side: calc(150px * var(--smart-cube-scale, 1)); --cube-half: calc(75px * var(--smart-cube-scale, 1)); width: calc(190px * var(--smart-cube-scale, 1)); height: calc(190px * var(--smart-cube-scale, 1)); margin-bottom: var(--smart-cube-clearance, 0px); perspective: 850px; display: grid; place-items: center; cursor: grab; touch-action: none; outline: none; flex: 0 0 auto; }
+.timer-virtual-cube * { touch-action: none; }
+.timer-virtual-cube.rotating { cursor: grabbing; }
+.timer-virtual-cube:focus-visible { outline: 2px solid #8ba9cc; border-radius: 14px; }
+.timer-cube-body { position: relative; width: var(--cube-side); height: var(--cube-side); transform-style: preserve-3d; transform: rotateX(var(--cube-x, -25deg)) rotateY(var(--cube-y, -32deg)); }
+.timer-cube-face { position: absolute; width: 100%; height: 100%; display: grid; gap: 3px; padding: 5px; background: #1d2734; border: 2px solid #1d2734; box-sizing: border-box; backface-visibility: hidden; box-shadow: 0 0 0 1px #111827, 0 7px 15px rgba(15,23,42,.14); }
+.timer-cube-face span { border-radius: 3px; background: linear-gradient(145deg, color-mix(in srgb, var(--sticker), white 18%), var(--sticker) 56%, color-mix(in srgb, var(--sticker), black 7%)); box-shadow: inset 1px 1px 1px rgba(255,255,255,.38), inset -1px -2px 2px rgba(0,0,0,.13); }
+.timer-cube-face.front { transform: translateZ(var(--cube-half)); }
+.timer-cube-face.back { transform: rotateY(180deg) translateZ(var(--cube-half)); }
+.timer-cube-face.right { transform: rotateY(90deg) translateZ(var(--cube-half)); }
+.timer-cube-face.left { transform: rotateY(-90deg) translateZ(var(--cube-half)); }
+.timer-cube-face.top { transform: rotateX(90deg) translateZ(var(--cube-half)); }
+.timer-cube-face.bottom { transform: rotateX(-90deg) translateZ(var(--cube-half)); }
+.timer-bluetooth-status { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; color: #718096; font-size: 13px; cursor: pointer; outline: none; }
+.timer-bluetooth-status:hover, .timer-bluetooth-status:focus-visible { box-shadow: 0 0 0 2px #cbd8e7; }
+.timer-bluetooth-status.connected { color: #2875bd; }
+#timer-bluetooth-icon { position: relative; display: inline-flex; line-height: 1; }
+#timer-bluetooth-icon.disconnected::after { content: ''; position: absolute; top: 1px; left: 9px; width: 1.5px; height: 19px; background: currentColor; transform: rotate(-45deg); box-shadow: 0 0 0 1.5px #fff; }
+.timer-bluetooth-card { position: absolute; z-index: 35; width: min(340px, calc(100% - 32px)); max-height: 70%; overflow: auto; top: 50%; left: 50%; transform: translate(-50%,-50%); padding: 22px; box-sizing: border-box; border-radius: 18px; background: rgba(255,255,255,.96); box-shadow: 0 18px 55px rgba(26,40,62,.22); border: 1px solid #dce5ef; user-select: text; }
+.timer-bluetooth-card[hidden] { display: none !important; }
+.timer-bluetooth-close { position: absolute; right: 13px; top: 10px; border: 0; background: transparent; color: #6b7a90; font-size: 23px; cursor: pointer; }
+.timer-bluetooth-devices { display: flex; flex-direction: column; gap: 7px; margin: 18px 0 12px; }
+.timer-bluetooth-devices button { text-align: left; border: 1px solid #dce5ef; background: #f6f8fb; padding: 10px 12px; border-radius: 10px; color: var(--text-main); cursor: pointer; }
+.timer-bluetooth-devices button:hover { border-color: #7aa4d0; background: #edf5fe; }
+.timer-bluetooth-rescan { border: 0; background: transparent; color: #2875bd; font-weight: 700; cursor: pointer; padding: 4px 0; }
+@media (max-width: 768px) {
+  .timer-event-actions .edit-btn-confirm { flex-basis: 76px; width: 76px; }
+  .timer-mode-choice { flex-basis: 170px; }
+  .timer-mode-choice button { padding: 9px 0; font-size: 11px; }
+  #timer-page .timer-main.smart-cube-mode .timer-smart-stage { inset: 76px 0 52px; gap: 22px; padding: 0 12px; }
+  #timer-page .timer-main.smart-cube-mode .timer-smart-visual { gap: 28px; }
+  #timer-page .timer-main.smart-cube-mode #timer-display { font-size: calc(clamp(60px, 20vw, 85px) * var(--timer-font-scale)) !important; }
+  #timer-page .timer-main.smart-cube-mode .timer-prompt-text { bottom: 24px; }
+  .timer-virtual-cube { --cube-side: calc(136px * var(--smart-cube-scale, 1)); --cube-half: calc(68px * var(--smart-cube-scale, 1)); width: calc(188px * var(--smart-cube-scale, 1)); height: calc(188px * var(--smart-cube-scale, 1)); }
+}
+
 @media (max-width: 768px) {
     .dropdown-content {
         min-width: 140px !important;
@@ -2859,10 +3002,229 @@ body {
     }
 }
 
+/* Keep the mobile timer readout centered while long WCA scrambles stay above it. */
+@media (max-width: 768px) {
+    #timer-page.active .timer-main:not(.smart-cube-mode) .timer-prompt-text { display: none !important; }
+    #timer-page.active .timer-main:not(.smart-cube-mode) #timer-display {
+        position: absolute; top: calc(50% + 8px); left: 50%; transform: translate(-50%, -50%); margin: 0;
+    }
+    #timer-page.active .scramble-container { padding: 0 4px; }
+    #timer-page.active #scramble-text {
+        width: 100%; max-width: 100%; font-size: calc(19px * var(--scramble-font-scale, 1)) !important;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+        font-weight: 400; line-height: 1.1; letter-spacing: -.04em; word-spacing: 2px;
+    }
+    #timer-page.active.long-scramble #scramble-text {
+        line-height: 1.08; letter-spacing: -.05em; word-spacing: 2.5px;
+    }
+    #timer-page.active.long-scramble #timer-event-title { margin-bottom: 7px; }
+    #timer-page.active:not(.smart-cube-page) #timer-event-watermark { font-size: clamp(125px, 34vw, 180px); }
+    #timer-page.active #timer-scramble-draw-panel,
+    #monthly-timer-page.active #monthly-scramble-outer-wrapper { right: -3px !important; }
+}
+
+/* Shared NB Timer / monthly timer presentation. */
+#monthly-timer-main-area { box-sizing: border-box !important; height: 100% !important; min-height: 0; }
+#timer-page.active .timer-main:not(.smart-cube-mode) .timer-prompt-text,
+#monthly-timer-page.active .timer-prompt-text { display: none !important; }
+#timer-page.active .timer-main:not(.smart-cube-mode) #timer-display,
+#monthly-timer-page.active #monthly-timer-display {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    margin: 0; z-index: 5;
+}
+#monthly-timer-page.active #monthly-timer-title { display: none !important; }
+#timer-page.active .scramble-container,
+#monthly-timer-page.active .scramble-container { top: 10px !important; }
+#timer-page.active #scramble-text,
+#monthly-timer-page.active #monthly-scramble-text {
+    width: 100%; max-width: 100% !important;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: calc(19px * var(--scramble-font-scale, 1)) !important;
+    font-weight: 500 !important; line-height: 1.1; letter-spacing: -.04em; word-spacing: 2px;
+}
+#timer-event-watermark, #monthly-event-watermark { display: none !important; }
+
+@media (max-width: 768px) {
+    #timer-bottom-event-icon { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; line-height: 1; }
+    #timer-event-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    #timer-event-grid .chal-event-item { height: 82px; min-height: 82px; }
+    #timer-event-grid .chal-event-item .cubing-icon { font-size: 22px !important; margin-bottom: 3px !important; }
+    #timer-event-grid .chal-event-item span:last-child { font-size: 11px !important; }
+    #timer-page.active:not(.smart-cube-page) #timer-event-watermark,
+    #monthly-event-watermark { font-size: clamp(150px, 42vw, 210px); }
+    #monthly-timer-page.active { padding-bottom: 10px !important; }
+    #monthly-timer-page.active .scramble-container { padding-left: 4px !important; padding-right: 4px !important; }
+    #monthly-timer-page.active #monthly-stats-panel { bottom: 8px !important; left: 15px !important; }
+    #monthly-timer-page.active #monthly-scramble-outer-wrapper { bottom: 8px !important; right: -3px !important; }
+    #timer-page.active:has(#timer-event-icon.event-minx) #scramble-text,
+    #monthly-timer-page.active:has(#monthly-event-watermark.event-minx) #monthly-scramble-text {
+        font-size: calc(17px * var(--scramble-font-scale, 1)) !important;
+        line-height: 1 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+}
+
+@media (max-width: 768px) {
+    #timer-page.active.long-scramble #scramble-text,
+    #monthly-timer-page.active.long-scramble #monthly-scramble-text {
+        max-height: calc(209px * var(--scramble-font-scale, 1)); overflow-y: auto;
+        touch-action: pan-y !important; overscroll-behavior: contain; scrollbar-width: none;
+    }
+    #timer-page.active.long-scramble #scramble-text::-webkit-scrollbar,
+    #monthly-timer-page.active.long-scramble #monthly-scramble-text::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 768px) and (max-height: 700px) {
+    #timer-page.active.long-scramble #scramble-text,
+    #monthly-timer-page.active.long-scramble #monthly-scramble-text {
+        max-height: calc(167px * var(--scramble-font-scale, 1));
+    }
+}
+
+@media (min-width: 769px) {
+    #timer-page.active .scramble-container,
+    #monthly-timer-page.active .scramble-container { padding-left: 32px; padding-right: 32px; top: 24px !important; }
+    #timer-page.active:not(.smart-cube-page) #timer-event-title { display: block !important; margin-bottom: 12px; }
+    #monthly-timer-page.active #monthly-timer-title { display: block !important; margin-bottom: 12px; }
+    #timer-page.active #scramble-text,
+    #monthly-timer-page.active #monthly-scramble-text { max-width: 100%; }
+}
+
+/* NB Challenge uses the same scramble type as NB Timer. */
+#challenge-page.active .challenge-scramble {
+    left: 50%; transform: translateX(-50%); bottom: auto;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size: calc(19px * var(--chal-scramble-scale, 1));
+    font-weight: 500; line-height: 1.1; letter-spacing: -.04em; word-spacing: 2px;
+}
+#challenge-page.active .challenge-scramble.minx-grid {
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    justify-content: center;
+    column-gap: 28px;
+    row-gap: 4px;
+    align-items: start;
+}
+.challenge-minx-group { display: block; }
+#challenge-page.active .challenge-scramble-after.minx-grid .challenge-minx-group:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+#challenge-page.active .challenge-scramble.minx-grid .challenge-minx-group:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+#challenge-page.active .challenge-scramble-after:empty { display: none; }
+#challenge-page.active .challenge-score {
+    min-width: 28px; height: 30px;
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+}
+#challenge-page.active .challenge-score svg { width: 12px; height: 20px; display: block; fill: currentColor; flex: none; }
+#challenge-page.active #challenge-score-top { transform: translateY(-50%) rotate(180deg); }
+#challenge-page.active #challenge-score-bottom { transform: translateY(-50%); }
+#challenge-page.active .challenge-score::after {
+    content: ''; position: absolute; top: calc(50% + 25px); left: 50%;
+    transform: translateX(-50%); width: 0; height: 0;
+    border-left: 10px solid transparent; border-right: 10px solid transparent;
+    border-top: 13px solid #e2e8f0; pointer-events: none;
+}
+@media (max-width: 768px) {
+    #monthly-timer-page.active #monthly-stats-panel,
+    #monthly-timer-page.active #monthly-scramble-outer-wrapper { bottom: -1px !important; }
+    #challenge-page.active .challenge-scramble {
+        font-size: calc(19px * var(--chal-scramble-scale, 1));
+        width: calc(100% - 32px);
+    }
+    #challenge-page.active .challenge-scramble.minx-grid {
+        font-size: calc(17px * var(--chal-scramble-scale, 1));
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 3px;
+    }
+}
+
 /* =========================================
    魔方空间 3D 物理沙盒专属样式
    ========================================= */
 #cube-space-page.active { display: block !important; }
+
+/* Player HUD and the portrait-browser landscape fallback. */
+#cube-space-page { touch-action: none; z-index: 2000 !important; animation: none !important; --cs-nav-height: 64px; }
+#cube-space-page > .global-nav-header { width: 100% !important; }
+#cube-space-canvas { top: var(--cs-nav-height) !important; height: calc(100% - var(--cs-nav-height)) !important; }
+#cube-space-page > button { top: calc(var(--cs-nav-height) + 14px) !important; }
+#cube-space-page #cube-space-hint { top: calc(var(--cs-nav-height) + 18px) !important; }
+#cube-space-page .cs-toolbar { top: calc(50% + var(--cs-nav-height) / 2) !important; max-height: calc(100% - var(--cs-nav-height) - 18px); overflow-y: auto; }
+.cs-settings-fields { text-align: left; font-size: 13px; line-height: 1.7; }
+.cs-settings-fields label { display: block; margin-top: 10px; color: var(--text-muted); font-weight: 600; }
+.cs-settings-fields select { width: 100%; padding: 7px; }
+.cs-setting-range { display: flex; align-items: center; gap: 12px; }
+.cs-setting-range input { flex: 1; min-width: 0; accent-color: var(--primary-color); }
+.cs-setting-range output { width: 36px; text-align: right; }
+#cs-settings-error, #cs-exit-error { font-size: 12px; color: #b45309; }
+#cs-settings-error:empty, #cs-exit-error:empty { display: none; }
+#cube-space-page.cs-landscape-fallback {
+    width: var(--cs-viewport-width) !important;
+    height: var(--cs-viewport-height) !important;
+    transform-origin: top left;
+    transform: translateX(var(--cs-viewport-height)) rotate(90deg);
+}
+#cs-mode-player { border: 0; background: transparent; padding: 0; flex-shrink: 0; }
+#cs-mode-player.active { background: rgba(71,85,105,.1); }
+#cube-space-page .cs-mode-btn:focus { outline: none; }
+#cube-space-page .cs-mode-btn:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+#cs-crosshair, #cs-player-pad { display: none; }
+.cs-player-mode:not(.cs-touch) #cs-crosshair {
+    display: block; position: absolute; left: 50%; top: calc(50% + var(--cs-nav-height) / 2); width: 14px; height: 14px;
+    transform: translate(-50%, -50%); z-index: 8; pointer-events: none;
+}
+#cs-crosshair::before, #cs-crosshair::after {
+    content: ''; position: absolute; background: #858b91; box-shadow: 0 0 1px #fff;
+}
+#cs-crosshair::before { width: 14px; height: 2px; top: 6px; }
+#cs-crosshair::after { width: 2px; height: 14px; left: 6px; }
+.cs-player-mode #cs-main-dock, .cs-player-mode #cs-dock-panel { display: none !important; }
+#cube-space-page:not(.cs-edit-mode) #cs-action-undo,
+#cube-space-page:not(.cs-edit-mode) #cs-action-clear { display: none !important; }
+#cube-space-page.cs-player-mode #cube-space-hint { display: block !important; }
+#cube-space-page.cs-player-mode.cs-touch #cube-space-hint {
+    display: block !important; font-size: 11px; padding: 5px 10px; max-width: calc(100% - 230px);
+    text-align: center; width: max-content;
+}
+.cs-player-mode.cs-touch #cs-player-pad {
+    display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px);
+    gap: 5px; position: absolute; left: max(24px, env(safe-area-inset-left));
+    bottom: max(24px, env(safe-area-inset-bottom)); z-index: 12;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#cs-player-pad button {
+    display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;
+    border: 1px solid rgba(255,255,255,.7); border-radius: 13px;
+    color: #475569; background: rgba(241,245,249,.72); font-size: 18px;
+    box-shadow: 0 3px 10px #0f172a18; touch-action: none; -webkit-touch-callout: none;
+}
+#cs-player-pad button.pressed { background: #94a3b8; color: white; transform: scale(.95); }
+#cs-player-pad [data-key="KeyW"] { grid-column: 2; }
+#cs-player-pad [data-key="KeyA"] { grid-column: 1; grid-row: 2; }
+#cs-player-pad [data-key="Space"] { grid-column: 2; grid-row: 2; font-size: 15px; }
+.cs-jump-symbol { width: 17px; height: 17px; border: 2px solid currentColor; border-radius: 50%; }
+#cs-player-pad [data-key="KeyD"] { grid-column: 3; grid-row: 2; }
+#cs-player-pad [data-key="KeyS"] { grid-column: 2; grid-row: 3; }
+#cube-space-page.cs-compact .cs-toolbar { gap: 3px !important; padding: 7px 5px !important; right: 12px !important; }
+#cube-space-page.cs-compact .cs-mode-btn { width: 34px; height: 34px; }
+#cube-space-page.cs-touch #cube-space-hint { display: none !important; }
+#cube-space-page.cs-compact [id$="-card"], #cube-space-page.cs-compact [id$="-modal"] > div {
+    max-height: calc(100% - 30px); overflow-y: auto; box-sizing: border-box;
+}
+#cube-space-page.cs-compact [id$="-modal"] > div { max-height: calc(100% - var(--cs-nav-height) - 20px); margin-top: var(--cs-nav-height); }
+#cube-space-page.cs-compact #cs-settings-modal > div { display: flex; flex-direction: column; padding: 16px !important; }
+#cube-space-page.cs-compact #cs-settings-modal h3 { margin: 0 0 8px !important; flex-shrink: 0; }
+#cube-space-page.cs-compact #cs-settings-modal > div > div:nth-child(2) { overflow-y: auto; min-height: 0; }
+#cube-space-page.cs-compact #cs-settings-modal > div > div:last-child { flex-shrink: 0; margin-top: 12px !important; }
+#cube-space-page.cs-compact .cs-settings-fields { font-size: 12px; line-height: 1.35; }
+#cube-space-page.cs-compact .cs-settings-fields label { margin-top: 4px; }
+#cube-space-page.cs-compact .cs-settings-fields select { padding: 4px; }
+#cube-space-page.cs-compact .cs-settings-fields > div:first-of-type { margin-top: 8px !important; }
+#cube-space-page.cs-landscape-fallback #cs-dock-panel { max-width: calc(var(--cs-viewport-width) - 100px) !important; }
+#cube-space-page.cs-landscape-fallback [id$="-modal"] { width: 100% !important; height: 100% !important; }
+.cs-player-mode .cs-edit-only { display: none !important; }
 
 /* 优化右侧胶囊栏的按钮响应 */
 .cs-mode-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; transition: all 0.2s; color: var(--text-main); }
