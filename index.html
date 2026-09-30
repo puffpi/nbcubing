@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
-    <link rel="stylesheet" href="style.css?v=1.17-detail28">
+    <link rel="stylesheet" href="style.css?v=1.17-detail38">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1510,7 +1510,7 @@
         <!-- 恢复出厂设置确认弹窗 -->
         <div id="cs-reset-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3500; justify-content: center; align-items: center;">
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-                <h3 style="margin-top:0; font-size:17px; color: var(--text-main);">确认恢复出厂设置</h3>
+                <h3 style="margin-top:0; font-size:17px; color: var(--text-main);">是否恢复出厂设置</h3>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button onclick="closeResetCsModal()" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
                     <button onclick="confirmCsReset()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
@@ -1520,8 +1520,11 @@
 
         <!-- 核心美化：说明书弹窗去除了圆点与下划线 -->
         <div id="cs-manual-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3000; justify-content: center; align-items: center;">
-            <div style="background: #ffffff; padding: 24px 28px; border-radius: 16px; width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;">
-                <svg onclick="document.getElementById('cs-manual-modal').style.display='none'" style="position: absolute; top: 12px; right: 12px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" onmouseover="this.style.color='#475569'" onmouseout="this.style.color='#94a3b8'"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <div class="cs-manual-card" style="background: #ffffff; padding: 24px 28px; border-radius: 16px; width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;">
+                <button type="button" class="cs-manual-close" onclick="document.getElementById('cs-manual-modal').style.display='none'" aria-label="关闭说明书">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                <div class="cs-manual-scroll">
                 <div style="font-size: 14px; color: var(--text-main); font-weight: 600; line-height: 1.8; text-align: left; margin-top: 5px;">
                     <div style="margin-bottom: 8px; font-size: 15px; font-weight: 800;">在观察模式下：</div>
                     <div style="color: var(--text-muted); margin-bottom: 6px;">点击音响可通过卡片播放音乐</div>
@@ -1531,7 +1534,8 @@
                     <div style="color: var(--text-muted); margin-top: 6px;">手机：左侧方向键移动，中间跳跃；滑动画面转头，轻点物件互动。空间自动采用横屏布局。</div>
                 </div>
                 <div style="text-align: center; margin-top: 24px;">
-                    <span class="cs-edit-only" onclick="showResetCsModal()" style="font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">恢复出厂魔方空间配置</span>
+                    <button type="button" class="cs-manual-reset" onclick="showResetCsModal()">恢复出厂设置</button>
+                </div>
                 </div>
             </div>
         </div>
@@ -1628,6 +1632,6 @@
     <script src="database.js"></script>
     <script src="main.js?v=1.17-detail32"></script>
     <script src="timer-smart.js?v=1.17-detail18"></script>
-    <script src="cube-space-player.js?v=1.17-detail33"></script>
+    <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>
 </html>
