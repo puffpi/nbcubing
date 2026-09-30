@@ -3143,7 +3143,7 @@ body {
 /* =========================================
    魔方空间 3D 物理沙盒专属样式
    ========================================= */
-#cube-space-page.active { display: block !important; }
+#cube-space-page.active { display: block !important; touch-action: none !important; overscroll-behavior: none; }
 
 /* Player HUD and the portrait-browser landscape fallback. */
 #cube-space-page { touch-action: none; z-index: 2000 !important; animation: none !important; --cs-nav-height: 64px; --cs-pad-size: 64px; }
@@ -3158,6 +3158,10 @@ body {
 .cs-setting-range { display: flex; align-items: center; gap: 12px; }
 .cs-setting-range input { flex: 1; min-width: 0; accent-color: var(--primary-color); }
 .cs-setting-range output { width: 36px; text-align: right; }
+#cube-space-page #cs-settings-modal .cs-setting-range,
+#cube-space-page #cs-settings-modal input[type="range"] { touch-action: none !important; overscroll-behavior: none; }
+#cube-space-page #cs-settings-modal > div,
+#cube-space-page #cs-settings-modal > div > div:nth-child(2) { overscroll-behavior: contain; }
 #cs-settings-error, #cs-exit-error { font-size: 12px; color: #b45309; }
 #cs-settings-error:empty, #cs-exit-error:empty { display: none; }
 #cube-space-page.cs-landscape-fallback {
@@ -3224,6 +3228,30 @@ body {
 #cube-space-page.cs-compact .cs-settings-fields > div:first-of-type { margin-top: 8px !important; }
 #cube-space-page.cs-landscape-fallback #cs-dock-panel { max-width: calc(var(--cs-viewport-width) - 100px) !important; }
 #cube-space-page.cs-landscape-fallback [id$="-modal"] { width: 100% !important; height: 100% !important; }
+#cube-space-page #cs-manual-modal > .cs-manual-card {
+    display: flex; flex-direction: column; box-sizing: border-box;
+    max-height: calc(100% - 32px); margin-top: 0 !important; overflow: hidden !important;
+}
+#cube-space-page.cs-landscape-fallback #cs-manual-modal {
+    width: var(--cs-viewport-width) !important;
+    height: var(--cs-viewport-height) !important;
+}
+#cube-space-page.cs-landscape-fallback #cs-manual-modal > .cs-manual-card {
+    max-height: calc(var(--cs-viewport-height) - 24px) !important;
+}
+#cube-space-page #cs-manual-modal .cs-manual-scroll {
+    min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: 18px;
+}
+#cube-space-page #cs-manual-modal .cs-manual-close {
+    position: absolute; top: 10px; right: 10px; z-index: 1;
+    display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+    border: 0; border-radius: 8px; background: #fff; color: #94a3b8; cursor: pointer;
+}
+#cube-space-page #cs-manual-modal .cs-manual-close:hover { color: #475569; }
+#cube-space-page #cs-manual-modal .cs-manual-reset {
+    padding: 0; border: 0; background: transparent; color: #475569;
+    font: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer;
+}
 .cs-player-mode .cs-edit-only { display: none !important; }
 
 /* 优化右侧胶囊栏的按钮响应 */
