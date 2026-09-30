@@ -26,6 +26,7 @@ let uiSettings = {
     font: 'default',
     fontSize: 100,
     scrambleSize: 100,
+    smartCubeSize: 100,
     chalTimerSize: 100,    // <--- 新增：对战计时器大小
     chalScrambleSize: 100, // <--- 新增：对战打乱公式大小
     promptAction: true,
@@ -216,6 +217,7 @@ function formatName(rawName) {
 }
 
 function navigateTo(pageId, isForward = false) {
+    if (pageId !== 'cube-space-page' && csRequestExit(() => navigateTo(pageId, isForward))) return;
     const currentPage = document.querySelector('.page-container.active');
     if (isForward && currentPage) {
         historyStack.push({ id: currentPage.id, scrollY: window.scrollY });
@@ -240,6 +242,7 @@ function goHome() {
 }
 
 function goBack() {
+    if (csRequestExit(() => goBack())) return;
 
     // 强制关闭完赛撒花弹窗
     const finishModal = document.getElementById('monthly-finish-modal');
@@ -275,6 +278,7 @@ function goBack() {
 }
 
 function showPage(pageId) {
+    if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
     const page = document.getElementById(pageId);
     document.querySelectorAll('.page-container').forEach(p => {
         p.classList.remove('active');
@@ -489,6 +493,7 @@ async function performSearch() {
 
 // 修复：点击名字跳转个人主页的函数
 async function showPerson(wcaId) {
+    if (csRequestExit(() => showPerson(wcaId))) return;
     document.getElementById('global-loading').style.display = 'flex';
     // 利用已有的 resolvePlayerAsync 函数获取数据
     const player = await resolvePlayerAsync(wcaId, '个人主页');
@@ -1718,6 +1723,9 @@ let requestAnimFrameId = null;
 
 let timerHistoryData = {};
 let currentTimerEvent = '333';
+function getTimerHistoryKey() {
+    return currentTimerMode === 'smart' ? `smart-${timerSmartEvent}` : currentTimerEvent;
+}
 let currentSessionBestMs = Infinity;
 
 let stat1 = { type: 'ao', count: 5 };
@@ -1756,7 +1764,7 @@ function closeTimerClearModal() {
     document.getElementById('timer-clear-modal').style.display = 'none';
 }
 function confirmTimerClear() {
-    timerHistoryData[currentTimerEvent] = [];
+    timerHistoryData[getTimerHistoryKey()] = [];
     recalculateSessionStats();
     saveTimerData();
     closeTimerClearModal();
@@ -1765,14 +1773,14 @@ function confirmTimerClear() {
 // ================= 导入导出引擎 =================
 function openTimerExportModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
-    const records = timerHistoryData[currentTimerEvent] || [];
+    const records = timerHistoryData[getTimerHistoryKey()] || [];
     if (records.length === 0) return alert('当前项目没有任何成绩可导出！');
     document.getElementById('timer-export-modal').style.display = 'flex';
 }
 function closeTimerExportModal() { document.getElementById('timer-export-modal').style.display = 'none'; }
 
 function confirmTimerExport() {
-    const dataStr = JSON.stringify(timerHistoryData[currentTimerEvent]);
+    const dataStr = JSON.stringify(timerHistoryData[getTimerHistoryKey()]);
     navigator.clipboard.writeText(dataStr).then(() => {
         const btn = document.querySelector('#timer-export-modal .edit-btn-confirm');
         btn.innerText = '复制成功';
@@ -1798,9 +1806,9 @@ function confirmTimerImport() {
         if (!Array.isArray(parsed)) throw new Error('格式不合法');
 
         // 追加合并成绩，并剔除无效数据
-        const currentData = timerHistoryData[currentTimerEvent] || [];
+        const currentData = timerHistoryData[getTimerHistoryKey()] || [];
         const validParsed = parsed.filter(r => r.hasOwnProperty('rawMs') && typeof r.rawMs === 'number');
-        timerHistoryData[currentTimerEvent] = [...currentData, ...validParsed];
+        timerHistoryData[getTimerHistoryKey()] = [...currentData, ...validParsed];
 
         recalculateSessionStats();
         saveTimerData();
@@ -1815,7 +1823,7 @@ function confirmTimerImport() {
 function openTimerDistModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
 
-    const records = timerHistoryData[currentTimerEvent] || [];
+    const records = timerHistoryData[getTimerHistoryKey()] || [];
     // 过滤掉 DNF 和无效数据
     const validMs = records.map(r => {
         if (r.penalty === 'DNF') return Infinity;
@@ -1927,7 +1935,7 @@ let timerTrendChartInstance = null;
 
 function openTimerTrendModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
-    const records = timerHistoryData[currentTimerEvent] || [];
+    const records = timerHistoryData[getTimerHistoryKey()] || [];
     const ctx = document.getElementById('timer-trend-canvas').getContext('2d');
 
     if (records.length === 0) {
@@ -2058,7 +2066,7 @@ function calculateStat(slice, type, count) {
 }
 
 function recalculateSessionStats() {
-    const sessionArr = timerHistoryData[currentTimerEvent] || [];
+    const sessionArr = timerHistoryData[getTimerHistoryKey()] || [];
     currentSessionBestMs = Infinity;
     currentSessionBestStat1Ms = Infinity;
     currentSessionBestStat2Ms = Infinity;
@@ -2130,7 +2138,7 @@ function stopTimer() {
         document.getElementById('post-solve-modal').style.display = 'flex';
     } else {
         // 如果没开启，维持以前的无缝丝滑记录方式
-        timerHistoryData[currentTimerEvent].unshift({
+        timerHistoryData[getTimerHistoryKey()].unshift({
             rawMs: elapsed,
             penalty: "",
             timestamp: getNowFormatted(),
@@ -2192,7 +2200,7 @@ function confirmPostSolve() {
     if (modal.style.display === 'none') return; // 防连击保护
     modal.style.display = 'none';
 
-    timerHistoryData[currentTimerEvent].unshift({
+    timerHistoryData[getTimerHistoryKey()].unshift({
         rawMs: pendingSolveMs,
         penalty: pendingSolvePenalty,
         timestamp: getNowFormatted(),
@@ -2207,7 +2215,7 @@ function confirmPostSolve() {
 function renderTimerHistory() {
     const list = document.getElementById('timer-history-list');
     list.innerHTML = '';
-    const records = timerHistoryData[currentTimerEvent] || [];
+    const records = timerHistoryData[getTimerHistoryKey()] || [];
 
     records.forEach((r, index) => {
         const div = document.createElement('div');
@@ -2255,7 +2263,7 @@ function renderTimerHistory() {
 // ================= 编辑成绩弹窗交互逻辑 =================
 function openEditPopup(index) {
     editScoreIndex = index;
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     const r = records[index];
     currentEditPenalty = r.penalty;
 
@@ -2268,11 +2276,12 @@ function openEditPopup(index) {
     const editDisplayEl = document.getElementById('edit-scramble-display');
     if (editDisplayEl) {
         let cleanScramble = r.scramble.replace(/<br>/g, ' ');
-        editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(currentTimerEvent));
+        const puzzleEvent = currentTimerMode === 'smart' ? timerSmartEvent : currentTimerEvent;
+        editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
         editDisplayEl.setAttribute('alg', cleanScramble);
 
         editDisplayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
-        editDisplayEl.style.transform = `scale(${getScrambleZoom(currentTimerEvent)})`;
+        editDisplayEl.style.transform = `scale(${getScrambleZoom(puzzleEvent)})`;
 
         // 瞬间跳转到打乱最终态
         setTimeout(() => {
@@ -2289,7 +2298,7 @@ let currentAvgData = null; // 缓存当前打开的平均成绩数据
 
 // 参数: index(最新单次在数组中的索引), count(如5/12), typeLabel(如"ao5"), avgValue(成绩文本)
 function openAvgPopup(index, count, typeLabel, avgValue) {
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (index + count > records.length) return; // 容错拦截
 
     // 截取该组平均包含的所有单次成绩 (按最新到最旧的顺序)
@@ -2460,7 +2469,7 @@ function setEditPenalty(pen, updateDisplay = true) {
     else if (pen === 'DNF') document.getElementById('edit-pen-dnf').classList.add('active');
 
     if (updateDisplay) {
-        const r = timerHistoryData[currentTimerEvent][editScoreIndex];
+        const r = timerHistoryData[getTimerHistoryKey()][editScoreIndex];
         let simDisp = "";
         if (pen === '+2') simDisp = formatTimerOutput(r.rawMs + 2000) + '+';
         else if (pen === 'DNF') simDisp = 'DNF';
@@ -2470,14 +2479,14 @@ function setEditPenalty(pen, updateDisplay = true) {
 }
 
 function confirmEditScore() {
-    timerHistoryData[currentTimerEvent][editScoreIndex].penalty = currentEditPenalty;
+    timerHistoryData[getTimerHistoryKey()][editScoreIndex].penalty = currentEditPenalty;
     closeEditPopup();
     recalculateSessionStats();
     saveTimerData(); // 核心新增：改判后存档
 }
 
 function deleteEditScore() {
-    timerHistoryData[currentTimerEvent].splice(editScoreIndex, 1);
+    timerHistoryData[getTimerHistoryKey()].splice(editScoreIndex, 1);
     closeEditPopup();
     recalculateSessionStats();
     saveTimerData(); // 核心新增：删除后存档
@@ -2527,18 +2536,10 @@ let timerTempEvent = '333';
 
 function initTimer() {
     loadTimerData();
+    applyTimerMode();
 
-    try {
-        let evObj = eventDict.find(e => e.id === currentTimerEvent);
-        if (evObj) {
-            document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
-            document.getElementById('timer-event-name').innerText = evObj.name;
-            document.getElementById('timer-event-title').innerText = "WCA - " + evObj.name;
-        }
-    } catch (e) {}
-
-    if (!timerHistoryData[currentTimerEvent]) {
-        timerHistoryData[currentTimerEvent] = [];
+    if (!timerHistoryData[getTimerHistoryKey()]) {
+        timerHistoryData[getTimerHistoryKey()] = [];
     }
 
     try { recalculateSessionStats(); } catch(e) {}
@@ -2549,6 +2550,8 @@ function initTimer() {
 function openTimerEventPopup() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
     timerTempEvent = currentTimerEvent;
+    timerTempMode = currentTimerMode;
+    timerTempSmartEvent = timerSmartEvent;
     renderTimerEventGrid();
 
     const popup = document.getElementById('timer-event-popup');
@@ -2557,6 +2560,8 @@ function openTimerEventPopup() {
 }
 
 function renderTimerEventGrid() {
+    renderTimerModeChoice();
+    if (timerTempMode === 'smart') { renderSmartTimerEventGrid(); return; }
     const grid = document.getElementById('timer-event-grid');
     grid.innerHTML = '';
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
@@ -2578,6 +2583,16 @@ function renderTimerEventGrid() {
 }
 
 function confirmTimerEvent() {
+    if (timerTempMode === 'smart') {
+        currentTimerMode = 'smart';
+        timerSmartEvent = timerTempSmartEvent;
+        applyTimerMode();
+        if (!timerHistoryData[getTimerHistoryKey()]) timerHistoryData[getTimerHistoryKey()] = [];
+        recalculateSessionStats();
+        closeTimerEventPopup();
+        return;
+    }
+    currentTimerMode = 'wca';
     if (timerTempEvent !== currentTimerEvent) {
         currentTimerEvent = timerTempEvent;
 
@@ -2589,13 +2604,14 @@ function confirmTimerEvent() {
         document.getElementById('timer-event-name').innerText = evName;
         document.getElementById('timer-event-title').innerText = "WCA - " + evName;
 
-        if (!timerHistoryData[currentTimerEvent]) {
-            timerHistoryData[currentTimerEvent] = [];
+        if (!timerHistoryData[getTimerHistoryKey()]) {
+            timerHistoryData[getTimerHistoryKey()] = [];
         }
 
-        recalculateSessionStats();
         generateScramble();
     }
+    applyTimerMode();
+    recalculateSessionStats();
     closeTimerEventPopup();
 }
 
@@ -2803,6 +2819,8 @@ function getScrambleZoom(eventId) {
 function generateScramble() {
     const scramble = getScrambleByEvent(currentTimerEvent);
     document.getElementById('scramble-text').innerHTML = scramble;
+    document.getElementById('timer-page').classList.toggle('long-scramble',
+        ['555', '666', '777', 'minx'].includes(currentTimerEvent) || scramble.replace(/<[^>]*>/g, '').length > 260);
 
     // 同步更新右下角打乱图
     const displayEl = document.getElementById('timer-scramble-display');
@@ -2828,6 +2846,7 @@ function generateScramble() {
 document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (currentTimerMode === 'smart') return;
 
     // 👇 核心升级：如果确认卡片在屏幕上，敲击【任意键】直接记录成绩并关闭卡片！
     const postModal = document.getElementById('post-solve-modal');
@@ -2882,6 +2901,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (currentTimerMode === 'smart') return;
     if (e.code === 'Space') {
         const display = document.getElementById('timer-display');
         if (timerState === 'WAITING') {
@@ -2900,10 +2920,16 @@ document.addEventListener('keyup', (e) => {
 let touchStartX = 0;
 let touchStartY = 0;
 let nbSwipeAction = null;
+const isScrollableTimerScrambleTouch = target => {
+    const text = target.closest?.('#scramble-text');
+    return text && text.scrollHeight > text.clientHeight + 1;
+};
 
 document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (currentTimerMode === 'smart') return;
+    if (isScrollableTimerScrambleTouch(e.target)) return;
 
     // 👇 绝对防御：如果确认卡片在屏幕上，强行没收所有触摸指令！
     const postModal = document.getElementById('post-solve-modal');
@@ -2939,6 +2965,8 @@ document.addEventListener('touchstart', (e) => {
 document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (currentTimerMode === 'smart') return;
+    if (isScrollableTimerScrambleTouch(e.target)) return;
     const isTimerArea = e.target.closest('#timer-tab-main');
 
     if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY')) {
@@ -2970,6 +2998,8 @@ document.addEventListener('touchmove', (e) => {
 document.addEventListener('touchend', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (currentTimerMode === 'smart') return;
+    if (isScrollableTimerScrambleTouch(e.target)) return;
     const isTimerArea = e.target.closest('#timer-tab-main');
 
     if (!isTimerArea) {
@@ -3128,6 +3158,69 @@ function initChallenge() {
         generateChallengeScramble();
         chalHasInit = true;
     }
+    if (!challengeScrambleObserver) {
+        challengeScrambleObserver = new ResizeObserver(updateChallengeScrambleBounds);
+        ['top', 'bottom'].forEach(side => {
+            challengeScrambleObserver.observe(document.getElementById(`challenge-${side}-area`));
+            challengeScrambleObserver.observe(document.getElementById(`challenge-timer-${side}`));
+            challengeScrambleObserver.observe(document.getElementById(`challenge-scramble-${side}`));
+            challengeScrambleObserver.observe(document.getElementById(`challenge-scramble-${side}-after`));
+        });
+    }
+    requestAnimationFrame(updateChallengeScrambleBounds);
+}
+
+let challengeScrambleObserver = null;
+let challengeScrambleTokens = [];
+let challengeScrambleIsMinx = false;
+
+function renderChallengeScramble(tokens) {
+    return challengeScrambleIsMinx
+        ? tokens.map(group => `<span class="challenge-minx-group">${group}</span>`).join('')
+        : tokens.join(' ');
+}
+
+function updateChallengeScrambleBounds() {
+    const mobile = window.matchMedia('(max-width: 768px)').matches;
+    ['top', 'bottom'].forEach(side => {
+        const half = document.getElementById(`challenge-${side}-area`);
+        const timer = document.getElementById(`challenge-timer-${side}`);
+        if (!half.clientHeight) return;
+        const before = document.getElementById(`challenge-scramble-${side}`);
+        const after = document.getElementById(`challenge-scramble-${side}-after`);
+        const gap = 12;
+        const fullContent = renderChallengeScramble(challengeScrambleTokens);
+        if (before.innerHTML !== fullContent) before.innerHTML = fullContent;
+        if (after.innerHTML) after.innerHTML = '';
+        if (mobile) {
+            const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chal-scramble-scale')) || 1;
+            let size = (challengeScrambleIsMinx ? 17 : 19) * scale;
+            before.style.fontSize = after.style.fontSize = `${size}px`;
+            const split = before.offsetHeight > timer.offsetTop - gap - 16;
+            if (split) {
+                const midpoint = Math.ceil(challengeScrambleTokens.length / 2);
+                before.innerHTML = renderChallengeScramble(challengeScrambleTokens.slice(0, midpoint));
+                after.innerHTML = renderChallengeScramble(challengeScrambleTokens.slice(midpoint));
+            }
+            for (let i = 0; i < 20; i++) {
+                before.style.fontSize = after.style.fontSize = `${size}px`;
+                const upperGap = timer.offsetTop - 16 - before.offsetHeight;
+                const lowerBottom = timer.offsetTop + timer.offsetHeight + upperGap + after.offsetHeight;
+                if (upperGap >= gap && (!split || lowerBottom <= half.clientHeight - 16)) break;
+                size = Math.max(10, size * .92);
+            }
+            before.style.top = '16px';
+            after.style.top = split
+                ? `${timer.offsetTop + timer.offsetHeight + timer.offsetTop - 16 - before.offsetHeight}px`
+                : '';
+        } else {
+            before.style.fontSize = after.style.fontSize = '';
+            before.style.top = side === 'top'
+                ? `${half.clientHeight - before.offsetHeight - 16}px`
+                : '16px';
+            after.style.top = '';
+        }
+    });
 }
 
 function exitChallenge() {
@@ -3137,13 +3230,41 @@ function exitChallenge() {
 
 function generateChallengeScramble() {
     let scramble = getScrambleByEvent(chalCurrentEvent);
-    document.getElementById('challenge-scramble-top').innerHTML = scramble;
-    document.getElementById('challenge-scramble-bottom').innerHTML = scramble;
+    challengeScrambleIsMinx = chalCurrentEvent === 'minx';
+    challengeScrambleTokens = challengeScrambleIsMinx
+        ? scramble.split(/<br\s*\/?\s*>/i).map(group => group.trim()).filter(Boolean)
+        : scramble.replace(/<br\s*\/?\s*>/gi, ' ').trim().split(/\s+/);
+    ['top', 'bottom'].forEach(side => {
+        const before = document.getElementById(`challenge-scramble-${side}`);
+        const after = document.getElementById(`challenge-scramble-${side}-after`);
+        [before, after].forEach(element => element.classList.toggle('minx-grid', challengeScrambleIsMinx));
+        before.innerHTML = renderChallengeScramble(challengeScrambleTokens);
+        after.innerHTML = '';
+    });
+    requestAnimationFrame(updateChallengeScrambleBounds);
 }
 
 function updateChallengeScores() {
-    document.getElementById('challenge-score-top').innerText = chalScoreTop;
-    document.getElementById('challenge-score-bottom').innerText = chalScoreBottom;
+    const segments = {
+        a: '<rect x="3" y="0" width="12" height="3"/>',
+        b: '<rect x="15" y="3" width="3" height="11"/>',
+        c: '<rect x="15" y="16" width="3" height="11"/>',
+        d: '<rect x="3" y="27" width="12" height="3"/>',
+        e: '<rect x="0" y="16" width="3" height="11"/>',
+        f: '<rect x="0" y="3" width="3" height="11"/>',
+        g: '<rect x="3" y="13.5" width="12" height="3"/>'
+    };
+    const digitSegments = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgecd', 'abc', 'abcdefg', 'abfgcd'];
+    const renderScore = value => String(value).split('').map(char => {
+        const active = digitSegments[Number(char)] || 'g';
+        return `<svg viewBox="0 0 18 30" aria-hidden="true" focusable="false">${[...active].map(key => segments[key]).join('')}</svg>`;
+    }).join('');
+    [['top', chalScoreTop], ['bottom', chalScoreBottom]].forEach(([side, value]) => {
+        const element = document.getElementById(`challenge-score-${side}`);
+        element.innerHTML = renderScore(value);
+        element.setAttribute('role', 'img');
+        element.setAttribute('aria-label', String(value));
+    });
 }
 
 // ============== 更多下拉菜单逻辑 ==============
@@ -3250,6 +3371,7 @@ function openChalSettingsModal(type) {
             uiSettings.chalScrambleSize = parseInt(document.getElementById('chal-scramble-size-slider').value);
             uiSettings.chalTimerSize = parseInt(document.getElementById('chal-timer-size-slider').value);
             applyUiSettings();
+            requestAnimationFrame(updateChallengeScrambleBounds);
             saveTimerData();
             closeChalSettings();
         };
@@ -3649,6 +3771,12 @@ function applyUiSettings() {
     if (scrambleSliderEl) scrambleSliderEl.value = uiSettings.scrambleSize;
     let scrambleValEl = document.getElementById('scramble-size-val');
     if (scrambleValEl) scrambleValEl.innerText = uiSettings.scrambleSize + '%';
+    document.documentElement.style.setProperty('--smart-cube-scale', (uiSettings.smartCubeSize || 100) / 100);
+    document.documentElement.style.setProperty('--smart-cube-clearance', Math.max(0, (uiSettings.smartCubeSize || 100) - 100) * .4 + 'px');
+    const smartCubeSlider = document.getElementById('smart-cube-size-slider');
+    if (smartCubeSlider) smartCubeSlider.value = uiSettings.smartCubeSize || 100;
+    const smartCubeValue = document.getElementById('smart-cube-size-val');
+    if (smartCubeValue) smartCubeValue.innerText = (uiSettings.smartCubeSize || 100) + '%';
     // 👆 新增结束 👆
 
     document.documentElement.style.setProperty('--pb-single-color', uiSettings.colorSingle);
@@ -3727,6 +3855,12 @@ function updateScrambleSize(val) {
     uiSettings.scrambleSize = parseInt(val);
     applyUiSettings();
     saveTimerData(); // 自动保存到本地，下次打开仍然生效
+}
+
+function updateSmartCubeSize(val) {
+    uiSettings.smartCubeSize = parseInt(val, 10);
+    applyUiSettings();
+    saveTimerData();
 }
 
 // 👇 核心新增：控制提示选项的函数 👇
@@ -4425,6 +4559,8 @@ function confirmMonthlyEntry() {
         if(titleEl) {
             titleEl.innerText = `巅峰月赛 - ${currentMonthlyEventName}`;
         }
+        const monthlyWatermark = document.getElementById('monthly-event-watermark');
+        if (monthlyWatermark) monthlyWatermark.className = `cubing-icon event-${currentMonthlyEventTarget}`;
 
         renderMonthlyAttemptsList();
         renderMonthlyScramble(0);
@@ -4508,6 +4644,9 @@ function renderMonthlyScramble(attemptIndex) {
         const scramble = scrambles[attemptIndex];
         let textEl = document.getElementById('monthly-scramble-text');
         if(textEl) textEl.innerHTML = scramble;
+        const monthlyPage = document.getElementById('monthly-timer-page');
+        if (monthlyPage) monthlyPage.classList.toggle('long-scramble',
+            ['555', '666', '777', 'minx'].includes(currentMonthlyEventTarget) || scramble.replace(/<[^>]*>/g, '').length > 260);
 
         const displayEl = document.getElementById('monthly-scramble-display');
         if (displayEl) {
@@ -4821,11 +4960,11 @@ function confirmNbManual() {
         rawMs = Infinity;
     }
 
-    timerHistoryData[currentTimerEvent].unshift({
+    timerHistoryData[getTimerHistoryKey()].unshift({
         rawMs: rawMs,
         penalty: currentNbManualPenalty,
         timestamp: getNowFormatted(),
-        scramble: document.getElementById('scramble-text').innerText
+        scramble: currentTimerMode === 'smart' ? '' : document.getElementById('scramble-text').innerText
     });
 
     closeNbManualInput();
@@ -4838,7 +4977,7 @@ function confirmNbManual() {
 let currentNbEditLastPenalty = '';
 
 function openNbDeleteLast() {
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (!records || records.length === 0) return; // 如果没有成绩，不响应
 
     // 渲染序号与成绩
@@ -4853,7 +4992,7 @@ function closeNbDeleteLast() {
 }
 
 function confirmNbDeleteLast() {
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (records && records.length > 0) {
         records.shift(); // 移除最新的一次成绩
         recalculateSessionStats();
@@ -4863,7 +5002,7 @@ function confirmNbDeleteLast() {
 }
 
 function openNbEditLast() {
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (!records || records.length === 0) return;
 
     const r = records[0];
@@ -4885,7 +5024,7 @@ function setNbEditLastPenalty(pen) {
     else if (pen === '+2') document.getElementById('edit-last-pen-plus2').classList.add('active');
     else if (pen === 'DNF') document.getElementById('edit-last-pen-dnf').classList.add('active');
 
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (!records || records.length === 0) return;
 
     let simDisp = "";
@@ -4897,7 +5036,7 @@ function setNbEditLastPenalty(pen) {
 }
 
 function confirmNbEditLast() {
-    const records = timerHistoryData[currentTimerEvent];
+    const records = timerHistoryData[getTimerHistoryKey()];
     if (records && records.length > 0) {
         records[0].penalty = currentNbEditLastPenalty;
         recalculateSessionStats();
@@ -5395,6 +5534,7 @@ let csSelectedObject = null;
 let csPendingAction = null;
 let csTimeState = 1;
 let csCurrentFloorType = 'floor_brick';
+let csHandleSpacePointer;
 
 // ==================== 恢复出厂设置 ====================
 function showResetCsModal() { document.getElementById('cs-reset-modal').style.display = 'flex'; }
@@ -5405,11 +5545,13 @@ function confirmCsReset() {
 
     csObjects.forEach(obj => csScene.remove(obj));
     csObjects = [];
+    csReconcileSpeakers();
     if (csTransformCtrl) csTransformCtrl.detach();
     hideInfoCard();
     csHistory = [];
     document.getElementById('cs-action-undo').classList.add('disabled');
 
+    csSpeakerEnabled = true;
     generateDefaultScene();
 }
 
@@ -5465,9 +5607,11 @@ function initCategoryIcons() {
 
 // ==================== 持久化存档引擎 ====================
 function saveCsConfig() {
+    csPlayer.sceneDirty = true;
     const config = {
         timeState: csTimeState,
         floorType: csCurrentFloorType,
+        speakerPlaying: csSpeakerEnabled,
         objects: csObjects.map(obj => ({
             id: obj.userData.id,
             type: obj.userData.type,
@@ -5494,6 +5638,15 @@ function loadCsConfig() {
             }
             if (parsed.objects && parsed.objects.length > 0) {
                 parsed.objects.forEach(o => addObjToSpace(o.id, o.type, o));
+                if (!parsed.objects.some(o => o.id === 'smart_mirror')) {
+                    const commandBlock = parsed.objects.find(o => o.id === 'smart_msg');
+                    const x = commandBlock ? commandBlock.pos[0] + 4 : 9.5;
+                    const z = commandBlock ? commandBlock.pos[2] : -2;
+                    addObjToSpace('smart_mirror', 'smart', {pos: [x, 0, z], rot: [0, 0, 0], scale: [1, 1, 1]});
+                }
+                csSpeakerEnabled = parsed.speakerPlaying !== false;
+                csReconcileSpeakers();
+                saveCsConfig();
             } else {
                 generateDefaultScene();
             }
@@ -5525,6 +5678,7 @@ function generateDefaultScene() {
     // 左右地面物品
     addObjToSpace('smart_speaker', 'smart', {pos: [-5.5, 0, -2.0], rot: [0, 0.4, 0], scale: [1, 1, 1]});
     addObjToSpace('smart_msg', 'smart', {pos: [5.5, 0, -2.0], rot: [0, -0.4, 0], scale: [1, 1, 1]});
+    addObjToSpace('smart_mirror', 'smart', {pos: [9.5, 0, -2.0], rot: [0, 0, 0], scale: [1, 1, 1]});
 
     // 前方：带扶手人体工学椅 (Math.PI 即 180度，面向电脑)
     addObjToSpace('smart_chair', 'smart', {pos: [0, 0, 1.5], rot: [0, Math.PI, 0], scale: [1, 1, 1]});
@@ -5595,6 +5749,7 @@ function pushCsHistory(action) {
 }
 
 function undoCsAction() {
+    if (csCurrentMode !== 'edit') return;
     if(csHistory.length === 0) return;
     const action = csHistory.pop();
 
@@ -5614,6 +5769,7 @@ function undoCsAction() {
 
     if(csHistory.length === 0) document.getElementById('cs-action-undo').classList.add('disabled');
 
+    csReconcileSpeakers();
     updateCsLighting();
     saveCsConfig();
 }
@@ -5622,6 +5778,7 @@ function openCubeSpace() {
     window.closeNavDropdowns();
     document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
     document.getElementById('cube-space-page').classList.add('active');
+    csEnterLandscape();
 
     if (!isCsInitialized) {
         initCategoryIcons();
@@ -5636,13 +5793,15 @@ function openCubeSpace() {
     // 【新增】：进入空间自动播放音乐。
     // （注：浏览器由于防打扰机制，若用户在网页刷新后没有任何点击动作就直接进了空间，可能会被浏览器静默拦截）
     const audio = document.getElementById('cs-bgm');
-    if (audio && audio.paused) {
+    if (audio && audio.paused && csSpeakerEnabled && csHasSpeaker()) {
         document.getElementById('cs-speaker-toggle').checked = true;
         audio.play().catch(e => console.warn("浏览器自动播放拦截：", e));
     }
 }
 
-function exitCubeSpace() { goBack(); }
+function exitCubeSpace() {
+    csRequestExit(() => goBack());
+}
 
 function toggleCubeSpacePanel() {
     if (!isCsExpanded) {
@@ -5658,6 +5817,7 @@ function toggleCubeSpacePanel() {
 
 // 核心升级：一键无缝删除逻辑
 function executeDeleteCsObject() {
+    if (csCurrentMode === 'player') return;
     if (csSelectedObject) {
         pushCsHistory({ type: 'delete', obj: csSelectedObject });
         csScene.remove(csSelectedObject);
@@ -5665,6 +5825,7 @@ function executeDeleteCsObject() {
         csTransformCtrl.detach();
         csSelectedObject = null;
         hideInfoCard();
+        csReconcileSpeakers();
         updateCsLighting();
         saveCsConfig();
     }
@@ -5672,6 +5833,7 @@ function executeDeleteCsObject() {
 
 // 清空全部：唯一的弹窗防误触
 function clearCubeSpace() {
+    if (csCurrentMode !== 'edit') return;
     csPendingAction = 'clear_all';
     document.getElementById('cs-delete-title').innerText = "确定要清空空间里的所有物件吗？";
     document.getElementById('cs-delete-modal').style.display = 'flex';
@@ -5681,6 +5843,7 @@ function clearCubeSpace() {
 function confirmClearCubeSpace() {
     csObjects.forEach(obj => csScene.remove(obj));
     csObjects = [];
+    csReconcileSpeakers();
     if (csTransformCtrl) csTransformCtrl.detach();
     hideInfoCard();
     csHistory = [];
@@ -5728,7 +5891,15 @@ function updateCsPanelState() {
 }
 
 function setCubeSpaceMode(mode) {
+    if (!['observe', 'edit', 'player'].includes(mode)) return;
+    if (mode === 'player' && csCurrentMode !== 'player' && !csEnterPlayer()) return;
+    if (csCurrentMode === 'player' && mode !== 'player') csLeavePlayer();
     csCurrentMode = mode;
+    if (mode === 'observe') csPrepareObserver();
+    else if (csPlayer.avatar) csPlayer.avatar.visible = false;
+    document.getElementById('cube-space-page').classList.toggle('cs-player-mode', mode === 'player');
+    document.getElementById('cube-space-page').classList.toggle('cs-edit-mode', mode === 'edit');
+    document.getElementById('cs-mode-player').classList.toggle('active', mode === 'player');
     document.getElementById('cs-mode-observe').classList.toggle('active', mode === 'observe');
     document.getElementById('cs-mode-edit').classList.toggle('active', mode === 'edit');
 
@@ -5750,6 +5921,11 @@ function setCubeSpaceMode(mode) {
             isCsExpanded = false;
             updateCsPanelState();
         }
+    } else if (mode === 'player') {
+        hint.innerText = csTouchDevice() ? '玩家模式：左侧移动 / 滑动转头 / 轻点互动' : '玩家模式：WASD 移动 / 空格跳跃 / 点击互动 / Esc 释放鼠标';
+        isCsExpanded = false;
+        updateCsPanelState();
+        csRequestPointer();
     } else {
         hint.innerText = "编辑模式：可添加、移动、旋转、缩放场景物件";
     }
@@ -5792,6 +5968,7 @@ function populateCsPanel() {
             { id: 'smart_tv', name: '显示器' },
             { id: 'smart_speaker', name: '音响' },
             { id: 'smart_lamp', name: '台灯' },
+            { id: 'smart_mirror', name: '\u5168\u8eab\u955c' },
             { id: 'smart_msg', name: '消息盒子' },
             { id: 'smart_kb', name: '键盘' },
             { id: 'smart_mouse', name: '鼠标与垫' }
@@ -5904,6 +6081,21 @@ const csBgmList = [
     "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3"
 ];
 let csBgmIndex = 0;
+let csSpeakerEnabled = true;
+
+function csHasSpeaker() {
+    return csObjects.some(obj => obj.userData.id === 'smart_speaker');
+}
+
+function csReconcileSpeakers() {
+    const audio = document.getElementById('cs-bgm');
+    if (!csHasSpeaker()) {
+        csSpeakerEnabled = false;
+        audio?.pause();
+    }
+    const toggle = document.getElementById('cs-speaker-toggle');
+    if (toggle) toggle.checked = csHasSpeaker() && csSpeakerEnabled;
+}
 
 function updateCsSpeakerVol(val) {
     const audio = document.getElementById('cs-bgm');
@@ -5911,36 +6103,40 @@ function updateCsSpeakerVol(val) {
 }
 
 function toggleCsSpeaker(isPlaying) {
+    csSpeakerEnabled = !!isPlaying && csHasSpeaker();
     const audio = document.getElementById('cs-bgm');
-    if(isPlaying) {
-        audio.play().catch(e => console.warn("播放被拦截", e));
-    } else {
-        audio.pause();
-    }
-    hideInteractCards();
+    if (csSpeakerEnabled) audio.play().catch(e => console.warn('Audio playback was blocked', e));
+    else audio.pause();
+    csReconcileSpeakers();
+    saveCsConfig();
 }
 
 function replayCsSpeaker() {
+    if (!csHasSpeaker()) return;
     const audio = document.getElementById('cs-bgm');
     audio.currentTime = 0;
-    document.getElementById('cs-speaker-toggle').checked = true;
+    csSpeakerEnabled = true;
+    csReconcileSpeakers();
     audio.play().catch(e => console.warn("播放被拦截", e));
-    hideInteractCards();
 }
 
 function nextCsBgm() {
+    if (!csHasSpeaker()) return;
     csBgmIndex = (csBgmIndex + 1) % csBgmList.length;
     let audio = document.getElementById('cs-bgm');
     audio.src = csBgmList[csBgmIndex];
-    document.getElementById('cs-speaker-toggle').checked = true;
+    csSpeakerEnabled = true;
+    csReconcileSpeakers();
     audio.play();
 }
 
 function prevCsBgm() {
+    if (!csHasSpeaker()) return;
     csBgmIndex = (csBgmIndex - 1 + csBgmList.length) % csBgmList.length;
     let audio = document.getElementById('cs-bgm');
     audio.src = csBgmList[csBgmIndex];
-    document.getElementById('cs-speaker-toggle').checked = true;
+    csSpeakerEnabled = true;
+    csReconcileSpeakers();
     audio.play();
 }
 
@@ -5982,7 +6178,7 @@ function toggleCsMsg(isBroadcasting) {
         holo.style.display = 'none';
         clearInterval(csMsgInterval);
     }
-    hideInteractCards();
+    hideInteractCards(true);
 }
 
 function updateCsHologramText() {
@@ -6000,15 +6196,17 @@ function updateCsHologramText() {
 function updateInteractCardPos(type) {
     if (!csInteractObject) return;
     const pos = csInteractObject.position.clone().project(csCamera);
-    const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+    const viewport = csViewport();
+    const x = (pos.x * 0.5 + 0.5) * viewport.width;
+    const y = viewport.top + (pos.y * -0.5 + 0.5) * viewport.height;
 
     // 加入了 tv 类型的卡片识别
     let cardId = type === 'speaker' ? 'cs-speaker-card' : (type === 'msg' ? 'cs-msg-card' : (type === 'tv' ? 'cs-tv-card' : 'cs-lamp-card'));
     const card = document.getElementById(cardId);
     if(card) {
-        card.style.left = (x + 40) + 'px';
-        card.style.top = (y - 80) + 'px';
+        const w = card.offsetWidth || 260, h = card.offsetHeight || 240;
+        card.style.left = Math.max(12, Math.min(viewport.width - w - 80, csCurrentMode === 'player' ? (viewport.width - w) / 2 : x + 40)) + 'px';
+        card.style.top = Math.max(viewport.top + 12, Math.min(viewport.top + viewport.height - h - 12, csCurrentMode === 'player' ? viewport.top + (viewport.height - h) / 2 : y - 80)) + 'px';
     }
 }
 
@@ -6017,8 +6215,9 @@ function updateDynamicHolograms() {
         const pos = csMsgSourceObj.position.clone();
         pos.y += 2.5;
         pos.project(csCamera);
-        const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+        const viewport = csViewport();
+        const x = (pos.x * 0.5 + 0.5) * viewport.width;
+        const y = viewport.top + (pos.y * -0.5 + 0.5) * viewport.height;
 
         const holo = document.getElementById('cs-msg-hologram');
         holo.style.left = x + 'px';
@@ -6033,12 +6232,14 @@ function updateDynamicHolograms() {
     if (document.getElementById('cs-tv-card') && document.getElementById('cs-tv-card').style.display !== 'none') updateInteractCardPos('tv');
 }
 
-function hideInteractCards() {
+function hideInteractCards(resumePlayer = false) {
+    const wasOpen = !!csInteractObject;
     if(document.getElementById('cs-speaker-card')) document.getElementById('cs-speaker-card').style.display = 'none';
     if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
     if(document.getElementById('cs-lamp-card')) document.getElementById('cs-lamp-card').style.display = 'none';
     if(document.getElementById('cs-tv-card')) document.getElementById('cs-tv-card').style.display = 'none';
     csInteractObject = null;
+    if (resumePlayer && wasOpen) csRequestPointer();
 }
 
 const originalHideInfoCard = hideInfoCard;
@@ -6117,7 +6318,8 @@ function initCubeSpace3D() {
     // =====================================================
     // 4. 轨道控制器
     // =====================================================
-    csOrbitCtrl = new THREE.OrbitControls(csCamera, csRenderer.domElement);
+    const controlSurface = csControlSurface(csRenderer.domElement);
+    csOrbitCtrl = new THREE.OrbitControls(csCamera, controlSurface);
     csOrbitCtrl.enableDamping = false;
     csOrbitCtrl.maxPolarAngle = Math.PI / 2 - 0.02;
     csOrbitCtrl.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -6125,7 +6327,7 @@ function initCubeSpace3D() {
     // =====================================================
     // 5. 原生大轴 TransformControls 底层劫持
     // =====================================================
-    csTransformCtrl = new THREE.TransformControls(csCamera, csRenderer.domElement);
+    csTransformCtrl = new THREE.TransformControls(csCamera, controlSurface);
     csTransformCtrl.setSpace('world');
 
     // 拦截底层渲染，强杀翻面与白线
@@ -6171,7 +6373,7 @@ function initCubeSpace3D() {
     // 6. 拖拽与吸附逻辑监听
     // =====================================================
     csTransformCtrl.addEventListener('dragging-changed', function (event) {
-        csOrbitCtrl.enabled = !event.value;
+        csOrbitCtrl.enabled = !event.value && csCurrentMode !== 'player';
         if (event.value) {
             hideInfoCard();
             if (csSelectedObject) {
@@ -6252,14 +6454,15 @@ function initCubeSpace3D() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    csRenderer.domElement.addEventListener('pointerdown', function (e) {
+    csHandleSpacePointer = function (e) {
         if (csTransformCtrl.dragging) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-        const rect = csRenderer.domElement.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        mouse.copy(csPointerNDC(e));
+        if (csCurrentMode === 'player' && e.pointerType === 'mouse') mouse.set(0, 0);
 
+        csCamera.updateMatrixWorld(true);
+        raycaster.far = csCurrentMode === 'player' ? 20 : Infinity;
         raycaster.setFromCamera(mouse, csCamera);
         const intersects = raycaster.intersectObjects(csObjects, true);
 
@@ -6277,7 +6480,7 @@ function initCubeSpace3D() {
                 csSelectedObject = null;
                 hideInfoCard();
             }
-        } else if (csCurrentMode === 'observe') {
+        } else if (csCurrentMode === 'observe' || csCurrentMode === 'player') {
             if (intersects.length > 0) {
                 let obj = intersects[0].object;
                 while (obj.parent && obj.parent.type === 'Group' && !csObjects.includes(obj)) {
@@ -6286,6 +6489,7 @@ function initCubeSpace3D() {
 
                 if (obj.userData && obj.userData.id === 'smart_speaker') {
                     csInteractObject = obj;
+                    csReconcileSpeakers();
                     updateInteractCardPos('speaker');
                     document.getElementById('cs-speaker-card').style.display = 'flex';
                     if(document.getElementById('cs-msg-card')) document.getElementById('cs-msg-card').style.display = 'none';
@@ -6324,7 +6528,12 @@ function initCubeSpace3D() {
                 hideInteractCards();
             }
         }
+        if (csCurrentMode === 'player' && csInteractObject) csReleasePointer();
+    };
+    csRenderer.domElement.addEventListener('pointerdown', e => {
+        if (csCurrentMode !== 'player') csHandleSpacePointer(e);
     });
+    csInitPlayerInput();
 
     // =====================================================
     // 8. 窗口尺寸调整与动画循环
@@ -6338,7 +6547,9 @@ function initCubeSpace3D() {
 
     const animate = function () {
         requestAnimationFrame(animate);
-        csOrbitCtrl.update();
+        if (!csSpaceActive() || document.hidden) return;
+        if (csCurrentMode === 'player') csUpdatePlayer(performance.now());
+        else { csOrbitCtrl.update(); csUpdateObserver(performance.now()); }
 
         // ====== 音响扬声器物理震动特效 ======
         const audio = document.getElementById('cs-bgm');
@@ -6358,6 +6569,7 @@ function initCubeSpace3D() {
 
         updateDynamicHolograms();
         csRenderer.render(csScene, csCamera);
+        csRenderPlayerHand();
     };
 
     animate();
@@ -6449,7 +6661,32 @@ function addObjToSpace(id, type, restoreData = null) {
         group.add(block);
 
     } else if (type === 'smart') {
-        if (id === 'smart_desk') {
+        if (id === 'smart_mirror') {
+            const frame = new THREE.MeshStandardMaterial({ color: 0x111317, metalness: 0.55, roughness: 0.27 });
+            const inner = new THREE.MeshStandardMaterial({ color: 0x343a42, metalness: 0.65, roughness: 0.24 });
+            const add = (w, h, d, x, y, z, mat) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 3, 3, 2), mat);
+                mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh);
+            };
+            add(3.22, 7.32, 0.18, 0, 3.70, 0.10, frame);
+            add(2.94, 7.04, 0.035, 0, 3.70, -0.004, inner);
+            const mirror = new THREE.Reflector(new THREE.PlaneGeometry(2.82, 6.92, 4, 8), {
+                clipBias: 0.003, textureWidth: 512, textureHeight: 1024, color: 0xdddddd
+            });
+            mirror.position.set(0, 3.70, 0.205);
+            group.add(mirror);
+            group.userData.mirror = mirror;
+            const renderReflection = mirror.onBeforeRender;
+            mirror.onBeforeRender = function(renderer, scene, camera) {
+                const avatar = csPlayer.avatar;
+                const showAvatar = csCurrentMode === 'player' && avatar && csPlayer.position;
+                if (showAvatar) avatar.visible = true;
+                try { renderReflection.call(this, renderer, scene, camera); }
+                finally { if (showAvatar) avatar.visible = false; }
+            };
+            add(2.66, 0.07, 0.08, 0, 0.29, 0.23, inner);
+            add(3.40, 0.10, 0.48, 0, 0.08, 0.12, frame);
+        } else if (id === 'smart_desk') {
             let top = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.3, 2.8), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1 }));
             top.position.y = 2.85; top.castShadow = true; top.receiveShadow = true;
             let legL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.7, 2.6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
@@ -6556,12 +6793,42 @@ function addObjToSpace(id, type, restoreData = null) {
             let body = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.6, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111 }));
             body.position.y = 2.4; body.castShadow = true; body.receiveShadow = true;
 
-            // 【核心修复】：读取存档里的开关机状态，刷新网页也能无缝衔接
+            // 读取存档里的开关机状态
             let isTvOn = (restoreData && restoreData.isTvOn !== undefined) ? restoreData.isTvOn : false;
 
-            let screenMat = isTvOn
-                ? new THREE.MeshStandardMaterial({ map: tvTexture, color: 0xffffff, emissive: 0x111111, roughness: 0.5, metalness: 0.1 })
-                : new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0x000000, roughness: 0.05, metalness: 0.9 });
+            let screenMat;
+            if (isTvOn) {
+                // 【核心修复】：如果是开机状态，先立刻把全局画布涂黑，防止白屏漏底
+                tvCtx.fillStyle = '#050505';
+                tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
+                tvTexture.needsUpdate = true;
+
+                // 再次加载图片并画上去
+                const img = new Image();
+                img.src = 'PuffPi.jpg';
+                img.onload = () => {
+                    tvCtx.fillStyle = '#050505';
+                    tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
+                    const logoSize = 600;
+                    tvCtx.drawImage(img, (tvCanvas.width - logoSize) / 2, (tvCanvas.height - logoSize) / 2, logoSize, logoSize);
+                    tvTexture.needsUpdate = true;
+                };
+
+                screenMat = new THREE.MeshStandardMaterial({
+                    map: tvTexture,
+                    color: 0xffffff,
+                    emissive: 0x111111,
+                    roughness: 0.5,
+                    metalness: 0.1
+                });
+            } else {
+                screenMat = new THREE.MeshStandardMaterial({
+                    color: 0x050505,
+                    emissive: 0x000000,
+                    roughness: 0.05,
+                    metalness: 0.9
+                });
+            }
 
             let screen = new THREE.Mesh(new THREE.BoxGeometry(6.1, 3.4, 0.02), screenMat);
             screen.position.set(0, 2.4, 0.08);
@@ -6680,6 +6947,7 @@ function addObjToSpace(id, type, restoreData = null) {
 
     csObjects.push(group);
     csScene.add(group);
+    if (id === 'smart_speaker') csReconcileSpeakers();
 
     if (!restoreData) {
         csTransformCtrl.attach(group);
@@ -6729,8 +6997,9 @@ function updateInfoCardValues() {
 function updateInfoCardPos() {
     if (!csSelectedObject || !document.getElementById('cs-info-card')) return;
     const pos = csSelectedObject.position.clone().project(csCamera);
-    const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+    const viewport = csViewport();
+    const x = (pos.x * 0.5 + 0.5) * viewport.width;
+    const y = viewport.top + (pos.y * -0.5 + 0.5) * viewport.height;
 
     const card = document.getElementById('cs-info-card');
     card.style.left = (x + 100) + 'px';
@@ -6784,6 +7053,7 @@ tvTexture.anisotropy = 16;
 
 function toggleCsTv(isOn) {
     if (csInteractObject && csInteractObject.userData.id === 'smart_tv') {
+        const tvObject = csInteractObject;
         csInteractObject.userData.isTvOn = isOn;
         const screen = csInteractObject.userData.screenMesh;
 
@@ -6795,7 +7065,7 @@ function toggleCsTv(isOn) {
 
             // 图片加载好之后的真正绘制逻辑
             const drawLogo = (img) => {
-                if (!csInteractObject.userData.isTvOn) return;
+                if (!tvObject.userData.isTvOn || !csObjects.includes(tvObject)) return;
                 tvCtx.fillStyle = '#050505';
                 tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
 
@@ -6828,5 +7098,6 @@ function toggleCsTv(isOn) {
             });
         }
         saveCsConfig();
+        hideInteractCards(true);
     }
 }
