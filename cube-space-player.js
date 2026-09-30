@@ -599,6 +599,32 @@ function csSaveSettings() {
     csCloseSettings();
 }
 
+function csBindSettingRanges(settingsModal) {
+    settingsModal.querySelectorAll('input[type="range"]').forEach(input => {
+        const updateFromPointer = event => {
+            const rect = input.getBoundingClientRect();
+            const fraction = csPlayer.rotated
+                ? (event.clientY - rect.top) / rect.height
+                : (event.clientX - rect.left) / rect.width;
+            const min = Number(input.min), max = Number(input.max), step = Number(input.step) || 1;
+            const value = min + Math.round((Math.max(0, Math.min(1, fraction)) * (max - min)) / step) * step;
+            input.value = String(Math.max(min, Math.min(max, value)));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        input.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse') return;
+            event.preventDefault();
+            input.setPointerCapture(event.pointerId);
+            updateFromPointer(event);
+        });
+        input.addEventListener('pointermove', event => {
+            if (!input.hasPointerCapture(event.pointerId)) return;
+            event.preventDefault();
+            updateFromPointer(event);
+        });
+    });
+}
+
 // Use the existing reset confirmation card as the source for both new dialogs.
 function csInitDialogs() {
     const page = document.getElementById('cube-space-page');
@@ -629,6 +655,7 @@ function csInitDialogs() {
             <div class="cs-setting-range"><input id="cs-setting-padSize" type="range" min="50" max="150" step="1" value="100" oninput="this.nextElementSibling.value=this.value+'%'"><output>100%</output></div>
             <p id="cs-settings-error" role="status"></p>
         </div>`, 'csCloseSettings()', 'csSaveSettings()', '保存');
+    csBindSettingRanges(settings);
     settings.querySelector('button').textContent = '退出';
 }
 csInitDialogs();
