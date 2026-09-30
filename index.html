@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.17-detail27">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,6 +14,7 @@
 
     <!-- 👇 新增：Three.js 核心库及其交互控制插件，用于构建魔方空间 👇 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 </head>
@@ -81,7 +82,8 @@
             <div class="nav-menu-item has-dropdown">赛事
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
-                    <a onclick="openCompsPage()">国内赛事</a>
+                    <a onclick="openCompsPage()">WCA 赛事</a>
+                    <a onclick="alert('等待中国魔方官网开放数据，敬请期待！')">CCA 赛事</a>
                 </div>
             </div>
             <div class="nav-menu-item has-dropdown">成绩
@@ -104,6 +106,7 @@
             <div class="nav-menu-item has-dropdown">其他
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
+                    <a href="https://cstimer.net/" target="_blank" rel="noopener noreferrer">csTimer</a>
                     <a href="https://space.bilibili.com/351872771?spm_id_from=333.1007.0.0" target="_blank">关于作者</a>
                 </div>
             </div>
@@ -250,7 +253,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.26.8</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.27.6</span>
             </div>
         </div>
     </div>
@@ -383,6 +386,7 @@
                     </div>
                 </div>
 
+                <span id="monthly-event-watermark" class="cubing-icon event-333" aria-hidden="true"></span>
                 <div id="monthly-timer-display" class="timer-display">0.00</div>
 
                 <div class="timer-prompt-text">
@@ -657,7 +661,11 @@
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
                         <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时项目</h3>
                         <div id="timer-event-grid" class="chal-event-grid"></div>
-                        <div class="edit-popup-actions" style="margin-top: 15px;">
+                        <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
+                            <div class="timer-mode-choice" role="group" aria-label="计时项目类型">
+                                <button type="button" id="timer-mode-wca" onclick="setTimerTempMode('wca')">WCA</button>
+                                <button type="button" id="timer-mode-smart" onclick="setTimerTempMode('smart')">智能魔方</button>
+                            </div>
                             <button class="edit-btn-confirm" onclick="confirmTimerEvent()">确定</button>
                         </div>
                     </div>
@@ -683,19 +691,21 @@
                         <div id="edit-time">10.32</div>
                         <div id="edit-timestamp">2026-09-04 14:18:30</div>
 
-                        <button class="edit-btn-copy" onclick="copyEditScramble()">复制打乱</button>
                         <div id="edit-scramble">R U R' U' ...</div>
 
                         <!-- 成绩详情卡片内的打乱图 -->
-                        <div style="display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; margin-bottom: 20px;">
+                        <div class="edit-scramble-preview">
                             <twisty-player id="edit-scramble-display" visualization="2D" control-panel="none" background="none" style="width: 210px; height: 155px;"></twisty-player>
                         </div>
 
                         <!-- 惩罚状态滑块 -->
-                        <div class="ios-segment-control" style="width: 80%; max-width: 220px; margin: 0 auto 20px auto; display: flex;">
-                            <div class="ios-segment-btn active" style="flex:1; text-align:center;" id="edit-pen-none" onclick="setEditPenalty('')">无惩罚</div>
-                            <div class="ios-segment-btn" style="flex:1; text-align:center;" id="edit-pen-plus2" onclick="setEditPenalty('+2')">+2</div>
-                            <div class="ios-segment-btn" style="flex:1; text-align:center;" id="edit-pen-dnf" onclick="setEditPenalty('DNF')">DNF</div>
+                        <div class="edit-penalty-row">
+                            <div class="ios-segment-control edit-penalty-choice">
+                                <div class="ios-segment-btn active" id="edit-pen-none" onclick="setEditPenalty('')">无惩罚</div>
+                                <div class="ios-segment-btn" id="edit-pen-plus2" onclick="setEditPenalty('+2')">+2</div>
+                                <div class="ios-segment-btn" id="edit-pen-dnf" onclick="setEditPenalty('DNF')">DNF</div>
+                            </div>
+                            <button class="edit-btn-copy" onclick="copyEditScramble()">复制打乱</button>
                         </div>
 
                         <!-- 底部三操作按钮 -->
@@ -820,6 +830,14 @@
                         <div class="ui-control-right ui-slider-wrapper">
                             <span id="scramble-size-val">100%</span>
                             <input type="range" id="scramble-size-slider" min="50" max="150" value="100" oninput="updateScrambleSize(this.value)">
+                        </div>
+                    </div>
+
+                    <div class="ios-setting-group custom-ui-group">
+                        <span>智能/虚拟魔方尺寸</span>
+                        <div class="ui-control-right ui-slider-wrapper">
+                            <span id="smart-cube-size-val">100%</span>
+                            <input type="range" id="smart-cube-size-slider" min="50" max="150" value="100" oninput="updateSmartCubeSize(this.value)">
                         </div>
                     </div>
 
@@ -949,7 +967,16 @@
                     </div>
                 </div>
 
-                <div id="timer-display" class="timer-display">0.00</div>
+                <span id="timer-event-watermark" class="cubing-icon event-333" aria-hidden="true"></span>
+                <div class="timer-smart-stage">
+                    <div class="timer-smart-visual">
+                        <div class="timer-virtual-cube" id="timer-virtual-cube" role="img" tabindex="0" aria-label="智能魔方虚拟模型，可拖动旋转"></div>
+                        <div class="timer-bluetooth-status" id="timer-bluetooth-status" role="button" tabindex="0" onclick="openTimerBluetoothCard()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTimerBluetoothCard();}">
+                            <span id="timer-bluetooth-icon" class="disconnected" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg></span><span id="timer-bluetooth-label">未连接</span>
+                        </div>
+                    </div>
+                    <div id="timer-display" class="timer-display">0.00</div>
+                </div>
                 <!-- 动态终端提示文字 -->
                 <div class="timer-prompt-text">
                     <span class="desktop-prompt">
@@ -962,6 +989,13 @@
                     </span>
                 </div>
 
+                <div class="timer-bluetooth-card" id="timer-bluetooth-card" role="dialog" aria-label="连接智能魔方" hidden>
+                    <button type="button" class="timer-bluetooth-close" onclick="closeTimerBluetoothCard()" aria-label="关闭">×</button>
+                    <strong id="timer-bluetooth-card-title">搜寻中...</strong>
+                    <div id="timer-bluetooth-devices" class="timer-bluetooth-devices"></div>
+                    <button type="button" class="timer-bluetooth-rescan" onclick="scanTimerBluetooth()">搜寻设备</button>
+                </div>
+
                 <!-- 右下角打乱图展示面板 (毛玻璃组件) -->
                 <div class="timer-scramble-draw-panel" id="timer-scramble-draw-panel">
                     <twisty-player id="timer-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
@@ -972,7 +1006,7 @@
         <!-- 移动端专属：底部毛玻璃导航栏 (新增设置入口) -->
         <div class="timer-bottom-bar">
             <div class="timer-tab-btn active" onclick="switchTimerTab('main')" id="btn-tab-main">
-                <span class="cubing-icon event-333" style="font-size: 28px;"></span>
+                <span id="timer-bottom-event-icon" class="cubing-icon event-333" style="font-size: 28px;"></span>
             </div>
             <div class="timer-tab-btn" onclick="switchTimerTab('list')" id="btn-tab-list">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1306,6 +1340,7 @@
             <div class="challenge-half top-half" id="challenge-top-area">
                 <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
                 <div class="challenge-timer" id="challenge-timer-top">0.00</div>
+                <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-top-after"></div>
             </div>
 
             <!-- 中间分割线与计分板 -->
@@ -1336,6 +1371,7 @@
             <div class="challenge-half bottom-half" id="challenge-bottom-area">
                 <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
                 <div class="challenge-timer" id="challenge-timer-bottom">0.00</div>
+                <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-bottom-after"></div>
             </div>
 
             <!-- 挑战项目选择卡片 -->
@@ -1380,6 +1416,14 @@
     <div id="cube-space-page" class="page-container" style="padding: 0 !important; margin: 0 !important; width: 100vw; height: 100vh; overflow: hidden; position: fixed; top: 0; left: 0; z-index: 2000; background: #f8fafc; display: none;">
 
         <div id="cube-space-canvas" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; outline: none;"></div>
+        <div id="cs-crosshair" aria-hidden="true"></div>
+        <div id="cs-player-pad" aria-label="玩家移动控制">
+            <button data-key="KeyW" aria-label="前进">▲</button>
+            <button data-key="KeyA" aria-label="向左">◀</button>
+            <button data-key="Space" aria-label="跳跃"><span class="cs-jump-symbol" aria-hidden="true"></span></button>
+            <button data-key="KeyD" aria-label="向右">▶</button>
+            <button data-key="KeyS" aria-label="后退">▼</button>
+        </div>
 
         <button onclick="exitCubeSpace()" class="btn btn-outline" style="position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-color: var(--border-color); color: var(--text-main); border-radius: 12px; padding: 8px 16px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">退出空间</button>
 
@@ -1397,11 +1441,17 @@
             <div id="cs-mode-edit" class="cs-mode-btn" onclick="setCubeSpaceMode('edit')" title="编辑模式">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             </div>
+            <button id="cs-mode-player" class="cs-mode-btn" onclick="setCubeSpaceMode('player')" title="玩家模式" aria-label="玩家模式">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="4" r="2.5"/><path d="M8 21l2-7V9m6 12l-2-7V9M5 13l5-5h4l5 5M10 14h4"/></svg>
+            </button>
             <div id="cs-action-undo" class="cs-mode-btn disabled" onclick="undoCsAction()" title="撤回操作">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3l-3 2.7"></path></svg>
             </div>
             <div id="cs-action-clear" class="cs-mode-btn" onclick="clearCubeSpace()" title="清空全部"><span style="font-size: 20px;">🗑️</span></div>
 
+            <button id="cs-action-settings" class="cs-mode-btn" onclick="csOpenSettings()" title="魔方空间设置" aria-label="魔方空间设置" style="border:0;background:transparent;padding:0;flex-shrink:0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="#f1f5f9"/><circle cx="16" cy="12" r="2" fill="#f1f5f9"/><circle cx="10" cy="18" r="2" fill="#f1f5f9"/></svg>
+            </button>
             <div id="cs-action-manual" class="cs-mode-btn" onclick="document.getElementById('cs-manual-modal').style.display='flex'" title="说明书">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </div>
@@ -1476,9 +1526,12 @@
                     <div style="margin-bottom: 8px; font-size: 15px; font-weight: 800;">在观察模式下：</div>
                     <div style="color: var(--text-muted); margin-bottom: 6px;">点击音响可通过卡片播放音乐</div>
                     <div style="color: var(--text-muted);">点击消息盒子可通过卡片播报资讯</div>
+                    <div style="margin: 12px 0 8px; font-size: 15px; font-weight: 800;">在玩家模式下：</div>
+                    <div style="color: var(--text-muted);">电脑：WASD 移动，空格跳跃，鼠标转头，瞄准后点击互动。Esc 释放鼠标，便于切换模式。</div>
+                    <div style="color: var(--text-muted); margin-top: 6px;">手机：左侧方向键移动，中间跳跃；滑动画面转头，轻点物件互动。空间自动采用横屏布局。</div>
                 </div>
                 <div style="text-align: center; margin-top: 24px;">
-                    <span onclick="showResetCsModal()" style="font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">恢复出厂魔方空间配置</span>
+                    <span class="cs-edit-only" onclick="showResetCsModal()" style="font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">恢复出厂魔方空间配置</span>
                 </div>
             </div>
         </div>
@@ -1573,6 +1626,8 @@
     </div>
 
     <script src="database.js"></script>
-    <script src="main.js"></script>
+    <script src="main.js?v=1.17-detail26"></script>
+    <script src="timer-smart.js?v=1.17-detail18"></script>
+    <script src="cube-space-player.js"></script>
 </body>
 </html>
