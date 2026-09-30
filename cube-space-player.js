@@ -4,12 +4,12 @@ const csPlayer = {
     yaw: 0, pitch: 0, velocityY: 0, grounded: true,
     keys: new Set(), touches: new Map(), look: null, colliders: [],
     position: null, lastPosition: null, savedView: null, avatar: null,
-    previousTime: 0, phase: 0, rotated: false, orientationSession: 0,
-    settings: { gender: 'male', orbitSensitivity: 1, playerSensitivity: 1 },
+    previousTime: 0, phase: 0, rotated: false,
+    settings: { gender: 'male', orbitSensitivity: 1, playerSensitivity: 1, padSize: 100 },
     npc: { lastTick: 0, waitUntil: 0, target: null }, pendingExit: null, exitApproved: false
 };
 
-function csTouchDevice() { return matchMedia('(pointer: coarse)').matches; }
+function csTouchDevice() { return matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0; }
 function csSpaceActive() { return document.getElementById('cube-space-page').classList.contains('active'); }
 function csPlayerActive() { return csSpaceActive() && csCurrentMode === 'player'; }
 function csPlayerBlocked() {
@@ -85,7 +85,7 @@ function csResizeSpace() {
     if (!csSpaceActive()) return;
     const page = document.getElementById('cube-space-page');
     const width = window.innerWidth, height = window.innerHeight;
-    csPlayer.rotated = csTouchDevice() && height > width;
+    csPlayer.rotated = csTouchDevice() && (height > width || matchMedia('(orientation: portrait)').matches);
     page.classList.toggle('cs-landscape-fallback', csPlayer.rotated);
     page.classList.toggle('cs-touch', csTouchDevice());
     page.style.setProperty('--cs-viewport-width', `${height}px`);
@@ -103,32 +103,13 @@ function csResizeSpace() {
         csPlayer.handCamera.updateProjectionMatrix();
     }
 }
-async function csEnterLandscape() {
-    const session = ++csPlayer.orientationSession;
+function csEnterLandscape() {
     const header = document.querySelector('.global-nav-header');
     if (!csPlayer.navHome) { csPlayer.navHome = document.createComment('global navigation'); header.before(csPlayer.navHome); }
     document.getElementById('cube-space-page').prepend(header);
     csResizeSpace();
-    if (!csTouchDevice()) return;
-    const page = document.getElementById('cube-space-page');
-    try {
-        if (!document.fullscreenElement && page.requestFullscreen) await page.requestFullscreen();
-        if (session !== csPlayer.orientationSession || !csSpaceActive()) {
-            if (document.fullscreenElement === page) await document.exitFullscreen();
-            return;
-        }
-        if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-    } catch (_) { /* CSS landscape also covers Safari and denied fullscreen. */ }
-    if (session !== csPlayer.orientationSession || !csSpaceActive()) {
-        try { screen.orientation?.unlock?.(); } catch (_) {}
-        return;
-    }
-    csResizeSpace();
 }
 function csExitLandscape() {
-    ++csPlayer.orientationSession;
-    try { screen.orientation?.unlock?.(); } catch (_) {}
-    if (document.fullscreenElement === document.getElementById('cube-space-page')) document.exitFullscreen().catch(() => {});
     csPlayer.rotated = false;
     const page = document.getElementById('cube-space-page');
     if (csPlayer.navHome) csPlayer.navHome.after(document.querySelector('.global-nav-header'));
@@ -542,7 +523,9 @@ function csInitPlayerInput() {
     }).observe(document.getElementById('cube-space-page'), { attributes: true, attributeFilter: ['class'] });
 }
 window.addEventListener('resize', csResizeSpace);
-document.addEventListener('fullscreenchange', csResizeSpace);
+window.addEventListener('orientationchange', csResizeSpace);
+window.visualViewport?.addEventListener('resize', csResizeSpace);
+screen.orientation?.addEventListener?.('change', csResizeSpace);
 
 function csLoadSettings() {
     try {
@@ -552,8 +535,14 @@ function csLoadSettings() {
             const value = Number(saved[key]);
             if (Number.isFinite(value) && value >= 0.3 && value <= 2.5) csPlayer.settings[key] = value;
         }
+        const padSize = Number(saved.padSize);
+        if (Number.isFinite(padSize) && padSize >= 50 && padSize <= 150) csPlayer.settings.padSize = padSize;
     } catch (_) { /* Keep defaults if storage is unavailable or malformed. */ }
     csOrbitCtrl.rotateSpeed = csPlayer.settings.orbitSensitivity;
+    csApplyPadSize();
+}
+function csApplyPadSize() {
+    document.getElementById('cube-space-page').style.setProperty('--cs-pad-size', `${64 * csPlayer.settings.padSize / 100}px`);
 }
 function csOpenSettings() {
     csReleasePointer(); hideInteractCards();
@@ -562,6 +551,9 @@ function csOpenSettings() {
         const input = document.getElementById(`cs-setting-${key}`);
         input.value = csPlayer.settings[key]; input.nextElementSibling.value = `${Number(input.value).toFixed(1)}×`;
     }
+    const padInput = document.getElementById('cs-setting-padSize');
+    padInput.value = csPlayer.settings.padSize;
+    padInput.nextElementSibling.value = `${padInput.value}%`;
     document.getElementById('cs-settings-error').textContent = '';
     document.getElementById('cs-settings-modal').style.display = 'flex';
 }
@@ -569,10 +561,11 @@ function csCloseSettings() { document.getElementById('cs-settings-modal').style.
 function csSaveSettings() {
     const settings = { gender: document.getElementById('cs-avatar-gender').value };
     for (const key of ['orbitSensitivity', 'playerSensitivity']) settings[key] = Number(document.getElementById(`cs-setting-${key}`).value);
+    settings.padSize = Number(document.getElementById('cs-setting-padSize').value);
     try { localStorage.setItem('nbCubeSpacePlayerSettings', JSON.stringify(settings)); }
     catch (_) { document.getElementById('cs-settings-error').textContent = '保存失败，请检查浏览器存储空间后重试。'; return; }
     const changed = settings.gender !== csPlayer.settings.gender;
-    csPlayer.settings = settings; csOrbitCtrl.rotateSpeed = settings.orbitSensitivity;
+    csPlayer.settings = settings; csOrbitCtrl.rotateSpeed = settings.orbitSensitivity; csApplyPadSize();
     if (changed && csPlayer.avatar) {
         const position = csPlayer.avatar.position.clone(), rotation = csPlayer.avatar.rotation.clone();
         const geometries = new Set(), materials = new Set();
@@ -614,6 +607,8 @@ function csInitDialogs() {
             <label for="cs-setting-playerSensitivity">玩家模式</label>
             <div class="cs-setting-range"><input id="cs-setting-playerSensitivity" type="range" min="0.3" max="2.5" step="0.1" oninput="this.nextElementSibling.value=Number(this.value).toFixed(1)+'×'"><output></output></div>
             <div style="font-size:12px;color:var(--text-muted)">适用于鼠标转头和手机滑动视角</div>
+            <label for="cs-setting-padSize">方向键大小</label>
+            <div class="cs-setting-range"><input id="cs-setting-padSize" type="range" min="50" max="150" step="1" value="100" oninput="this.nextElementSibling.value=this.value+'%'"><output>100%</output></div>
             <p id="cs-settings-error" role="status"></p>
         </div>`, 'csCloseSettings()', 'csSaveSettings()', '保存');
     settings.querySelector('button').textContent = '退出';
