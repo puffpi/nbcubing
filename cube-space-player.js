@@ -56,16 +56,34 @@ function csControlSurface(canvas) {
     const listeners = new Map();
     // TransformControls attaches drag listeners to ownerDocument in r128.
     const ownerSurface = canvas.ownerDocument ? csControlSurface(canvas.ownerDocument) : null;
+    const mapTouch = touch => {
+        if (!touch) return touch;
+        const point = csScreenPoint(touch.clientX, touch.clientY);
+        return new Proxy(touch, { get(target, key) {
+            if (key === 'clientX' || key === 'pageX') return point.x;
+            if (key === 'clientY' || key === 'pageY') return point.y;
+            const value = Reflect.get(target, key, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+        }});
+    };
     return new Proxy(canvas, {
         get(target, key) {
             if (key === 'ownerDocument') return ownerSurface;
             if (key === 'getBoundingClientRect') return () => ({ left: 0, top: 0, width: target.clientWidth, height: target.clientHeight });
             if (key === 'addEventListener') return (type, fn, options) => {
                 const wrapped = event => {
-                    const point = csScreenPoint(event.clientX, event.clientY);
+                    const source = Number.isFinite(event.clientX) ? event : (event.touches?.[0] || event.changedTouches?.[0]);
+                    const point = source ? csScreenPoint(source.clientX, source.clientY) : null;
                     fn(new Proxy(event, { get(e, prop) {
-                        if (prop === 'clientX' || prop === 'pageX') return point.x;
-                        if (prop === 'clientY' || prop === 'pageY') return point.y;
+                        if (point && (prop === 'clientX' || prop === 'pageX')) return point.x;
+                        if (point && (prop === 'clientY' || prop === 'pageY')) return point.y;
+                        if (prop === 'touches' || prop === 'changedTouches' || prop === 'targetTouches') {
+                            const touches = Reflect.get(e, prop, e);
+                            if (!touches) return touches;
+                            const mapped = Array.from(touches, mapTouch);
+                            mapped.item = index => mapped[index] || null;
+                            return mapped;
+                        }
                         const value = Reflect.get(e, prop, e);
                         return typeof value === 'function' ? value.bind(e) : value;
                     }}));
@@ -453,7 +471,7 @@ function csInitPlayerInput() {
         } else return;
         // Discard cursor warps and device spikes without changing the view.
         if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 120 || Math.abs(dy) > 120) return;
-        const sensitivity = 0.003 * csPlayer.settings.playerSensitivity;
+        const sensitivity = (csPlayer.look?.touch ? 0.0045 : 0.003) * csPlayer.settings.playerSensitivity;
         csPlayer.yaw -= dx * sensitivity;
         csPlayer.pitch = Math.max(-1.48, Math.min(1.48, csPlayer.pitch - dy * sensitivity));
         if (csPlayer.mouseLookLocked) csPlayer.lockedView = { yaw: csPlayer.yaw, pitch: csPlayer.pitch };
