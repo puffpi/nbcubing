@@ -1127,6 +1127,18 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 .timer-display.waiting { color: #e63946; }
 .timer-display.ready { color: #10b981; }
+#timer-page.active #timer-display.inspection-arming,
+#timer-page.active #timer-display.inspecting,
+#timer-page.active #timer-display.inspection-holding,
+#timer-page.active #timer-display.inspection-ready { transition: none !important; }
+#timer-page.active #timer-display.inspection-arming,
+#timer-page.active #timer-display.inspection-ready { color: #10b981; }
+#timer-page.active #timer-display.inspecting { color: #e63946; }
+#timer-page.active #timer-display.inspection-holding { color: #d99a18; }
+#timer-page.active #timer-display.nb-status-text {
+    font-size: calc(clamp(42px, 10vw, 68px) * var(--timer-font-scale, 1)) !important;
+    white-space: nowrap;
+}
 
 /* 6. 底部提示文字 */
 .timer-prompt-text {
@@ -2360,8 +2372,10 @@ table.table-historical th:nth-child(8) { width: 42% !important; } /* 比赛与�
 }
 .news-footer {
     font-size: 12px;
-    color: #94a3b8;
-    font-family: 'SFMono-Regular', Consolas, monospace;
+    color: #64748b;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
 }
 
 /* 简约纪录列表 */
@@ -2475,8 +2489,29 @@ body {
 /* 6. 赛事卡片与极端柔和的红黄绿状态标签 */
 .comp-card { position: relative; opacity: 1 !important; background: #ffffff !important; }
 .comp-meta-col {
-    display: flex; flex-direction: column; font-size: 13px; color: var(--text-muted);
-    font-family: 'SFMono-Regular', Consolas, monospace; margin-top: auto; gap: 4px;
+    display: flex; flex-direction: column; font-size: 13px; color: #64748b;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-weight: 500; margin-top: auto; gap: 4px;
+}
+.comp-meta-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 6px;
+    min-height: 18px;
+}
+.comp-meta-icon {
+    display: block;
+    width: 20px;
+    text-align: center;
+    font-size: 15px;
+    line-height: 18px;
+    font-weight: normal;
+}
+.comp-meta-text {
+    min-width: 0;
+    line-height: 18px;
+    font-variant-numeric: tabular-nums;
 }
 .comp-status-tag {
     position: absolute; bottom: 16px; right: 16px; padding: 4px 8px;
