@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
-    <link rel="stylesheet" href="style.css?v=1.17-detail38">
+    <link rel="stylesheet" href="style.css?v=1.17-competition-zh6">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -107,7 +107,6 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
                     <a href="https://cstimer.net/" target="_blank" rel="noopener noreferrer">csTimer</a>
-                    <a href="https://space.bilibili.com/351872771?spm_id_from=333.1007.0.0" target="_blank">关于作者</a>
                 </div>
             </div>
             <div class="nav-menu-item" onclick="navigateTo('settings-page')">设置</div>
@@ -249,13 +248,14 @@
 
             <hr class="settings-divider">
 
-            <div class="sidebar-settings-title">版本</div>
+            <div class="sidebar-settings-title">系统</div>
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.27.6</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.27.12</span>
             </div>
         </div>
+        <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
     </div>
 
     <!-- =========================================
@@ -803,6 +803,13 @@
                         </div>
                     </div>
 
+                    <hr class="settings-divider">
+                    <div class="sidebar-settings-title">计时</div>
+                    <div class="ios-setting-group custom-ui-group"><span>使用 WCA 观察</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-no" onclick="setNbTimingOption('inspection', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-yes" onclick="setNbTimingOption('inspection', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>观察语音提示</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-voice-no" onclick="setNbTimingOption('inspectionVoice', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-voice-yes" onclick="setNbTimingOption('inspectionVoice', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01秒</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
+
                     <!-- 核心新增：界面设置模块 -->
                     <hr class="settings-divider">
                     <div class="sidebar-settings-title">界面</div>
@@ -882,6 +889,13 @@
                 </div> <!-- 闭合 sidebar-view-settings -->
 
                 <!-- 字体选择专属弹窗 (毛玻璃) -->
+                <div id="nb-timing-modal" class="edit-score-popup" onclick="closeNbTimingModal(event)">
+                    <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
+                        <h3 id="nb-timing-modal-title" style="margin-top:0;margin-bottom:20px;font-size:16px"></h3>
+                        <div id="nb-timing-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+                        <div class="edit-popup-actions" style="margin-top:15px"><button class="edit-btn-cancel" style="width:100%" onclick="closeNbTimingModal()">关闭</button></div>
+                    </div>
+                </div>
                 <div id="font-select-modal" class="edit-score-popup" onclick="closeFontModal(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
                         <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时器字体</h3>
@@ -1630,7 +1644,7 @@
     </div>
 
     <script src="database.js"></script>
-    <script src="main.js?v=1.17-detail32"></script>
+    <script src="main.js?v=1.17-competition-zh5"></script>
     <script src="timer-smart.js?v=1.17-detail18"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>
