@@ -1,14 +1,21 @@
 import csv
+import argparse
 import io
 import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
+import urllib.parse
+import urllib.request
 import zipfile
 from datetime import datetime
 
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 
 
 # ============================================================
@@ -19,6 +26,49 @@ WCA_EXPORT_API = "https://www.worldcubeassociation.org/api/v0/export/public"
 
 OUTPUT_WCA = "wca_data.json"
 OUTPUT_HISTORY = "history_data.json"
+OUTPUT_COMPETITIONS_ZH = "competitions_zh.json"
+COMPETITIONS_API = "https://api.cubing.com/competitions"
+
+
+def update_competitions_zh():
+    """Build a compact, automatically refreshed Chinese competition cache."""
+    rows = []
+    skip = 0
+    while True:
+        query = urllib.parse.urlencode({"type": "WCA", "skip": skip, "take": 100})
+        request = urllib.request.Request(
+            f"{COMPETITIONS_API}?{query}",
+            headers={"User-Agent": "NBCubing competition data updater"},
+        )
+        if os.name == "nt":
+            # Windows curl uses the system TLS configuration.
+            payload = json.loads(subprocess.run(
+                ["curl", "-fLsS", "--max-time", "30", request.full_url],
+                check=True, capture_output=True, text=True, encoding="utf-8",
+            ).stdout)
+        else:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.load(response)
+        batch = payload.get("data", [])
+        for item in batch:
+            if not item.get("wcaCompetitionId") or not item.get("nameZh"):
+                continue
+            location = (item.get("locations") or [{}])[0]
+            rows.append({
+                "id": item["wcaCompetitionId"],
+                "name": item.get("name", ""),
+                "nameZh": item["nameZh"],
+                "province": location.get("provinceName") or "",
+                "city": location.get("cityName") or "",
+                "alias": item.get("alias") or "",
+                "startDate": item.get("startDate") or "",
+                "endDate": item.get("endDate") or item.get("startDate") or "",
+            })
+        skip += len(batch)
+        if not batch or skip >= payload.get("total", 0):
+            break
+    atomic_write_json(OUTPUT_COMPETITIONS_ZH, rows)
+    print(f"Chinese competitions: {len(rows)} -> {OUTPUT_COMPETITIONS_ZH}")
 
 HEADERS = {
     "User-Agent": (
@@ -963,4 +1013,11 @@ def update_wca_data():
 
 
 if __name__ == "__main__":
-    update_wca_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--competitions-only", action="store_true")
+    args = parser.parse_args()
+    if not args.competitions_only:
+        if requests is None:
+            parser.error("Full WCA update requires the requests package")
+        update_wca_data()
+    update_competitions_zh()
