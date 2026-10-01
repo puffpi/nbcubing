@@ -7,6 +7,17 @@ let inlinePkPlayerA = null;
 let pendingPkPlayerB = null;
 let isDataReady = false;
 let allHistoryData = {};
+let chineseCompsById = new Map();
+let chineseCompsByName = new Map();
+
+function getChineseCompetitionName(name, id) {
+    const entry = (id && chineseCompsById.get(id)) || chineseCompsByName.get(name);
+    return entry?.nameZh || name || '-';
+}
+
+function getChineseCompetitionLocation(entry) {
+    return [entry?.province, entry?.city].filter(Boolean).join(' · ') || '中国';
+}
 let currentPersonHistory = null;
 let progressChartInstance = null;
 let currentChartEventId = '333'; // 默认优先三阶
@@ -30,6 +41,10 @@ let uiSettings = {
     chalTimerSize: 100,    // <--- 新增：对战计时器大小
     chalScrambleSize: 100, // <--- 新增：对战打乱公式大小
     promptAction: true,
+    inspection: false,
+    inspectionVoice: false,
+    nbDisplayMode: 'realtime',
+    nbPrecision: 2,
     colorSingle: '#f59e0b',
     colorAvg: '#f59e0b',
     username: '', // 新增用户名储存
@@ -279,6 +294,7 @@ function goBack() {
 
 function showPage(pageId) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
+    if (pageId !== 'timer-page' && typeof resetInspection === 'function') resetInspection();
     const page = document.getElementById(pageId);
     document.querySelectorAll('.page-container').forEach(p => {
         p.classList.remove('active');
@@ -728,7 +744,7 @@ function renderPersonPage(cuber) {
                         <td>${formatRank(single.continent_rank, crPrefix)}</td>
                         <td>${formatRank(single.world_rank, 'WR')}</td>
                         <td>
-                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${single.comp_name || '-'}</div>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(single.comp_name)}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${single.comp_date || '-'}</div>
                         </td>
                     `;
@@ -747,7 +763,7 @@ function renderPersonPage(cuber) {
                         <td>${formatRank(average.continent_rank, crPrefix)}</td>
                         <td>${formatRank(average.world_rank, 'WR')}</td>
                         <td>
-                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${average.comp_name || '-'}</div>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(average.comp_name)}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${average.comp_date || '-'}</div>
                         </td>
                     `;
@@ -903,7 +919,7 @@ function updateChartAndTable() {
         let val = r[type];
         if (val && val > 0) {
             let isPr = (type === 'average') ? r.isPrAverage : r.isPrSingle;
-            plotData.push({ x: r.date, compName: r.comp, y: val, displayTime: formatWcaResult(val, eventId, type), isPr: isPr });
+            plotData.push({ x: r.date, compName: getChineseCompetitionName(r.comp), y: val, displayTime: formatWcaResult(val, eventId, type), isPr: isPr });
         }
     });
 
@@ -1019,7 +1035,7 @@ function updateChartAndTable() {
     reversedResults.forEach(r => {
         let displayComp = '';
         if (r.comp !== lastComp) {
-            displayComp = `<div style="font-size: 14px; font-weight: bold; color: var(--text-main); line-height: 1.4;">${r.comp}</div>
+            displayComp = `<div style="font-size: 14px; font-weight: bold; color: var(--text-main); line-height: 1.4;">${getChineseCompetitionName(r.comp)}</div>
                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">${r.date}</div>`;
             lastComp = r.comp;
         }
@@ -1183,7 +1199,7 @@ function updateRanking() {
                 nr: records[currentEvent][currentType].country_rank,
                 cr: records[currentEvent][currentType].continent_rank,
                 wr: records[currentEvent][currentType].world_rank,
-                compName: records[currentEvent][currentType].comp_name || '-',
+                compName: getChineseCompetitionName(records[currentEvent][currentType].comp_name),
                 compDate: records[currentEvent][currentType].comp_date || '-'
             });
         }
@@ -1419,7 +1435,7 @@ function generateCurrentRecords(tbody) {
                             name: cuber.person.name, wcaId: cuber.person.wca_id, iso2: cuber.person.country_iso2,
                             rawScore: score, nr: records[ev.id][type.id].country_rank,
                             cr: records[ev.id][type.id].continent_rank, wr: records[ev.id][type.id].world_rank,
-                            compName: records[ev.id][type.id].comp_name || '-',
+                            compName: getChineseCompetitionName(records[ev.id][type.id].comp_name),
                             compDate: records[ev.id][type.id].comp_date || '-'
                         };
                     }
@@ -1463,14 +1479,14 @@ function generateCurrentRecords(tbody) {
         </td>
         <td><span class="type-badge">单次</span></td>
         <td class="clickable-name-cell">
-            <span class="clickable-name" style="cursor:default;">孙凯霖（Kailin Sun）</span>
+            <span class="clickable-name" onclick="showPerson('2018SUNK01')">孙凯霖（Kailin Sun）</span>
         </td>
         <td class="highlight-score">5278</td>
         <td><span class="rank-top100">NR 67</span></td>
         <td>AsR 267</td>
         <td>WR 1531</td>
         <td>
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Vietnam Championship 2023</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName('Vietnam Championship 2023')}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2023-07-16</div>
         </td>
     `;
@@ -1481,14 +1497,14 @@ function generateCurrentRecords(tbody) {
         <td></td>
         <td><span class="type-badge">平均</span></td>
         <td class="clickable-name-cell">
-            <span class="clickable-name" style="cursor:default;">郭畅（Chang Guo）</span>
+            <span class="clickable-name" onclick="showPerson('2024GUOC01')">郭畅（Chang Guo）</span>
         </td>
         <td class="highlight-score">5266</td>
         <td><span class="rank-top100">NR 68</span></td>
         <td>AsR 295</td>
         <td>WR 1524</td>
         <td>
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">Hefei August Open 2026</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName('Hefei August Open 2026')}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2026-08-15</div>
         </td>
     `;
@@ -1575,7 +1591,7 @@ function generateHistoricalRecords(tbody) {
             </td>
             <td class="highlight-score" style="${isCurrentRecord ? 'color: #10b981;' : ''}">${displayTime}</td>
             <td>
-                <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${record.comp}</div>
+                <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(record.comp)}</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${record.date}</div>
             </td>
         `;
@@ -1594,12 +1610,18 @@ async function initData() {
 
     const loader = document.getElementById('global-loading');
     try {
-        const [resWca, resHist] = await Promise.all([
+        const [resWca, resHist, resComps] = await Promise.all([
             fetch('wca_data.json?t=' + new Date().getTime()),
-            fetch('history_data.json?t=' + new Date().getTime())
+            fetch('history_data.json?t=' + new Date().getTime()),
+            fetch('competitions_zh.json?v=1')
         ]);
         allCubersData = await resWca.json();
         allHistoryData = await resHist.json();
+        if (resComps.ok) {
+            const chineseComps = await resComps.json();
+            chineseCompsById = new Map(chineseComps.map(comp => [comp.id, comp]));
+            chineseCompsByName = new Map(chineseComps.map(comp => [comp.name, comp]));
+        }
         isDataReady = true;
         if (loader) loader.style.display = 'none';
 
@@ -1720,6 +1742,111 @@ let timerState = 'IDLE';
 let timerHoldTimeout = null;
 let solveStartTime = 0;
 let requestAnimFrameId = null;
+let inspectionStartTime = 0;
+let inspectionFrameId = null;
+let inspectionPenalty = '';
+let activeSolvePenalty = '';
+let pendingInspectionKey = null;
+let touchWasIdle = false;
+let inspectionVoiceTimers = [];
+
+function setInspectionColor(state) {
+    const display = document.getElementById('timer-display');
+    display.classList.remove('inspection-arming', 'inspecting', 'inspection-holding', 'inspection-ready');
+    if (state) display.classList.add(state);
+}
+
+function formatNbTimerOutput(ms) {
+    if (!Number.isFinite(ms)) return 'DNF';
+    const digits = uiSettings.nbPrecision === 3 ? 3 : 2;
+    const unit = digits === 3 ? 1 : 10;
+    const fraction = Math.floor(Math.max(0, ms) / unit) % (digits === 3 ? 1000 : 100);
+    const seconds = Math.floor(Math.max(0, ms) / 1000);
+    const sec = seconds >= 60 ? String(seconds % 60).padStart(2, '0') : String(seconds);
+    return `${seconds >= 60 ? Math.floor(seconds / 60) + ':' : ''}${sec}.${String(fraction).padStart(digits, '0')}`;
+}
+
+function formatNbRunningTime(ms) {
+    if (uiSettings.nbDisplayMode === 'onlyInspection' || uiSettings.nbDisplayMode === 'hidden') return '还原中';
+    if (uiSettings.nbDisplayMode === 'noDecimals') {
+        const seconds = Math.floor(ms / 1000);
+        return seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : String(seconds);
+    }
+    return formatNbTimerOutput(ms);
+}
+
+function renderInspection() {
+    if (!['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) return;
+    const seconds = Math.floor((performance.now() - inspectionStartTime) / 1000);
+    const display = document.getElementById('timer-display');
+    display.classList.toggle('nb-status-text', uiSettings.nbDisplayMode === 'hidden');
+    display.innerText = uiSettings.nbDisplayMode === 'hidden' ? '观察中' : seconds >= 17 ? 'DNF' : seconds >= 15 ? '+2' : String(seconds);
+    inspectionFrameId = requestAnimationFrame(renderInspection);
+}
+
+function speakInspection(message) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    const utterance = new window.SpeechSynthesisUtterance(message);
+    utterance.lang = 'en-US';
+    utterance.voice = window.speechSynthesis.getVoices().find(voice => voice.lang.toLowerCase().startsWith('en')) || null;
+    window.speechSynthesis.speak(utterance);
+}
+
+function scheduleInspectionVoice() {
+    if (!uiSettings.inspectionVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    const synth = window.speechSynthesis;
+    synth.getVoices();
+    if (synth.paused) synth.resume();
+    const warmup = new window.SpeechSynthesisUtterance('ready');
+    warmup.lang = 'en-US';
+    warmup.volume = 0;
+    warmup.voice = synth.getVoices().find(voice => voice.lang.toLowerCase().startsWith('en')) || null;
+    synth.speak(warmup);
+    for (const [seconds, message] of [[8, 'eight seconds'], [12, 'twelve seconds']]) {
+        const delay = inspectionStartTime + seconds * 1000 - performance.now() - 180;
+        if (delay < 0) continue;
+        inspectionVoiceTimers.push(setTimeout(() => {
+            if (['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) speakInspection(message);
+        }, delay));
+    }
+}
+
+function beginInspection() {
+    timerState = 'OBSERVING';
+    inspectionStartTime = performance.now();
+    inspectionPenalty = '';
+    setInspectionColor('inspecting');
+    scheduleInspectionVoice();
+    renderInspection();
+}
+
+function finishInspection() {
+    const elapsed = performance.now() - inspectionStartTime;
+    inspectionPenalty = elapsed >= 17000 ? 'DNF' : elapsed >= 15000 ? '+2' : '';
+    cancelAnimationFrame(inspectionFrameId);
+    inspectionVoiceTimers.forEach(clearTimeout);
+    inspectionVoiceTimers = [];
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    return inspectionPenalty;
+}
+
+function resetInspection() {
+    clearTimeout(timerHoldTimeout);
+    cancelAnimationFrame(inspectionFrameId);
+    inspectionVoiceTimers.forEach(clearTimeout);
+    inspectionVoiceTimers = [];
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    pendingInspectionKey = null;
+    touchWasIdle = false;
+    inspectionPenalty = '';
+    setInspectionColor('');
+    if (['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) {
+        timerState = 'IDLE';
+        const display = document.getElementById('timer-display');
+        display.classList.remove('waiting', 'ready', 'nb-status-text');
+        display.innerText = formatNbTimerOutput(0);
+    }
+}
 
 let timerHistoryData = {};
 let currentTimerEvent = '333';
@@ -1947,9 +2074,10 @@ function openTimerTrendModal() {
     const chronoRecords = [...records].reverse();
 
     const labels = chronoRecords.map((_, i) => `#${i + 1}`);
-    const singleData = chronoRecords.map(r => r.effectiveMs !== Infinity ? Number((r.effectiveMs / 1000).toFixed(2)) : null);
-    const stat1Data = chronoRecords.map(r => r.stat1Ms !== Infinity ? Number((r.stat1Ms / 1000).toFixed(2)) : null);
-    const stat2Data = chronoRecords.map(r => r.stat2Ms !== Infinity ? Number((r.stat2Ms / 1000).toFixed(2)) : null);
+    const chartSeconds = ms => ms === Infinity ? null : Math.floor(ms / (uiSettings.nbPrecision === 3 ? 1 : 10)) / (uiSettings.nbPrecision === 3 ? 1000 : 100);
+    const singleData = chronoRecords.map(r => chartSeconds(r.effectiveMs));
+    const stat1Data = chronoRecords.map(r => chartSeconds(r.stat1Ms));
+    const stat2Data = chronoRecords.map(r => chartSeconds(r.stat2Ms));
 
     if (timerTrendChartInstance) {
         timerTrendChartInstance.destroy();
@@ -2044,13 +2172,13 @@ function calculateStat(slice, type, count) {
         if (vals.includes(Infinity)) return { str: 'DNF', ms: Infinity };
         let sum = vals.reduce((a,b) => a+b, 0);
         let avgMs = Math.floor(sum / count);
-        return { str: formatTimerOutput(avgMs), ms: avgMs };
+        return { str: formatNbTimerOutput(avgMs), ms: avgMs };
     } else {
         if (count < 3) {
             if (vals.includes(Infinity)) return { str: 'DNF', ms: Infinity };
             let sum = vals.reduce((a,b) => a+b, 0);
             let avgMs = Math.floor(sum / count);
-            return { str: formatTimerOutput(avgMs), ms: avgMs };
+            return { str: formatNbTimerOutput(avgMs), ms: avgMs };
         }
         vals.sort((a, b) => a - b);
         let sum = 0;
@@ -2061,7 +2189,7 @@ function calculateStat(slice, type, count) {
         }
         if (hasDNF) return { str: 'DNF', ms: Infinity };
         let avgMs = Math.floor(sum / (count - 2));
-        return { str: formatTimerOutput(avgMs), ms: avgMs };
+        return { str: formatNbTimerOutput(avgMs), ms: avgMs };
     }
 }
 
@@ -2075,13 +2203,13 @@ function recalculateSessionStats() {
         let r = sessionArr[i];
         if (r.penalty === '+2') {
             r.effectiveMs = r.rawMs + 2000;
-            r.displayTime = formatTimerOutput(r.effectiveMs) + '+';
+            r.displayTime = formatNbTimerOutput(r.effectiveMs) + '+';
         } else if (r.penalty === 'DNF') {
             r.effectiveMs = Infinity;
             r.displayTime = 'DNF';
         } else {
             r.effectiveMs = r.rawMs;
-            r.displayTime = formatTimerOutput(r.effectiveMs);
+            r.displayTime = formatNbTimerOutput(r.effectiveMs);
         }
     }
 
@@ -2127,20 +2255,21 @@ function stopTimer() {
     cancelAnimationFrame(requestAnimFrameId);
 
     let elapsed = Math.floor(performance.now() - solveStartTime);
-    let finalTimeStr = formatTimerOutput(elapsed);
+    let finalTimeStr = activeSolvePenalty === 'DNF' ? 'DNF' : formatNbTimerOutput(elapsed + (activeSolvePenalty === '+2' ? 2000 : 0)) + (activeSolvePenalty === '+2' ? '+' : '');
     document.getElementById('timer-display').innerText = finalTimeStr;
+    document.getElementById('timer-display').classList.remove('nb-status-text');
 
     // 核心拦截：如果开启了每次提示，则拦截保存动作，弹出卡片
     if (uiSettings.promptAction) {
         pendingSolveMs = elapsed;
-        setPostPenalty('', false); // 默认无惩罚，且不更新界面避免闪烁
+        setPostPenalty(activeSolvePenalty, false);
         document.getElementById('post-solve-time').innerText = finalTimeStr;
         document.getElementById('post-solve-modal').style.display = 'flex';
     } else {
         // 如果没开启，维持以前的无缝丝滑记录方式
         timerHistoryData[getTimerHistoryKey()].unshift({
             rawMs: elapsed,
-            penalty: "",
+            penalty: activeSolvePenalty,
             timestamp: getNowFormatted(),
             scramble: document.getElementById('scramble-text').innerText
         });
@@ -2160,9 +2289,9 @@ function setPostPenalty(pen, updateDisplay = true) {
 
     if (updateDisplay) {
         let simDisp = "";
-        if (pen === '+2') simDisp = formatTimerOutput(pendingSolveMs + 2000) + '+';
+        if (pen === '+2') simDisp = formatNbTimerOutput(pendingSolveMs + 2000) + '+';
         else if (pen === 'DNF') simDisp = 'DNF';
-        else simDisp = formatTimerOutput(pendingSolveMs);
+        else simDisp = formatNbTimerOutput(pendingSolveMs);
         document.getElementById('post-solve-time').innerText = simDisp;
     }
 }
@@ -2181,7 +2310,8 @@ function resumePostSolve() {
     function update() {
         if (timerState !== 'RUNNING') return;
         let elapsed = Math.floor(performance.now() - solveStartTime);
-        display.innerText = formatTimerOutput(elapsed);
+        display.innerText = formatNbRunningTime(elapsed);
+        display.classList.toggle('nb-status-text', ['onlyInspection', 'hidden'].includes(uiSettings.nbDisplayMode));
         requestAnimFrameId = requestAnimationFrame(update);
     }
     requestAnimationFrame(update);
@@ -2190,7 +2320,7 @@ function resumePostSolve() {
 // 丢弃成绩 (点击取消)：直接重置并给新打乱
 function cancelPostSolve() {
     document.getElementById('post-solve-modal').style.display = 'none';
-    document.getElementById('timer-display').innerText = '0.00';
+    document.getElementById('timer-display').innerText = formatNbTimerOutput(0);
     generateScramble();
 }
 
@@ -2247,9 +2377,9 @@ function renderTimerHistory() {
         let countEl = document.getElementById('timer-stat-count');
         if (countEl) countEl.innerText = `${validCount}/${records.length}`;
 
-        document.getElementById('timer-stat-best').innerText = `best: ` + (currentSessionBestMs !== Infinity ? formatTimerOutput(currentSessionBestMs) : 'DNF');
-        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? formatTimerOutput(currentSessionBestStat1Ms) : '-');
-        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? formatTimerOutput(currentSessionBestStat2Ms) : '-');
+        document.getElementById('timer-stat-best').innerText = `best: ` + (currentSessionBestMs !== Infinity ? formatNbTimerOutput(currentSessionBestMs) : 'DNF');
+        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? formatNbTimerOutput(currentSessionBestStat1Ms) : '-');
+        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? formatNbTimerOutput(currentSessionBestStat2Ms) : '-');
     } else {
         let countEl = document.getElementById('timer-stat-count');
         if (countEl) countEl.innerText = `0/0`;
@@ -2320,11 +2450,11 @@ function openAvgPopup(index, count, typeLabel, avgValue) {
         let isDNF = r.penalty === 'DNF';
         let sortMs = isDNF ? Infinity : actualMs;
 
-        let baseStr = formatTimerOutput(actualMs);
+        let baseStr = formatNbTimerOutput(actualMs);
         if (r.penalty === '+2') baseStr += '+';
 
         // 核心修改：DNF 强制拼接入原成绩
-        let dispStr = isDNF ? `DNF(${formatTimerOutput(r.rawMs)})` : baseStr;
+        let dispStr = isDNF ? `DNF(${formatNbTimerOutput(r.rawMs)})` : baseStr;
 
         if (sortMs < bestRaw) bestRaw = sortMs;
         if (sortMs > worstRaw) worstRaw = sortMs;
@@ -2371,9 +2501,9 @@ function openAvgPopup(index, count, typeLabel, avgValue) {
     } else {
         medianMs = allSortMs[mid];
     }
-    let medianStr = medianMs === Infinity ? "DNF" : formatTimerOutput(medianMs);
+    let medianStr = medianMs === Infinity ? "DNF" : formatNbTimerOutput(medianMs);
 
-    let bestStr = bestRaw === Infinity ? "DNF" : formatTimerOutput(bestRaw);
+    let bestStr = bestRaw === Infinity ? "DNF" : formatNbTimerOutput(bestRaw);
     let worstSolveObj = mappedSolves.find(s => s.sortMs === worstRaw);
     let worstStr = worstSolveObj ? worstSolveObj.baseDisp : "DNF";
 
@@ -2471,9 +2601,9 @@ function setEditPenalty(pen, updateDisplay = true) {
     if (updateDisplay) {
         const r = timerHistoryData[getTimerHistoryKey()][editScoreIndex];
         let simDisp = "";
-        if (pen === '+2') simDisp = formatTimerOutput(r.rawMs + 2000) + '+';
+        if (pen === '+2') simDisp = formatNbTimerOutput(r.rawMs + 2000) + '+';
         else if (pen === 'DNF') simDisp = 'DNF';
-        else simDisp = formatTimerOutput(r.rawMs);
+        else simDisp = formatNbTimerOutput(r.rawMs);
         document.getElementById('edit-time').innerText = simDisp;
     }
 }
@@ -2640,15 +2770,19 @@ function formatTimerOutput(ms) {
 }
 
 function startTimer() {
+    if (timerState === 'READY_INSPECTION') activeSolvePenalty = finishInspection();
+    else activeSolvePenalty = '';
     timerState = 'RUNNING';
     const display = document.getElementById('timer-display');
-    display.classList.remove('ready');
+    display.classList.remove('ready', 'waiting');
+    setInspectionColor('');
     solveStartTime = performance.now();
 
     function update() {
         if (timerState !== 'RUNNING') return;
         let elapsed = Math.floor(performance.now() - solveStartTime);
-        display.innerText = formatTimerOutput(elapsed);
+        display.innerText = formatNbRunningTime(elapsed);
+        display.classList.toggle('nb-status-text', ['onlyInspection', 'hidden'].includes(uiSettings.nbDisplayMode));
         requestAnimFrameId = requestAnimationFrame(update);
     }
     requestAnimationFrame(update);
@@ -2856,6 +2990,25 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    if (uiSettings.inspection && timerState === 'IDLE' && e.code === 'Space' && !e.repeat && !e.target.closest('input, textarea, select, button, [contenteditable="true"]')) {
+        e.preventDefault();
+        pendingInspectionKey = 'Space';
+        setInspectionColor('inspection-arming');
+        return;
+    }
+    if (uiSettings.inspection && timerState === 'OBSERVING' && e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        timerState = 'WAITING_INSPECTION';
+        setInspectionColor('inspection-holding');
+        timerHoldTimeout = setTimeout(() => {
+            if (timerState === 'WAITING_INSPECTION') {
+                timerState = 'READY_INSPECTION';
+                setInspectionColor('inspection-ready');
+            }
+        }, 350);
+        return;
+    }
+
     if (timerState === 'IDLE') {
         if (e.code === 'ArrowRight') {
             e.preventDefault();
@@ -2902,8 +3055,23 @@ document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (uiSettings.inspection && timerState === 'IDLE' && pendingInspectionKey === 'Space' && e.code === 'Space') {
+        pendingInspectionKey = null;
+        beginInspection();
+        return;
+    }
     if (e.code === 'Space') {
         const display = document.getElementById('timer-display');
+        if (timerState === 'WAITING_INSPECTION') {
+            clearTimeout(timerHoldTimeout);
+            timerState = 'OBSERVING';
+            setInspectionColor('inspecting');
+            return;
+        }
+        if (timerState === 'READY_INSPECTION') {
+            startTimer();
+            return;
+        }
         if (timerState === 'WAITING') {
             clearTimeout(timerHoldTimeout);
             timerState = 'IDLE';
@@ -2949,6 +3117,11 @@ document.addEventListener('touchstart', (e) => {
     }
 
     if (timerState === 'IDLE') {
+        if (uiSettings.inspection) {
+            touchWasIdle = true;
+            setInspectionColor('inspection-arming');
+            return;
+        }
         timerState = 'WAITING';
         const display = document.getElementById('timer-display');
         display.classList.add('waiting');
@@ -2957,6 +3130,15 @@ document.addEventListener('touchstart', (e) => {
                 timerState = 'READY';
                 display.classList.remove('waiting');
                 display.classList.add('ready');
+            }
+        }, 350);
+    } else if (uiSettings.inspection && timerState === 'OBSERVING') {
+        timerState = 'WAITING_INSPECTION';
+        setInspectionColor('inspection-holding');
+        timerHoldTimeout = setTimeout(() => {
+            if (timerState === 'WAITING_INSPECTION') {
+                timerState = 'READY_INSPECTION';
+                setInspectionColor('inspection-ready');
             }
         }, 350);
     }
@@ -2969,7 +3151,7 @@ document.addEventListener('touchmove', (e) => {
     if (isScrollableTimerScrambleTouch(e.target)) return;
     const isTimerArea = e.target.closest('#timer-tab-main');
 
-    if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY')) {
+    if (isTimerArea && (timerState === 'WAITING' || timerState === 'READY' || timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION' || touchWasIdle)) {
         let currentX = e.changedTouches[0].screenX;
         let currentY = e.changedTouches[0].screenY;
 
@@ -2987,8 +3169,11 @@ document.addEventListener('touchmove', (e) => {
         // 判定发生滑动，立即中断长按状态并恢复原色
         if (nbSwipeAction) {
             clearTimeout(timerHoldTimeout);
-            timerState = 'IDLE';
+            if (timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION') timerState = 'OBSERVING';
+            else if (!touchWasIdle) timerState = 'IDLE';
+            touchWasIdle = false;
             document.getElementById('timer-display').classList.remove('waiting', 'ready');
+            if (uiSettings.inspection) setInspectionColor(timerState === 'OBSERVING' ? 'inspecting' : '');
         }
 
         if(e.cancelable) e.preventDefault();
@@ -3003,29 +3188,51 @@ document.addEventListener('touchend', (e) => {
     const isTimerArea = e.target.closest('#timer-tab-main');
 
     if (!isTimerArea) {
-        if (timerState === 'WAITING' || timerState === 'READY') {
+        if (timerState === 'WAITING' || timerState === 'READY' || timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION') {
             clearTimeout(timerHoldTimeout);
-            timerState = 'IDLE';
+            timerState = uiSettings.inspection ? 'OBSERVING' : 'IDLE';
             document.getElementById('timer-display').classList.remove('waiting', 'ready');
         }
+        touchWasIdle = false;
+        if (uiSettings.inspection) setInspectionColor(timerState === 'OBSERVING' ? 'inspecting' : '');
         return;
     }
 
     if (nbSwipeAction === 'right') {
+        touchWasIdle = false;
         generateScramble();
         return;
     } else if (nbSwipeAction === 'down') {
+        touchWasIdle = false;
         openNbManualInput();
         return;
     } else if (nbSwipeAction === 'left') {
+        touchWasIdle = false;
         openNbDeleteLast();
         return;
     } else if (nbSwipeAction === 'up') {
+        touchWasIdle = false;
         openNbEditLast();
         return;
     }
 
     const display = document.getElementById('timer-display');
+    if (touchWasIdle && uiSettings.inspection && timerState === 'IDLE') {
+        touchWasIdle = false;
+        beginInspection();
+        return;
+    }
+    if (timerState === 'WAITING_INSPECTION') {
+        clearTimeout(timerHoldTimeout);
+        timerState = 'OBSERVING';
+        setInspectionColor('inspecting');
+        return;
+    }
+    if (timerState === 'READY_INSPECTION') {
+        if (e.cancelable) e.preventDefault();
+        startTimer();
+        return;
+    }
     if (timerState === 'WAITING') {
         clearTimeout(timerHoldTimeout);
         timerState = 'IDLE';
@@ -3033,6 +3240,21 @@ document.addEventListener('touchend', (e) => {
     } else if (timerState === 'READY') {
         if(e.cancelable) e.preventDefault();
         startTimer();
+    }
+}, { passive: false });
+
+document.addEventListener('touchcancel', (e) => {
+    if (!document.getElementById('timer-page').classList.contains('active') || currentTimerMode === 'smart' || !e.target.closest('#timer-tab-main')) return;
+    clearTimeout(timerHoldTimeout);
+    if (touchWasIdle) {
+        touchWasIdle = false;
+        setInspectionColor('');
+    } else if (timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION') {
+        timerState = 'OBSERVING';
+        setInspectionColor('inspecting');
+    } else if (timerState === 'WAITING' || timerState === 'READY') {
+        timerState = 'IDLE';
+        document.getElementById('timer-display').classList.remove('waiting', 'ready');
     }
 }, { passive: false });
 
@@ -3743,6 +3965,15 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+    for (const [name, enabled] of [['inspection', !!uiSettings.inspection], ['inspection-voice', !!uiSettings.inspectionVoice]]) {
+        document.getElementById(`btn-${name}-no`)?.classList.toggle('active', !enabled);
+        document.getElementById(`btn-${name}-yes`)?.classList.toggle('active', enabled);
+    }
+    const modeNames = { realtime: '实时', noDecimals: '不显示小数', onlyInspection: '仅观察', hidden: '隐藏' };
+    const modeLabel = document.getElementById('nb-display-mode-label');
+    if (modeLabel) modeLabel.innerText = modeNames[uiSettings.nbDisplayMode] || '实时';
+    const precisionLabel = document.getElementById('nb-precision-label');
+    if (precisionLabel) precisionLabel.innerText = uiSettings.nbPrecision === 3 ? '0.001秒' : '0.01秒';
 
     // 👇 新增：每次应用 UI 设置时，同步更新 Challenge 的缩放参数 👇
     let scScale = (uiSettings.chalScrambleSize || 100) / 100;
@@ -3817,6 +4048,67 @@ function applyUiSettings() {
         btnPromptNo.classList.toggle('active', !uiSettings.promptAction);
         btnPromptYes.classList.toggle('active', !!uiSettings.promptAction);
     }
+}
+
+function setNbTimingOption(option, value) {
+    if (option === 'inspection') {
+        uiSettings.inspection = !!value;
+        if (!value) {
+            resetInspection();
+            if (uiSettings.nbDisplayMode === 'onlyInspection') uiSettings.nbDisplayMode = 'realtime';
+        }
+    } else if (option === 'inspectionVoice') {
+        uiSettings.inspectionVoice = !!value;
+        inspectionVoiceTimers.forEach(clearTimeout);
+        inspectionVoiceTimers = [];
+        if (!value && window.speechSynthesis) window.speechSynthesis.cancel();
+        if (value && ['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) scheduleInspectionVoice();
+    } else if (option === 'display') {
+        if (value === 'onlyInspection' && !uiSettings.inspection) {
+            window.alert('请先开启「使用 WCA 观察」');
+            return;
+        }
+        uiSettings.nbDisplayMode = value;
+    } else if (option === 'precision') {
+        uiSettings.nbPrecision = value;
+        recalculateSessionStats();
+        if (timerState === 'IDLE' && document.getElementById('post-solve-modal').style.display !== 'flex') {
+            const latest = timerHistoryData[getTimerHistoryKey()]?.[0];
+            document.getElementById('timer-display').innerText = latest ? latest.displayTime : formatNbTimerOutput(0);
+        }
+    }
+    applyUiSettings();
+    saveTimerData();
+}
+
+function openNbTimingModal(kind) {
+    const options = kind === 'display' ? [
+        ['realtime', '实时'], ['noDecimals', '不显示小数'], ['onlyInspection', '仅观察'], ['hidden', '隐藏']
+    ] : [[2, '0.01秒'], [3, '0.001秒']];
+    document.getElementById('nb-timing-modal-title').innerText = kind === 'display' ? '计时器显示方式' : '计时器精确度';
+    const list = document.getElementById('nb-timing-options');
+    list.replaceChildren();
+    for (const [value, label] of options) {
+        const button = document.createElement('div');
+        button.className = `chal-event-item ${(kind === 'display' ? uiSettings.nbDisplayMode : uiSettings.nbPrecision) === value ? 'active' : ''}`;
+        button.style.cssText = 'padding:14px 15px;text-align:center;cursor:pointer';
+        button.innerText = label;
+        button.onclick = () => {
+            if (kind === 'display' && value === 'onlyInspection' && !uiSettings.inspection) {
+                window.alert('请先开启「使用 WCA 观察」');
+                return;
+            }
+            setNbTimingOption(kind, value);
+            closeNbTimingModal();
+        };
+        list.appendChild(button);
+    }
+    document.getElementById('nb-timing-modal').style.display = 'flex';
+}
+
+function closeNbTimingModal(e) {
+    if (e && e.target.id !== 'nb-timing-modal') return;
+    document.getElementById('nb-timing-modal').style.display = 'none';
 }
 
 function openFontModal() {
@@ -3953,7 +4245,9 @@ function handleCubeClick(face) {
         if (face === 'front') { navigateTo('timer-page'); initTimer(); }
         if (face === 'right') { initChallenge(); navigateTo('challenge-page'); }
     } else if (cubeState === 2) {
-        navigateTo('settings-page'); // 3个面统一进入设置
+        if (face === 'top') openCubeSpace();
+        if (face === 'front') openCompsPage();
+        if (face === 'right') navigateTo('settings-page');
     }
 }
 
@@ -4007,8 +4301,8 @@ function triggerCubeSpin(direction = 'right', isEntryAnim = false) {
                 elFront.innerText = 'NB Timer';
                 elRight.innerText = 'NB Challenge';
             } else if (cubeState === 2) {
-                elTop.innerText = '设置';
-                elFront.innerText = '设置';
+                elTop.innerText = '魔方空间';
+                elFront.innerText = '赛事';
                 elRight.innerText = '设置';
             }
         }, 350);
@@ -5028,9 +5322,9 @@ function setNbEditLastPenalty(pen) {
     if (!records || records.length === 0) return;
 
     let simDisp = "";
-    if (pen === '+2') simDisp = formatTimerOutput(records[0].rawMs + 2000) + '+';
+    if (pen === '+2') simDisp = formatNbTimerOutput(records[0].rawMs + 2000) + '+';
     else if (pen === 'DNF') simDisp = 'DNF';
-    else simDisp = formatTimerOutput(records[0].rawMs);
+    else simDisp = formatNbTimerOutput(records[0].rawMs);
 
     document.getElementById('edit-last-time').innerText = simDisp;
 }
@@ -5164,26 +5458,17 @@ async function initHomeData() {
 async function fetchCompetitions() {
     const grid = document.getElementById('recent-comps-grid');
     try {
-        const d = new Date();
-        const todayStr = d.toISOString().split('T')[0];
-
-        const resUp = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&start=${todayStr}&sort=start_date`);
-        let upcomingComps = resUp.ok ? await resUp.json() : [];
-
-        const [resPast1, resPast2] = await Promise.all([
-            fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&sort=-start_date&per_page=100&page=1`),
-            fetch(`https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=CN&sort=-start_date&per_page=100&page=2`)
-        ]);
-
-        let pastCompsAll = [];
-        if (resPast1.ok) pastCompsAll.push(...await resPast1.json());
-        if (resPast2.ok) pastCompsAll.push(...await resPast2.json());
-
-        let pastComps = pastCompsAll.filter(c => c.end_date < todayStr);
-
-        window.allCompsData = [];
-        upcomingComps.forEach(c => window.allCompsData.push(c));
-        pastComps.forEach(c => window.allCompsData.push(c));
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+        const competitions = [...chineseCompsById.values()].map(item => ({
+            id: item.id, name: item.name, start_date: item.startDate,
+            end_date: item.endDate || item.startDate, city: getChineseCompetitionLocation(item),
+            alias: item.alias
+        }));
+        const upcomingComps = competitions.filter(c => c.end_date >= todayStr)
+            .sort((a, b) => a.start_date.localeCompare(b.start_date));
+        const pastComps = competitions.filter(c => c.end_date < todayStr)
+            .sort((a, b) => b.start_date.localeCompare(a.start_date));
+        window.allCompsData = [...upcomingComps, ...pastComps];
 
         let displayComps = [];
         let homeUpcoming = upcomingComps.slice(0, 8);
@@ -5208,9 +5493,9 @@ async function fetchCompetitions() {
 }
 
 function createCompCard(comp, isListPage = false) {
-    const compName = comp.name;
+    const compName = getChineseCompetitionName(comp.name, comp.id);
     const city = comp.city || '中国';
-    const formatId = comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
+    const formatId = comp.alias || comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
     const cubingUrl = `https://cubing.com/competition/${formatId}`;
 
     const d = new Date();
@@ -5243,8 +5528,8 @@ function createCompCard(comp, isListPage = false) {
     card.innerHTML = `
         <div class="comp-title">${compName}</div>
         <div class="comp-meta-col">
-            <span>📍 ${city}</span>
-            <span>📅 ${comp.start_date}</span>
+            <div class="comp-meta-row"><span class="comp-meta-icon" aria-hidden="true">📍</span><span class="comp-meta-text">${city}</span></div>
+            <div class="comp-meta-row"><span class="comp-meta-icon" aria-hidden="true">📅</span><span class="comp-meta-text">${comp.start_date}</span></div>
         </div>
         ${tagHtml}
     `;
@@ -5413,14 +5698,14 @@ function createNewsCard(news, isFullPage) {
         </div>
     `;
 
-    let descHtml = `在 <strong>${news.comp}</strong> 赛场上，他凭借优异的发挥突破了极限。`;
+    let descHtml = `在 <strong>${getChineseCompetitionName(news.comp)}</strong> 上，他凭借优异的发挥突破了极限。`;
 
     let item = document.createElement('div');
     item.className = isFullPage ? 'news-card-item' : 'news-item';
     item.innerHTML = `
         ${titleHtml}
         <div class="news-desc">${descHtml}</div>
-        <div class="news-footer">️发布时间: ${news.date} &nbsp;·&nbsp; WCA ID: ${news.wcaId}</div>
+        <div class="news-footer">️发布时间：${news.date} &nbsp;·&nbsp; WCA ID：${news.wcaId}</div>
     `;
     return item;
 }
