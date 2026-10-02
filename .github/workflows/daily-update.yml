@@ -2,9 +2,9 @@ name: Auto Update WCA Database
 
 on:
   schedule:
-    # 每天 UTC 20:00
-    # = 北京时间 04:00
-    - cron: '0 20 * * *'
+    # 每天北京时间 04:00（Asia/Shanghai）
+    - cron: '0 4 * * *'
+      timezone: 'Asia/Shanghai'
 
   # 允许在 GitHub Actions 页面手动执行
   workflow_dispatch:
@@ -68,6 +68,7 @@ jobs:
 
           test -f wca_data.json
           test -f history_data.json
+          test -f competitions_zh.json
 
           echo "wca_data.json:"
           ls -lh wca_data.json
@@ -75,9 +76,14 @@ jobs:
           echo "history_data.json:"
           ls -lh history_data.json
 
+          echo "competitions_zh.json:"
+          ls -lh competitions_zh.json
+
           echo "JSON validation:"
           python -m json.tool wca_data.json > /dev/null
           python -m json.tool history_data.json > /dev/null
+          python -m json.tool competitions_zh.json > /dev/null
+          python -c "import json; rows=json.load(open('competitions_zh.json', encoding='utf-8')); assert rows, 'Chinese competition cache is empty'"
 
           echo "Generated JSON files are valid."
 
@@ -90,8 +96,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # 只提交网站真正需要的两个数据文件
-          git add wca_data.json history_data.json
+          git add wca_data.json history_data.json competitions_zh.json
 
           # 没有变化就正常退出
           if git diff --cached --quiet; then
