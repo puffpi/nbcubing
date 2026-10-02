@@ -29,6 +29,14 @@ function loadOptionalScript(url, ready) {
 }
 
 const ensureChartJs = () => loadOptionalScript('https://cdn.jsdelivr.net/npm/chart.js', () => !!window.Chart);
+async function ensureThreeCore() {
+    if (window.THREE) return;
+    try {
+        await loadOptionalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', () => !!window.THREE);
+    } catch (error) {
+        await loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', () => !!window.THREE);
+    }
+}
 let twistyPlayerPromise = null;
 function ensureTwistyPlayer() {
     if (customElements.get('twisty-player')) return Promise.resolve();
@@ -478,6 +486,7 @@ async function openFormulaCategory(type) {
 }
 
 async function openFormulaCase(type, name) {
+    const request = ++formulaCaseRequest;
     const [data, viewer] = await Promise.all([formulaDataFor(type), preloadFormulaViewer()]);
     const item = data[type]?.find(entry => String(entry.name) === String(name));
     if (!item) return;
@@ -504,7 +513,7 @@ async function openFormulaCase(type, name) {
         row.type = 'button';
         row.className = 'formula-variant';
         const label = document.createElement('strong');
-        label.textContent = `做法 ${index + 1}`;
+        label.textContent = `公式 ${index + 1}`;
         const moves = document.createElement('span');
         moves.textContent = algorithm;
         row.append(label, moves);
@@ -518,10 +527,23 @@ async function openFormulaCase(type, name) {
         variants.appendChild(row);
     });
     navigateTo('formula-detail-page', true);
-    formulaDetailCube = viewer.mountCube(document.getElementById('formula-detail-cube'));
+    const cubeContainer = document.getElementById('formula-detail-cube');
+    formulaDetailCube?.dispose();
+    formulaDetailCube = null;
+    cubeContainer.textContent = '正在加载魔方模型…';
     variants.firstElementChild?.click();
+    try {
+        await ensureThreeCore();
+        if (request !== formulaCaseRequest || !document.getElementById('formula-detail-page').classList.contains('active')) return;
+        formulaDetailCube = viewer.mountCube(cubeContainer);
+        variants.querySelector('.formula-variant.active')?.click();
+    } catch (error) {
+        console.warn('公式魔方模型加载失败', error);
+        if (request === formulaCaseRequest) cubeContainer.textContent = '魔方模型加载失败，请检查网络后重试';
+    }
 }
 let formulaDetailCube = null;
+let formulaCaseRequest = 0;
 
 function navigateTo(pageId, isForward = false) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => navigateTo(pageId, isForward))) return;
@@ -6473,7 +6495,7 @@ function undoCsAction() {
 }
 
 async function ensureCubeSpaceDependencies() {
-    await loadOptionalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', () => !!window.THREE);
+    await ensureThreeCore();
     await Promise.all([
         loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js', () => !!THREE.Reflector),
         loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', () => !!THREE.OrbitControls),
