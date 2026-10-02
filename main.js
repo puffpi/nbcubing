@@ -7,6 +7,64 @@ let inlinePkPlayerA = null;
 let pendingPkPlayerB = null;
 let isDataReady = false;
 let allHistoryData = {};
+let historyDataPromise = null;
+let isHistoryDataReady = false;
+const optionalScripts = new Map();
+
+function loadOptionalScript(url, ready) {
+    if (ready()) return Promise.resolve();
+    if (optionalScripts.has(url)) return optionalScripts.get(url);
+    const promise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = () => ready() ? resolve() : reject(new Error(`脚本未初始化：${url}`));
+        script.onerror = () => reject(new Error(`脚本加载失败：${url}`));
+        document.head.appendChild(script);
+    }).catch(error => {
+        optionalScripts.delete(url);
+        throw error;
+    });
+    optionalScripts.set(url, promise);
+    return promise;
+}
+
+const ensureChartJs = () => loadOptionalScript('https://cdn.jsdelivr.net/npm/chart.js', () => !!window.Chart);
+let twistyPlayerPromise = null;
+function ensureTwistyPlayer() {
+    if (customElements.get('twisty-player')) return Promise.resolve();
+    if (twistyPlayerPromise) return twistyPlayerPromise;
+    twistyPlayerPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = 'https://cdn.cubing.net/js/cubing/twisty';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('打乱图组件加载失败'));
+        document.head.appendChild(script);
+    }).catch(error => {
+        twistyPlayerPromise = null;
+        throw error;
+    });
+    return twistyPlayerPromise;
+}
+
+async function ensureHistoryData() {
+    if (historyDataPromise) return historyDataPromise;
+    historyDataPromise = fetch('history_data.json?v=' + new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }))
+        .then(response => {
+            if (!response.ok) throw new Error(`历史数据请求失败：HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            allHistoryData = data;
+            isHistoryDataReady = true;
+            return data;
+        })
+        .catch(error => {
+            historyDataPromise = null;
+            throw error;
+        });
+    return historyDataPromise;
+}
 // 非本地名单选手仅在打开个人主页后按 WCA ID 获取，当前会话复用结果。
 const remotePersonHistory = new Map();
 const remoteHistoryInflight = new Map();
@@ -55,6 +113,21 @@ async function fetchRemotePersonHistory(wcaId) {
 }
 let chineseCompsById = new Map();
 let chineseCompsByName = new Map();
+let chineseCompetitionsPromise = null;
+
+function ensureChineseCompetitions() {
+    if (chineseCompetitionsPromise) return chineseCompetitionsPromise;
+    chineseCompetitionsPromise = fetch('competitions_zh.json?v=2').then(async response => {
+        if (!response.ok) throw new Error(`赛事缓存请求失败：HTTP ${response.status}`);
+        const competitions = await response.json();
+        chineseCompsById = new Map(competitions.map(comp => [comp.id, comp]));
+        chineseCompsByName = new Map(competitions.map(comp => [comp.name, comp]));
+    }).catch(error => {
+        console.warn('中文赛事缓存读取失败，改用在线赛事数据。', error);
+        chineseCompetitionsPromise = null;
+    });
+    return chineseCompetitionsPromise;
+}
 
 function getChineseCompetitionName(name, id) {
     const entry = (id && chineseCompsById.get(id)) || chineseCompsById.get(name) || chineseCompsByName.get(name);
@@ -75,7 +148,12 @@ let hasHomeAnimated = false; // 记录首页是否已经完成过初始入场旋
 // ================= 新增：Supabase 数据库配置 =================
 const SUPABASE_URL = 'https://aizchgrmejdqwpvpxxui.supabase.co'; // 这是你截图里的 URL
 const SUPABASE_KEY = 'sb_publishable_VnqJY_Yz9PyqFhKxBPsasA_cgBb9JfU'; // 记得替换这串文字
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabaseClient = null;
+async function ensureSupabaseClient() {
+    if (supabaseClient) return supabaseClient;
+    await loadOptionalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', () => !!window.supabase?.createClient);
+    return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // ================= 新增：界面设置全局变量 =================
 let uiSettings = {
@@ -1113,8 +1191,17 @@ function renderPersonPage(cuber, preserveScroll = false) {
     navigateTo('person-page', true);
     if (preserveScroll) requestAnimationFrame(() => window.scrollTo(0, previousScrollY));
 
-    // 本地名单保持零网络请求；其他选手只在个人页打开后获取自己的历史成绩。
-    if (!allHistoryData[cuber.person.wca_id] && !remotePersonHistory.has(cuber.person.wca_id)) {
+    // 名单内选手等待共享历史文件；名单外选手才单独请求其 WCA 历史。
+    if (rosterIds.includes(cuber.person.wca_id) && !isHistoryDataReady) {
+        chartCard.style.display = 'block';
+        eventTabs.textContent = '正在读取历史成绩…';
+        ensureHistoryData().then(() => {
+            if (document.getElementById('person-page').classList.contains('active')) renderPersonPage(cuber, true);
+        }).catch(error => {
+            console.warn('历史成绩读取失败', error);
+            eventTabs.textContent = '历史成绩暂时无法读取，请稍后重试';
+        });
+    } else if (!allHistoryData[cuber.person.wca_id] && !remotePersonHistory.has(cuber.person.wca_id)) {
         const request = ++remoteHistoryRequest;
         chartCard.style.display = 'block';
         eventTabs.textContent = '正在读取历史成绩…';
@@ -1132,7 +1219,7 @@ function renderPersonPage(cuber, preserveScroll = false) {
     }
 }
 
-function updateChartAndTable() {
+async function updateChartAndTable() {
     if (!currentPersonHistory) return;
     const type = currentChartType;
     const eventId = currentChartEventId;
@@ -1168,7 +1255,11 @@ function updateChartAndTable() {
         }
     });
 
-    if (plotData.length > 0) {
+    if (plotData.length > 0 && !window.Chart) {
+        try { await ensureChartJs(); }
+        catch (error) { console.warn('图表组件加载失败', error); }
+    }
+    if (plotData.length > 0 && window.Chart) {
         let chartValues = plotData.map(p => eventId === '333fm' && type === 'single' ? p.y : p.y / 100);
         let labels = plotData.map(p => p.x);
 
@@ -1630,6 +1721,16 @@ function setRecordHistoryType(type) {
 function generateRecords() {
     if (!isDataReady) return;
     const tbody = document.getElementById('records-tbody');
+    if (recordsMode !== 'current' && !isHistoryDataReady) {
+        tbody.textContent = '正在读取历史纪录…';
+        ensureHistoryData().then(() => {
+            if (document.getElementById('records-page').classList.contains('active') && recordsMode !== 'current') generateRecords();
+        }).catch(error => {
+            console.warn('历史纪录加载失败', error);
+            tbody.textContent = '历史纪录暂时无法读取，请稍后重试';
+        });
+        return;
+    }
 
     // 强制重置上一轮动画
     tbody.classList.remove('ranking-transition-in', 'ranking-transition-out');
@@ -1855,22 +1956,10 @@ async function initData() {
 
     const loader = document.getElementById('global-loading');
     try {
-        const [resWca, resHist, resComps] = await Promise.all([
-            fetch('wca_data.json?t=' + new Date().getTime()),
-            fetch('history_data.json?t=' + new Date().getTime()),
-            fetch('competitions_zh.json?v=2').catch(() => null)
-        ]);
+        const dailyVersion = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+        const resWca = await fetch('wca_data.json?v=' + dailyVersion);
+        if (!resWca.ok) throw new Error(`选手数据请求失败：HTTP ${resWca.status}`);
         allCubersData = await resWca.json();
-        allHistoryData = await resHist.json();
-        if (resComps?.ok) {
-            try {
-                const chineseComps = await resComps.json();
-                chineseCompsById = new Map(chineseComps.map(comp => [comp.id, comp]));
-                chineseCompsByName = new Map(chineseComps.map(comp => [comp.name, comp]));
-            } catch (error) {
-                console.warn('中文赛事缓存读取失败，改用在线赛事数据。', error);
-            }
-        }
         isDataReady = true;
         if (loader) loader.style.display = 'none';
 
@@ -2309,13 +2398,19 @@ function closeTimerDistModal() {
 // ================= 折线图走势引擎 =================
 let timerTrendChartInstance = null;
 
-function openTimerTrendModal() {
+async function openTimerTrendModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
     const records = timerHistoryData[getTimerHistoryKey()] || [];
     const ctx = document.getElementById('timer-trend-canvas').getContext('2d');
 
     if (records.length === 0) {
         alert('暂无成绩数据可生成图表');
+        return;
+    }
+    try { await ensureChartJs(); }
+    catch (error) {
+        console.warn('图表组件加载失败', error);
+        alert('图表暂时无法加载，请检查网络后重试');
         return;
     }
 
@@ -2914,6 +3009,7 @@ function switchTimerTab(tabName) {
 let timerTempEvent = '333';
 
 function initTimer() {
+    ensureTwistyPlayer().catch(error => console.warn(error));
     loadTimerData();
     applyTimerMode();
 
@@ -4754,6 +4850,7 @@ function processMonthlyResults(attemptsData, evId) {
 
 // ---------------- 身份验证与路由分发 ----------------
 function initMonthly() {
+    ensureTwistyPlayer().catch(error => console.warn(error));
     if (!uiSettings.username) {
         document.getElementById('monthly-input-name').value = '';
         document.getElementById('monthly-input-wcaid').value = '';
@@ -4846,9 +4943,10 @@ async function renderMonthlyList() {
 
     // 第二步：后台静默拉取云端数据，不阻塞页面交互
     try {
+        const client = await ensureSupabaseClient();
         const monthRange = getCurrentMonthCloudRange();
         const { data, error } = await monthlyCloudRequest(
-            supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
+            client.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
                 .gte('created_at', monthRange.start)
                 .lt('created_at', monthRange.end)
         );
@@ -5652,7 +5750,8 @@ function syncMonthlyResultToCloud() {
 
 // 1. 上传成绩到全网
 async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
-    const { data, error } = await supabaseClient
+    const client = await ensureSupabaseClient();
+    const { data, error } = await client
         .from('WeeklyRecord')
         .insert([
             {
@@ -5673,8 +5772,9 @@ async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
 
 // 2. 从全网拉取排行榜
 async function fetchWeeklyLeaderboard(eventId) {
+    const client = await ensureSupabaseClient();
     const monthRange = getCurrentMonthCloudRange();
-    const { data, error } = await monthlyCloudRequest(supabaseClient
+    const { data, error } = await monthlyCloudRequest(client
         .from('WeeklyRecord')
         .select('*')
         .eq('event_id', eventId)
@@ -5740,8 +5840,16 @@ async function initHomeData() {
     });
 
     renderHomeRecords();
-    buildNewsTimeline();
+    await ensureChineseCompetitions();
     await fetchCompetitions();
+    // 首屏卡片已经可用后，再获取较大的历史文件并生成资讯。
+    ensureHistoryData().then(() => {
+        buildNewsTimeline();
+        if (document.getElementById('news-page').classList.contains('active')) renderNewsPage();
+    }).catch(error => {
+        console.warn('首页资讯加载失败', error);
+        document.getElementById('news-list').textContent = '资讯暂时无法读取，请稍后刷新';
+    });
 }
 
 // ---------------- 1. 赛事引擎 ----------------
@@ -5904,7 +6012,8 @@ function renderCompsPage() {
 function openNewsPage() {
     navigateTo('news-page', true);
     window.currentNewsPage = 1;
-    renderNewsPage();
+    if (isHistoryDataReady) renderNewsPage();
+    else document.getElementById('all-news-list').textContent = '正在读取资讯…';
 }
 
 function goToNewsPage(page) {
@@ -6363,8 +6472,28 @@ function undoCsAction() {
     saveCsConfig();
 }
 
-function openCubeSpace() {
+async function ensureCubeSpaceDependencies() {
+    await loadOptionalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', () => !!window.THREE);
+    await Promise.all([
+        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js', () => !!THREE.Reflector),
+        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', () => !!THREE.OrbitControls),
+        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js', () => !!THREE.TransformControls)
+    ]);
+    initCsTvTexture();
+}
+
+async function openCubeSpace() {
     window.closeNavDropdowns();
+    if (!isCsInitialized) {
+        const loader = document.getElementById('global-loading');
+        loader.style.display = 'flex';
+        try { await ensureCubeSpaceDependencies(); }
+        catch (error) {
+            console.warn('魔方空间组件加载失败', error);
+            alert('魔方空间暂时无法加载，请检查网络后重试');
+            return;
+        } finally { loader.style.display = 'none'; }
+    }
     document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
     document.getElementById('cube-space-page').classList.add('active');
     csEnterLandscape();
@@ -7629,16 +7758,20 @@ function initInfoCardListeners() {
 // ==================== 电脑屏幕开机动画与控制逻辑 ====================
 
 // 【4K超清画板】：匹配你的原图精度
-const tvCanvas = document.createElement('canvas');
-tvCanvas.width = 2048;
-tvCanvas.height = 1024;
-const tvCtx = tvCanvas.getContext('2d');
-const tvTexture = new THREE.CanvasTexture(tvCanvas);
-
-// 开启各向异性过滤与线性过滤，消除 3D 透视下的像素锯齿
-tvTexture.minFilter = THREE.LinearFilter;
-tvTexture.magFilter = THREE.LinearFilter;
-tvTexture.anisotropy = 16;
+let tvCanvas = null;
+let tvCtx = null;
+let tvTexture = null;
+function initCsTvTexture() {
+    if (tvTexture) return;
+    tvCanvas = document.createElement('canvas');
+    tvCanvas.width = 2048;
+    tvCanvas.height = 1024;
+    tvCtx = tvCanvas.getContext('2d');
+    tvTexture = new THREE.CanvasTexture(tvCanvas);
+    tvTexture.minFilter = THREE.LinearFilter;
+    tvTexture.magFilter = THREE.LinearFilter;
+    tvTexture.anisotropy = 16;
+}
 
 function toggleCsTv(isOn) {
     if (csInteractObject && csInteractObject.userData.id === 'smart_tv') {

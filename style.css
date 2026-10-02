@@ -2498,10 +2498,10 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 .formula-method-intro p { margin: 0 0 10px; color: var(--text-main); }
 .formula-method-intro a { font-size: 13px; color: var(--primary-color); text-decoration: none; }
 .formula-case-list { max-width: 1000px; margin: 0 auto; display: grid; gap: 10px; color: var(--text-muted); }
-.formula-case-card { display: grid; grid-template-columns: 100px 124px minmax(0, 1fr); gap: 18px; align-items: center; min-height: 124px; width: 100%; text-align: left; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 13px; background: #fff; cursor: pointer; color: var(--text-main); }
+.formula-case-card { display: grid; grid-template-columns: 112px 124px minmax(0, 1fr); gap: 18px; align-items: center; min-height: 124px; width: 100%; text-align: left; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 13px; background: #fff; cursor: pointer; color: var(--text-main); }
 .formula-case-card:hover { border-color: #b5c8e1; background: #f9fbfe; }
-.formula-case-label { font-weight: 700; color: var(--text-main); white-space: nowrap; }
-.formula-case-alg { color: var(--text-main); font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.formula-case-label { font-size: 20px; font-weight: 700; color: var(--text-main); white-space: nowrap; }
+.formula-case-alg { color: var(--text-main); font-family: 'SFMono-Regular', Consolas, monospace; font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
 .formula-case-diagram { width: 104px; height: 92px; display: grid; place-items: center; align-self: center; }
 .formula-case-diagram svg { width: 100%; height: 100%; }
 .formula-case-diagram:has(svg[aria-label="F2L 案例三面图"]) { width: 104px; height: 98px; }
@@ -2527,9 +2527,10 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     .formula-method-intro { padding: 20px; }
     .formula-stage-grid { grid-template-columns: 1fr; }
     .formula-case-card { grid-template-columns: 90px minmax(0, 1fr); gap: 8px 14px; }
+    .formula-case-label { grid-column: 1 / -1; font-size: 20px; }
     .formula-case-diagram { grid-column: 1; grid-row: 2; width: 90px; }
     .formula-case-diagram:has(svg[aria-label="F2L 案例三面图"]) { width: 90px; height: 92px; }
-    .formula-case-alg { grid-column: 2; grid-row: 2; font-size: 13px; }
+    .formula-case-alg { grid-column: 2; grid-row: 2; font-size: 18px; }
     .formula-detail-top { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 360px; }
     .formula-detail-diagram, .formula-detail-cube-wrap { width: 100%; }
     .formula-detail-diagram, .formula-detail-cube-wrap { border-radius: 18px; }

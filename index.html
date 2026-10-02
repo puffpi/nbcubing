@@ -4,19 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
-    <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
-    <link rel="stylesheet" href="style.css?v=1.17-person-top-inset">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 核心新增：引入 WCA 官方的 2D/3D 魔方渲染组件库 -->
-    <script type="module" src="https://cdn.cubing.net/js/cubing/twisty"></script>
-
-    <!-- 👇 新增：Three.js 核心库及其交互控制插件，用于构建魔方空间 👇 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="style.css?v=1.17-formula-type-balanced">
 </head>
 <body>
 
@@ -128,7 +117,7 @@
                     <span class="more-link" onclick="openCompsPage()">更多赛事 ></span>
                 </div>
                 <div id="recent-comps-grid" class="comps-grid">
-                    <div style="color: var(--text-muted); font-size: 14px;">正在从 WCA 官方拉取赛事信息...</div>
+                    <div style="color: var(--text-muted); font-size: 14px;">正在加载近期赛事…</div>
                 </div>
             </section>
 
@@ -138,7 +127,7 @@
                         <h3 class="section-title">新闻资讯</h3>
                         <span class="more-link" onclick="openNewsPage()">更多资讯 ></span>
                     </div>
-                    <div id="news-list" class="news-list"></div>
+                    <div id="news-list" class="news-list">正在加载资讯…</div>
                 </section>
 
                 <section class="home-section records-section">
@@ -342,7 +331,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.28.12</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.30.12</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -1715,7 +1704,7 @@
             <span id="cs-hologram-text">这里是播报内容...</span>
         </div>
 
-        <audio id="cs-bgm" src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=calm-minecraft-style-music-111111.mp3" loop preload="auto"></audio>
+        <audio id="cs-bgm" src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=calm-minecraft-style-music-111111.mp3" loop preload="none"></audio>
 
         <div id="cs-dock-wrapper" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px;">
             <div id="cs-main-dock" class="cs-dock collapsed" style="background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(16px); padding: 8px 16px; border-radius: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.6); display: flex; align-items: center; gap: 15px; transition: all 0.3s;">
@@ -1740,7 +1729,7 @@
     </div>
 
     <script src="database.js"></script>
-    <script src="main.js?v=1.17-person-best-top"></script>
+    <script src="main.js?v=1.17-startup-lazy"></script>
     <script src="timer-smart.js?v=1.17-detail18"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>
