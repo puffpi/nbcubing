@@ -32,9 +32,13 @@ const ensureChartJs = () => loadOptionalScript('https://cdn.jsdelivr.net/npm/cha
 async function ensureThreeCore() {
     if (window.THREE) return;
     try {
-        await loadOptionalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', () => !!window.THREE);
+        await loadOptionalScript('vendor/three.min.js?v=r128', () => !!window.THREE);
     } catch (error) {
-        await loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', () => !!window.THREE);
+        try {
+            await loadOptionalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', () => !!window.THREE);
+        } catch (fallbackError) {
+            await loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', () => !!window.THREE);
+        }
     }
 }
 let twistyPlayerPromise = null;
@@ -44,7 +48,7 @@ function ensureTwistyPlayer() {
     twistyPlayerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.type = 'module';
-        script.src = 'https://cdn.cubing.net/js/cubing/twisty';
+        script.src = 'https://cdn.cubing.net/v0/js/cubing/twisty';
         script.onload = resolve;
         script.onerror = () => reject(new Error('打乱图组件加载失败'));
         document.head.appendChild(script);
@@ -53,6 +57,16 @@ function ensureTwistyPlayer() {
         throw error;
     });
     return twistyPlayerPromise;
+}
+
+// 首屏完成后再预热打乱图组件，进入计时器时通常已可直接绘制。
+function preloadTimerDiagram() {
+    const start = () => ensureTwistyPlayer().catch(error => console.warn('打乱图预载失败', error));
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(start, { timeout: 4000 });
+    } else {
+        setTimeout(start, 2000);
+    }
 }
 
 async function ensureHistoryData() {
@@ -413,7 +427,7 @@ function preloadFormulaViewer() {
     if (formulaViewerPromise) return formulaViewerPromise;
     formulaViewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'formulas/formula_viewer.js?v=7';
+        script.src = 'formulas/formula_viewer.js?v=8';
         script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
         script.onerror = () => reject(new Error('公式图示组件加载失败'));
         document.body.appendChild(script);
@@ -1984,6 +1998,7 @@ async function initData() {
         allCubersData = await resWca.json();
         isDataReady = true;
         if (loader) loader.style.display = 'none';
+        preloadTimerDiagram();
 
         // 👇 核心新增：初始化纪录页面的项目图标 👇
         initRecordsTabs();
@@ -3155,7 +3170,70 @@ function startTimer() {
     requestAnimationFrame(update);
 }
 
-// 提取通用的打乱引擎 (严格匹配 WCA TNoodle 规则)
+// SQ1 每层按 12 个 30° 单位记录；角块占两格，棱块占一格。
+// 先检查斜切两端都落在块间，再真正交换两层的半圈。
+function rotateSquare1Layer(layer, amount) {
+    const shift = ((amount % 12) + 12) % 12;
+    return shift ? layer.slice(12 - shift).concat(layer.slice(0, 12 - shift)) : layer.slice();
+}
+
+function canSliceSquare1(layer) {
+    return layer[0] !== layer[11] && layer[6] !== layer[5];
+}
+
+function hasSquare1CubeShape(layer) {
+    if (!canSliceSquare1(layer)) return false;
+    const widths = [];
+    for (let i = 0; i < 12;) {
+        let end = i + 1;
+        while (end < 12 && layer[end] === layer[i]) end++;
+        widths.push(end - i);
+        i = end;
+    }
+    return widths.length === 8 && widths.every((width, i) =>
+        (width === 1 || width === 2) && width !== widths[(i + 1) % widths.length]);
+}
+
+function sliceSquare1(top, bottom) {
+    return [
+        bottom.slice(0, 6).reverse().concat(top.slice(6)),
+        top.slice(0, 6).reverse().concat(bottom.slice(6))
+    ];
+}
+
+function getSquare1Scramble() {
+    let top = [0, 0, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7];
+    let bottom = [8, 9, 9, 10, 11, 11, 12, 13, 13, 14, 15, 15];
+    const moves = [];
+    let variedOpeningMoves = 0;
+
+    for (let step = 0; step < 12; step++) {
+        const candidates = [];
+        for (let upper = -5; upper <= 6; upper++) {
+            for (let lower = -5; lower <= 6; lower++) {
+                if (upper === 0 && lower === 0) continue;
+                const nextTop = rotateSquare1Layer(top, upper);
+                const nextBottom = rotateSquare1Layer(bottom, -lower);
+                if (!canSliceSquare1(nextTop) || !canSliceSquare1(nextBottom)) continue;
+                const [slicedTop, slicedBottom] = sliceSquare1(nextTop, nextBottom);
+                if (step < 5 && (!hasSquare1CubeShape(slicedTop) || !hasSquare1CubeShape(slicedBottom))) continue;
+                const isVaried = upper % 3 !== 0 || lower % 3 !== 0;
+                if (step < 5 && step >= 3 && variedOpeningMoves < 2 && !isVaried) continue;
+                if (moves.length && moves[moves.length - 1] === `(${upper},${lower})`) continue;
+                candidates.push({ upper, lower, slicedTop, slicedBottom, isVaried });
+            }
+        }
+        const move = candidates[Math.floor(Math.random() * candidates.length)];
+        if (!move) throw new Error('SQ1 无法生成合法的后续斜切');
+        moves.push(`(${move.upper},${move.lower})`);
+        if (step < 5 && move.isVaried) variedOpeningMoves++;
+        top = move.slicedTop;
+        bottom = move.slicedBottom;
+    }
+    return moves.join(' / ') + ' /';
+}
+
+// 提取通用的打乱引擎
 function getScrambleByEvent(ev) {
     let scramble = "";
 
@@ -3198,27 +3276,7 @@ function getScrambleByEvent(ev) {
         }
         scramble = res.join(" ");
     } else if (ev === 'sq1') {
-        let res = [];
-        // 3代表90度，选取3的倍数即可保证不破坏方形
-        let safeMoves = [-3, 0, 3, 6];
-
-        for(let i = 0; i < 12; i++) {
-            let top, bot;
-            do {
-                if (i < 5) {
-                    // 前 5 个括号限制在安全度数内，保持形状
-                    top = safeMoves[Math.floor(Math.random() * safeMoves.length)];
-                    bot = safeMoves[Math.floor(Math.random() * safeMoves.length)];
-                } else {
-                    // 5 个括号之后，恢复完全随机，开始破坏形状
-                    top = Math.floor(Math.random() * 12) - 5;
-                    bot = Math.floor(Math.random() * 12) - 5;
-                }
-            } while (top === 0 && bot === 0); // 顺便加个拦截，防止出现 (0,0) 的无效打乱
-
-            res.push(`(${top},${bot})`);
-        }
-        scramble = res.join(" / ");
+        scramble = getSquare1Scramble();
     } else if (ev === 'clock') {
         // 核心修复魔表：严格区分正负数语法，完美适配官方解析器
         let clockMoves1 = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];

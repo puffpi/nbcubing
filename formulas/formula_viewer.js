@@ -146,18 +146,21 @@
         const bodyGeometry=new THREE.BoxGeometry(.97,.97,.97);
         const stickerGeometry=new THREE.PlaneGeometry(.84,.84);
         const bodyMaterial=new THREE.MeshStandardMaterial({color:0x19212c,roughness:.72});
-        const materials=Object.fromEntries(Object.entries(COLORS).map(([face,color])=>[face,new THREE.MeshStandardMaterial({color,roughness:.55})]));
+        // 贴纸保持纯色，并向镜头微移以避开手机 GPU 上贴纸与黑色块体的深度冲突。
+        const materials=Object.fromEntries(Object.entries(COLORS).map(([face,color])=>[face,new THREE.MeshBasicMaterial({
+            color, side:THREE.FrontSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2
+        })]));
         for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++) {
             if(x===0&&y===0&&z===0) continue;
             const piece=new THREE.Group(); piece.position.set(x,y,z);
             piece.add(new THREE.Mesh(bodyGeometry,bodyMaterial));
             const add=(face,position,rotation)=>{const sticker=new THREE.Mesh(stickerGeometry,materials[face]);sticker.position.set(...position);sticker.rotation.set(...rotation);piece.add(sticker);};
-            if(y===1)add('U',[0,.495,0],[-Math.PI/2,0,0]);
-            if(y===-1)add('D',[0,-.495,0],[Math.PI/2,0,0]);
-            if(z===1)add('F',[0,0,.495],[0,0,0]);
-            if(z===-1)add('B',[0,0,-.495],[0,Math.PI,0]);
-            if(x===1)add('R',[.495,0,0],[0,Math.PI/2,0]);
-            if(x===-1)add('L',[-.495,0,0],[0,-Math.PI/2,0]);
+            if(y===1)add('U',[0,.502,0],[-Math.PI/2,0,0]);
+            if(y===-1)add('D',[0,-.502,0],[Math.PI/2,0,0]);
+            if(z===1)add('F',[0,0,.502],[0,0,0]);
+            if(z===-1)add('B',[0,0,-.502],[0,Math.PI,0]);
+            if(x===1)add('R',[.502,0,0],[0,Math.PI/2,0]);
+            if(x===-1)add('L',[-.502,0,0],[0,-Math.PI/2,0]);
             root.add(piece); cubies.push({piece,home:[x,y,z],position:[x,y,z]});
         }
         scene.add(new THREE.HemisphereLight(0xffffff,0xc7d4e4,.9));
