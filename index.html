@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css">
-    <link rel="stylesheet" href="style.css?v=1.17-competition-zh6">
+    <link rel="stylesheet" href="style.css?v=1.17-person-top-inset">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 核心新增：引入 Supabase 官方数据库 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -82,8 +82,8 @@
             <div class="nav-menu-item has-dropdown">赛事
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
-                    <a onclick="openCompsPage()">WCA 赛事</a>
-                    <a onclick="alert('等待中国魔方官网开放数据，敬请期待！')">CCA 赛事</a>
+                    <a onclick="openCompsPage()">世界魔方协会</a>
+                    <a onclick="alert('等待中国魔方官网开放数据，敬请期待！')">中国魔方官网</a>
                 </div>
             </div>
             <div class="nav-menu-item has-dropdown">成绩
@@ -106,10 +106,15 @@
             <div class="nav-menu-item has-dropdown">其他
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
-                    <a href="https://cstimer.net/" target="_blank" rel="noopener noreferrer">csTimer</a>
+                    <a onclick="openFormulaLibrary()">公式 · 方法</a>
                 </div>
             </div>
-            <div class="nav-menu-item" onclick="navigateTo('settings-page')">设置</div>
+            <div class="nav-menu-item has-dropdown">系统
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <div class="dropdown-content">
+                    <a onclick="navigateTo('settings-page', true)">设置</a>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -208,6 +213,91 @@
         <p style="text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 400; margin-top: auto; margin-bottom: 5px; letter-spacing: 0.5px;">作者：b站@泡芙老师k3</p>
     </div>
 
+    <!-- 按需加载的公式集：入口、方法介绍和公式列表 -->
+    <div id="formula-page" class="page-container formula-page">
+        <div class="page-header formula-header">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2>公式 · 方法</h2></div>
+        </div>
+        <div class="formula-library-grid">
+            <button class="formula-navigation-card" onclick="openCfopMethod()">
+                <span class="formula-card-name">CFOP</span>
+                <span class="formula-card-caption">三阶速拧 · 层先法进阶</span>
+                <span class="formula-card-arrow">›</span>
+            </button>
+            <button class="formula-navigation-card" onclick="openCollMethod()">
+                <span class="formula-card-name">COLL</span>
+                <span class="formula-card-caption">三阶速拧 · 顶层进阶</span>
+                <span class="formula-card-arrow">›</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="formula-coll-page" class="page-container formula-page">
+        <div class="page-header formula-header">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2>COLL</h2></div>
+        </div>
+        <div class="formula-method-intro card">
+            <h3>COLL 简介</h3>
+            <p>COLL 在顶层棱块已经朝向正确时，一次完成顶层角块的朝向和排列；之后只需处理顶层棱块的排列。识别时除了顶面的黄色分布，也要观察角块侧面的颜色。</p>
+            <a href="https://cubeskills.com/tutorials/coll-algorithms" target="_blank" rel="noopener noreferrer">了解 COLL ↗</a>
+        </div>
+        <div class="formula-library-grid formula-stage-grid">
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_pi')"><span class="formula-card-name">Pi Case</span><span class="formula-card-caption">Pi 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_h')"><span class="formula-card-name">H Case</span><span class="formula-card-caption">H 形 · 4 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_t')"><span class="formula-card-name">T Case</span><span class="formula-card-caption">T 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_l')"><span class="formula-card-name">L Case</span><span class="formula-card-caption">L 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_u')"><span class="formula-card-name">U Case</span><span class="formula-card-caption">U 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_sune')"><span class="formula-card-name">Sune Case</span><span class="formula-card-caption">Sune 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('coll_antisune')"><span class="formula-card-name">Anti-Sune Case</span><span class="formula-card-caption">反 Sune 形 · 6 个案例</span><span class="formula-card-arrow">›</span></button>
+        </div>
+    </div>
+
+    <div id="formula-method-page" class="page-container formula-page">
+        <div class="page-header formula-header">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2>CFOP</h2></div>
+        </div>
+        <div class="formula-method-intro card">
+            <h3>CFOP 简介</h3>
+            <p>CFOP 是三阶魔方常用的速拧方法，依次完成底层十字（Cross）、前两层（F2L）、顶层朝向（OLL）和顶层排列（PLL）。F2L 将角块与棱块配对后一起插入；OLL 统一顶层颜色朝向；PLL 调整顶层块的位置，完成还原。</p>
+            <a href="https://www.cubeskills.com/tutorials/f2l" target="_blank" rel="noopener noreferrer">了解 CFOP 基础 ↗</a>
+        </div>
+        <div class="formula-library-grid formula-stage-grid">
+            <button class="formula-navigation-card" onclick="openFormulaCategory('cross')"><span class="formula-card-name">Cross</span><span class="formula-card-caption">底层十字 · 观察与练习</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('f2l')"><span class="formula-card-name">F2L</span><span class="formula-card-caption">前两层 · 41 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('oll')"><span class="formula-card-name">OLL</span><span class="formula-card-caption">顶层朝向 · 57 个案例</span><span class="formula-card-arrow">›</span></button>
+            <button class="formula-navigation-card" onclick="openFormulaCategory('pll')"><span class="formula-card-name">PLL</span><span class="formula-card-caption">顶层排列 · 21 个案例</span><span class="formula-card-arrow">›</span></button>
+        </div>
+    </div>
+
+    <div id="formula-category-page" class="page-container formula-page">
+        <div class="page-header formula-header">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2 id="formula-category-title">公式</h2></div>
+        </div>
+        <div id="formula-case-list" class="formula-case-list"></div>
+    </div>
+
+    <div id="formula-detail-page" class="page-container formula-page">
+        <div class="page-header formula-header">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2 id="formula-detail-title">公式</h2></div>
+        </div>
+        <div class="formula-detail-top">
+            <div class="formula-detail-diagram"><div id="formula-detail-image"></div></div>
+            <div class="formula-detail-cube-wrap">
+                <div id="formula-detail-cube" aria-label="可拖动旋转的三阶魔方公式演示"></div>
+                <div class="formula-cube-controls">
+                    <button id="formula-replay" type="button" aria-label="重播当前公式" title="重播当前公式">↻</button>
+                    <button id="formula-speed" type="button" aria-label="调整演示速度" title="调整演示速度">1.0×</button>
+                </div>
+            </div>
+        </div>
+        <div id="formula-variants" class="formula-variants"></div>
+    </div>
+
     <!-- =========================================
          全局设置页面
     ========================================= -->
@@ -252,7 +342,7 @@
 
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.27.12</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.28.12</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -1342,6 +1432,12 @@
         </div>
     </div>
 
+    <button id="person-back-top" type="button" aria-label="返回个人页面顶部" title="返回顶部" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m5 14 7-7 7 7" />
+        </svg>
+    </button>
+
     <!-- NB Challenge 页面 -->
     <div id="challenge-page" class="page-container">
         <!-- 电脑端专属顶部导航栏 -->
@@ -1644,7 +1740,7 @@
     </div>
 
     <script src="database.js"></script>
-    <script src="main.js?v=1.17-monthly-cloud1"></script>
+    <script src="main.js?v=1.17-person-best-top"></script>
     <script src="timer-smart.js?v=1.17-detail18"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>

@@ -7,6 +7,52 @@ let inlinePkPlayerA = null;
 let pendingPkPlayerB = null;
 let isDataReady = false;
 let allHistoryData = {};
+// 非本地名单选手仅在打开个人主页后按 WCA ID 获取，当前会话复用结果。
+const remotePersonHistory = new Map();
+const remoteHistoryInflight = new Map();
+let remoteHistoryRequest = 0;
+
+function normalizeRemotePersonHistory(personData) {
+    if (!personData || !personData.results || typeof personData.results !== 'object') return null;
+    const history = {};
+    for (const [competitionId, events] of Object.entries(personData.results)) {
+        if (!events || typeof events !== 'object') continue;
+        const competition = chineseCompsById.get(competitionId);
+        const year = competitionId.match(/(?:19|20)\d{2}$/)?.[0] || '';
+        for (const [eventId, rounds] of Object.entries(events)) {
+            if (!Array.isArray(rounds)) continue;
+            for (const round of rounds) {
+                const solves = Array.isArray(round.solves?.[0])
+                    ? round.solves[0]
+                    : Array.isArray(round.solves) && typeof round.solves[0] === 'string'
+                        ? round.solves[0].trim().split(/\s+/)
+                        : (Array.isArray(round.solves) ? round.solves : []);
+                (history[eventId] ||= []).push({
+                    date: competition?.startDate || year,
+                    comp: competition?.name || competitionId,
+                    round: round.round || '',
+                    pos: round.position,
+                    single: Number(round.best) || 0,
+                    average: Number(round.average) || 0,
+                    ...Object.fromEntries(Array.from({ length: 5 }, (_, i) => [`v${i + 1}`, Number(solves[i]) || 0]))
+                });
+            }
+        }
+    }
+    for (const rounds of Object.values(history)) rounds.sort((a, b) => a.date.localeCompare(b.date));
+    return Object.keys(history).length ? history : null;
+}
+
+async function fetchRemotePersonHistory(wcaId) {
+    if (remoteHistoryInflight.has(wcaId)) return remoteHistoryInflight.get(wcaId);
+    const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/refs/heads/v1/persons/${encodeURIComponent(wcaId)}.json`;
+    const request = fetch(url).then(async response => {
+        if (!response.ok) throw new Error(`历史成绩请求失败：HTTP ${response.status}`);
+        return normalizeRemotePersonHistory(await response.json());
+    }).finally(() => remoteHistoryInflight.delete(wcaId));
+    remoteHistoryInflight.set(wcaId, request);
+    return request;
+}
 let chineseCompsById = new Map();
 let chineseCompsByName = new Map();
 
@@ -185,10 +231,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ================= 全局导航栏下拉菜单逻辑 =================
+    // 每次展开和收起都逆时针转半圈，旋转中心固定在箭头自身。
+    function rotateNavArrow(item) {
+        const arrow = item.querySelector(':scope > svg');
+        if (!arrow) return;
+        const turns = Number(arrow.dataset.halfTurns || 0) + 1;
+        arrow.dataset.halfTurns = String(turns);
+        arrow.style.transform = `rotate(${-180 * turns}deg)`;
+    }
+
     // 统一关闭所有全局导航下拉窗；不使用 hide-dropdown 等“伪隐藏”状态。
     window.closeNavDropdowns = function() {
         document.querySelectorAll('.nav-menu-item.has-dropdown').forEach(item => {
-            item.classList.remove('dropdown-open');
+            if (item.classList.contains('dropdown-open')) {
+                item.classList.remove('dropdown-open');
+                rotateNavArrow(item);
+            }
         });
     };
 
@@ -202,7 +260,10 @@ document.addEventListener("DOMContentLoaded", () => {
             e.stopPropagation();
             const shouldOpen = !this.classList.contains('dropdown-open');
             window.closeNavDropdowns();
-            if (shouldOpen) this.classList.add('dropdown-open');
+            if (shouldOpen) {
+                this.classList.add('dropdown-open');
+                rotateNavArrow(this);
+            }
         });
     });
 
@@ -230,6 +291,159 @@ function formatName(rawName) {
     if (match) return `${match[2]}（${match[1]}）`;
     return rawName;
 }
+
+let cfopDataPromise = null;
+let collDataPromise = null;
+let formulaViewerPromise = null;
+function preloadCfopData() {
+    if (window.CFOP_ALGORITHMS) return Promise.resolve(window.CFOP_ALGORITHMS);
+    if (cfopDataPromise) return cfopDataPromise;
+    cfopDataPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'formulas/cfop_data.js?v=5';
+        script.onload = () => window.CFOP_ALGORITHMS ? resolve(window.CFOP_ALGORITHMS) : reject(new Error('CFOP 数据缺失'));
+        script.onerror = () => reject(new Error('CFOP 数据加载失败'));
+        document.body.appendChild(script);
+    }).catch(error => {
+        cfopDataPromise = null;
+        throw error;
+    });
+    return cfopDataPromise;
+}
+function preloadCollData() {
+    if (window.COLL_ALGORITHMS) return Promise.resolve(window.COLL_ALGORITHMS);
+    if (collDataPromise) return collDataPromise;
+    collDataPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'formulas/coll_data.js?v=2';
+        script.onload = () => window.COLL_ALGORITHMS ? resolve(window.COLL_ALGORITHMS) : reject(new Error('COLL 数据缺失'));
+        script.onerror = () => reject(new Error('COLL 数据加载失败'));
+        document.body.appendChild(script);
+    }).catch(error => { collDataPromise = null; throw error; });
+    return collDataPromise;
+}
+function preloadFormulaViewer() {
+    if (window.FormulaViewer) return Promise.resolve(window.FormulaViewer);
+    if (formulaViewerPromise) return formulaViewerPromise;
+    formulaViewerPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'formulas/formula_viewer.js?v=7';
+        script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
+        script.onerror = () => reject(new Error('公式图示组件加载失败'));
+        document.body.appendChild(script);
+    }).catch(error => { formulaViewerPromise = null; throw error; });
+    return formulaViewerPromise;
+}
+
+function openFormulaLibrary() {
+    navigateTo('formula-page', true);
+}
+function openCfopMethod() {
+    navigateTo('formula-method-page', true);
+    Promise.all([preloadCfopData(), preloadFormulaViewer()]).catch(error => console.warn('CFOP 预加载失败', error));
+}
+function openCollMethod() {
+    navigateTo('formula-coll-page', true);
+    Promise.all([preloadCollData(), preloadFormulaViewer()]).catch(error => console.warn('COLL 预加载失败', error));
+}
+
+const collCategoryTitles = {
+    coll_pi: 'Pi Case', coll_sune: 'Sune Case', coll_antisune: 'Anti-Sune Case',
+    coll_l: 'L Case', coll_t: 'T Case', coll_u: 'U Case', coll_h: 'H Case'
+};
+const isCollCategory = type => Object.hasOwn(collCategoryTitles, type);
+const formulaDiagramType = type => isCollCategory(type) ? 'coll' : type;
+const formulaDataFor = type => isCollCategory(type) ? preloadCollData() : preloadCfopData();
+
+async function openFormulaCategory(type) {
+    const titles = { cross: 'Cross', f2l: 'F2L', oll: 'OLL', pll: 'PLL', ...collCategoryTitles };
+    if (!titles[type]) return;
+    document.getElementById('formula-category-title').textContent = titles[type];
+    const list = document.getElementById('formula-case-list');
+    list.textContent = '正在加载公式…';
+    navigateTo('formula-category-page', true);
+    if (type === 'cross') {
+        list.innerHTML = `<article class="formula-method-intro card">
+            <h3>底层十字怎么练</h3>
+            <p>Cross 是根据每次打乱观察四个底层棱块的位置，规划移动顺序，而不是背一套固定公式。先练习在观察阶段找齐四个白色棱块，再尝试完整规划并在底面完成十字；每个棱块的侧面颜色还要与相邻中心块对齐。</p>
+            <p>可以从一次只规划两个棱块开始，逐渐增加到四个。完成十字前就寻找第一组 F2L 配对，有助于衔接下一步。</p>
+            <a href="https://cubecoach.app/learn/cfop/cross" target="_blank" rel="noopener noreferrer">查看开源 Cross 教程 ↗</a>
+        </article>`;
+        return;
+    }
+    try {
+        const [data, viewer] = await Promise.all([formulaDataFor(type), preloadFormulaViewer()]);
+        if (document.getElementById('formula-category-title').textContent !== titles[type]) return;
+        const fragment = document.createDocumentFragment();
+        data[type].forEach(item => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'formula-case-card';
+            card.onclick = () => openFormulaCase(type, item.name);
+            const label = document.createElement('div');
+            label.className = 'formula-case-label';
+            label.textContent = isCollCategory(type) ? `COLL ${titles[type].replace(' Case', '')} ${item.name}` : `${titles[type]} ${item.name}`;
+            const diagram = document.createElement('div');
+            diagram.className = 'formula-case-diagram';
+            diagram.innerHTML = viewer.diagram(item.alg, formulaDiagramType(type));
+            const alg = document.createElement('div');
+            alg.className = 'formula-case-alg';
+            alg.textContent = item.alg;
+            card.append(label, diagram, alg);
+            fragment.appendChild(card);
+        });
+        list.replaceChildren(fragment);
+    } catch (error) {
+        console.warn('公式加载失败', error);
+        list.textContent = '公式加载失败，请稍后重试';
+    }
+}
+
+async function openFormulaCase(type, name) {
+    const [data, viewer] = await Promise.all([formulaDataFor(type), preloadFormulaViewer()]);
+    const item = data[type]?.find(entry => String(entry.name) === String(name));
+    if (!item) return;
+    const title = isCollCategory(type) ? `COLL ${collCategoryTitles[type].replace(' Case', '')} ${item.name}` : `${type.toUpperCase()} ${item.name}`;
+    document.getElementById('formula-detail-title').textContent = title;
+    document.getElementById('formula-detail-image').innerHTML = viewer.diagram(item.alg, formulaDiagramType(type));
+    const variants = document.getElementById('formula-variants');
+    variants.replaceChildren();
+    const algorithms = item.algs?.length ? item.algs : [item.alg];
+    const speeds = [1, 1.25, 1.5, 2, 0.5, 0.75];
+    const speedLabels = ['1.0×', '1.25×', '1.5×', '2.0×', '0.5×', '0.75×'];
+    let speedIndex = 0;
+    let currentAlgorithm = algorithms[0];
+    const speedButton = document.getElementById('formula-speed');
+    speedButton.textContent = speedLabels[0];
+    document.getElementById('formula-replay').onclick = () => formulaDetailCube?.play(currentAlgorithm, speeds[speedIndex]);
+    speedButton.onclick = () => {
+        speedIndex = (speedIndex + 1) % speeds.length;
+        speedButton.textContent = speedLabels[speedIndex];
+        formulaDetailCube?.play(currentAlgorithm, speeds[speedIndex]);
+    };
+    algorithms.forEach((algorithm, index) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'formula-variant';
+        const label = document.createElement('strong');
+        label.textContent = `做法 ${index + 1}`;
+        const moves = document.createElement('span');
+        moves.textContent = algorithm;
+        row.append(label, moves);
+        row.onclick = () => {
+            variants.querySelectorAll('.formula-variant').forEach(button => button.classList.remove('active'));
+            row.classList.add('active');
+            currentAlgorithm = algorithm;
+            document.getElementById('formula-detail-image').innerHTML = viewer.diagram(algorithm, formulaDiagramType(type));
+            formulaDetailCube?.play(algorithm, speeds[speedIndex]);
+        };
+        variants.appendChild(row);
+    });
+    navigateTo('formula-detail-page', true);
+    formulaDetailCube = viewer.mountCube(document.getElementById('formula-detail-cube'));
+    variants.firstElementChild?.click();
+}
+let formulaDetailCube = null;
 
 function navigateTo(pageId, isForward = false) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => navigateTo(pageId, isForward))) return;
@@ -693,7 +907,9 @@ function renderPK(pA, pB) {
     else { scoreElA.classList.add('tie'); scoreElB.classList.add('tie'); }
 }
 
-function renderPersonPage(cuber) {
+function renderPersonPage(cuber, preserveScroll = false) {
+    const previousScrollY = preserveScroll ? window.scrollY : 0;
+    ++remoteHistoryRequest;
     document.getElementById('person-title-name').innerText = formatName(cuber.person.name);
     document.getElementById('person-title-wcaid').innerText = `（${cuber.person.wca_id}）`;
 
@@ -723,6 +939,14 @@ function renderPersonPage(cuber) {
     const tbody = document.getElementById('person-tbody');
     tbody.innerHTML = '';
     const records = cuber.personal_records || {};
+    const personHistory = allHistoryData[cuber.person.wca_id] || remotePersonHistory.get(cuber.person.wca_id) || null;
+    const bestCompetition = (eventId, type, record) => {
+        const rounds = personHistory?.[eventId] || [];
+        const best = Number(record?.best);
+        const match = rounds.find(round => Number(round[type]) === best && best > 0);
+        const name = record?.comp_name || match?.comp;
+        return name ? { name, date: record?.comp_date || match?.date || '' } : null;
+    };
     const iso2 = cuber.person.country_iso2;
     const crPrefix = getContinentRankPrefix(iso2);
 
@@ -734,6 +958,7 @@ function renderPersonPage(cuber) {
                 let isFirstRow = true;
                 if (single) {
                     let singleTime = formatWcaResult(single.best, ev.id, 'single');
+                    const singleCompetition = bestCompetition(ev.id, 'single', single);
                     let eventHtml = isFirstRow ? `<div style="display:flex; justify-content:center; align-items:center; gap:5px;"><span class="cubing-icon event-${ev.id}" style="color:var(--text-main); font-size:16px; margin-top:-2px;"></span><span>${ev.name}</span></div>` : '';
                     let trSingle = document.createElement('tr');
                     trSingle.innerHTML = `
@@ -744,8 +969,8 @@ function renderPersonPage(cuber) {
                         <td>${formatRank(single.continent_rank, crPrefix)}</td>
                         <td>${formatRank(single.world_rank, 'WR')}</td>
                         <td>
-                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(single.comp_name)}</div>
-                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${single.comp_date || '-'}</div>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${singleCompetition ? getChineseCompetitionName(singleCompetition.name) : '-'}</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${singleCompetition?.date || '-'}</div>
                         </td>
                     `;
                     tbody.appendChild(trSingle);
@@ -753,6 +978,7 @@ function renderPersonPage(cuber) {
                 }
                 if (average) {
                     let avgTime = formatWcaResult(average.best, ev.id, 'average');
+                    const averageCompetition = bestCompetition(ev.id, 'average', average);
                     let eventHtml = isFirstRow ? `<div style="display:flex; justify-content:center; align-items:center; gap:5px;"><span class="cubing-icon event-${ev.id}" style="color:var(--text-main); font-size:16px; margin-top:-2px;"></span><span>${ev.name}</span></div>` : '';
                     let trAvg = document.createElement('tr');
                     trAvg.innerHTML = `
@@ -763,8 +989,8 @@ function renderPersonPage(cuber) {
                         <td>${formatRank(average.continent_rank, crPrefix)}</td>
                         <td>${formatRank(average.world_rank, 'WR')}</td>
                         <td>
-                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(average.comp_name)}</div>
-                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${average.comp_date || '-'}</div>
+                            <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${averageCompetition ? getChineseCompetitionName(averageCompetition.name) : '-'}</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${averageCompetition?.date || '-'}</div>
                         </td>
                     `;
                     tbody.appendChild(trAvg);
@@ -837,7 +1063,7 @@ function renderPersonPage(cuber) {
     }
 
     // 注入并渲染历史曲线图与表格
-    currentPersonHistory = allHistoryData[cuber.person.wca_id] || null;
+    currentPersonHistory = personHistory;
     const chartCard = document.getElementById('history-chart-card');
     const eventTabs = document.getElementById('history-event-tabs');
 
@@ -885,6 +1111,25 @@ function renderPersonPage(cuber) {
     }
 
     navigateTo('person-page', true);
+    if (preserveScroll) requestAnimationFrame(() => window.scrollTo(0, previousScrollY));
+
+    // 本地名单保持零网络请求；其他选手只在个人页打开后获取自己的历史成绩。
+    if (!allHistoryData[cuber.person.wca_id] && !remotePersonHistory.has(cuber.person.wca_id)) {
+        const request = ++remoteHistoryRequest;
+        chartCard.style.display = 'block';
+        eventTabs.textContent = '正在读取历史成绩…';
+        document.getElementById('history-detail-tbody').innerHTML = '';
+        if (progressChartInstance) { progressChartInstance.destroy(); progressChartInstance = null; }
+        fetchRemotePersonHistory(cuber.person.wca_id).then(history => {
+            remotePersonHistory.set(cuber.person.wca_id, history);
+            if (request === remoteHistoryRequest && document.getElementById('person-page').classList.contains('active')) {
+                renderPersonPage(cuber, true);
+            }
+        }).catch(error => {
+            console.warn('个人历史成绩读取失败', error);
+            if (request === remoteHistoryRequest) eventTabs.textContent = '历史成绩暂时无法读取，请稍后重试';
+        });
+    }
 }
 
 function updateChartAndTable() {
@@ -4384,18 +4629,21 @@ let currentMonthlyPen = '';
 let monthlyFinishTimer = null;
 
 function getCurrentMonthKey() {
-    const now = new Date();
-    return `${now.getFullYear()}_${now.getMonth() + 1}`;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit'
+    }).formatToParts(new Date());
+    const year = parts.find(part => part.type === 'year').value;
+    const month = parts.find(part => part.type === 'month').value;
+    return `${year}-${month}`;
 }
 
-// 👇 核心新增：标准的 ISO 国际周数计算引擎 👇
-function getCurrentWeekKey() {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}_W${weekNo}`;
+function getCurrentMonthCloudRange() {
+    const [year, month] = getCurrentMonthKey().split('-').map(Number);
+    const start = new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00+08:00`);
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const end = new Date(`${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+08:00`);
+    return { start: start.toISOString(), end: end.toISOString() };
 }
 
 function getEventFormat(evId) {
@@ -4403,23 +4651,23 @@ function getEventFormat(evId) {
     return { count: 5 };
 }
 
-// 👇 将以下三个函数的密钥从 MonthKey 改为 WeekKey，释放每周刷榜限制 👇
+// 本地参赛记录和打乱按北京时间月份分组，与月赛周期一致。
 function getMonthlyAttempts(eventId) {
     let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
-    let key = getCurrentWeekKey(); // 替换为 WeekKey
+    let key = getCurrentMonthKey();
     return data[key] ? data[key][eventId] : null;
 }
 
 function markMonthlyParticipated(eventId, attemptsArr) {
     let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
-    let key = getCurrentWeekKey(); // 替换为 WeekKey
+    let key = getCurrentMonthKey();
     if (!data[key]) data[key] = {};
     data[key][eventId] = attemptsArr || 'DNF';
     localStorage.setItem('monthlyParticipation', JSON.stringify(data));
 }
 
 function ensureMonthlyScrambles() {
-    const key = 'monthlyScrambles_' + getCurrentWeekKey();
+    const key = 'monthlyScrambles_' + getCurrentMonthKey();
     let cached = localStorage.getItem(key);
     if (cached) return JSON.parse(cached);
 
@@ -4546,9 +4794,8 @@ function confirmMonthlyName() {
 
 // ---------------- 巅峰月赛 列表主页渲染引擎 (异步秒开版) ----------------
 async function renderMonthlyList() {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const [year, month] = getCurrentMonthKey().split('-');
+    const lastDay = new Date(Number(year), Number(month), 0).getDate();
     document.getElementById('monthly-date-range').innerText = `${month}.01 - ${month}.${lastDay}`;
 
     const list = document.getElementById('monthly-event-list');
@@ -4599,15 +4846,19 @@ async function renderMonthlyList() {
 
     // 第二步：后台静默拉取云端数据，不阻塞页面交互
     try {
+        const monthRange = getCurrentMonthCloudRange();
         const { data, error } = await monthlyCloudRequest(
             supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
+                .gte('created_at', monthRange.start)
+                .lt('created_at', monthRange.end)
         );
         if (error) throw error;
         if (data) {
             let eventLeaderboards = {};
             data.forEach(row => {
-                if (!eventLeaderboards[row.event_id]) eventLeaderboards[row.event_id] = [];
-                eventLeaderboards[row.event_id].push(row);
+                const eventId = row.event_id;
+                if (!eventLeaderboards[eventId]) eventLeaderboards[eventId] = [];
+                eventLeaderboards[eventId].push(row);
             });
 
             // 数据回来后，悄悄把每个项目的人数填进去
@@ -5422,10 +5673,13 @@ async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
 
 // 2. 从全网拉取排行榜
 async function fetchWeeklyLeaderboard(eventId) {
+    const monthRange = getCurrentMonthCloudRange();
     const { data, error } = await monthlyCloudRequest(supabaseClient
         .from('WeeklyRecord')
         .select('*')
         .eq('event_id', eventId)
+        .gte('created_at', monthRange.start)
+        .lt('created_at', monthRange.end)
         .order('raw_ms', { ascending: true }) // 毫秒数越小（越快）排得越靠前
         .limit(50)); // 最多拉取前 50 名的数据
 
