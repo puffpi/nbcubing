@@ -4599,8 +4599,11 @@ async function renderMonthlyList() {
 
     // 第二步：后台静默拉取云端数据，不阻塞页面交互
     try {
-        const { data, error } = await supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms');
-        if (!error && data) {
+        const { data, error } = await monthlyCloudRequest(
+            supabaseClient.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
+        );
+        if (error) throw error;
+        if (data) {
             let eventLeaderboards = {};
             data.forEach(row => {
                 if (!eventLeaderboards[row.event_id]) eventLeaderboards[row.event_id] = [];
@@ -4657,6 +4660,28 @@ async function renderMonthlyList() {
         }
     } catch (e) {
         console.warn("后台拉取云端统计数据失败", e);
+        validEvents.forEach(ev => {
+            const rankEl = document.getElementById(`monthly-rank-${ev.id}`);
+            if (rankEl) {
+                rankEl.innerText = '[暂不可用]';
+                rankEl.title = '月赛云端数据暂时无法连接，请稍后重试';
+            }
+        });
+    }
+}
+
+// 网络或项目域名异常时，避免月赛占位符和排行榜无限等待。
+async function monthlyCloudRequest(query) {
+    let timeoutId;
+    try {
+        return await Promise.race([
+            query,
+            new Promise((_, reject) => {
+                timeoutId = setTimeout(() => reject(new Error('月赛云端请求超时')), 10000);
+            })
+        ]);
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -4668,7 +4693,14 @@ async function openMonthlyRanking(evId, cnName) {
     list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>数据同步中...</div>';
     navigateTo('monthly-ranking-page', true);
 
-    let cloudData = await fetchWeeklyLeaderboard(evId);
+    let cloudData;
+    try {
+        cloudData = await fetchWeeklyLeaderboard(evId);
+    } catch (error) {
+        console.warn('月赛排行榜加载失败', error);
+        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">月赛云端数据暂不可用，请稍后重试</div>';
+        return;
+    }
     let allEntries = [];
 
     // 把本地的最新的这一组成绩也临时加进来一起比对
@@ -5390,16 +5422,16 @@ async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
 
 // 2. 从全网拉取排行榜
 async function fetchWeeklyLeaderboard(eventId) {
-    const { data, error } = await supabaseClient
+    const { data, error } = await monthlyCloudRequest(supabaseClient
         .from('WeeklyRecord')
         .select('*')
         .eq('event_id', eventId)
         .order('raw_ms', { ascending: true }) // 毫秒数越小（越快）排得越靠前
-        .limit(50); // 最多拉取前 50 名的数据
+        .limit(50)); // 最多拉取前 50 名的数据
 
     if (error) {
         console.error('拉取排行榜失败：', error);
-        return [];
+        throw error;
     }
     return data;
 }
