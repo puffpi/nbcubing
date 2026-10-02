@@ -11,7 +11,7 @@ let chineseCompsById = new Map();
 let chineseCompsByName = new Map();
 
 function getChineseCompetitionName(name, id) {
-    const entry = (id && chineseCompsById.get(id)) || chineseCompsByName.get(name);
+    const entry = (id && chineseCompsById.get(id)) || chineseCompsById.get(name) || chineseCompsByName.get(name);
     return entry?.nameZh || name || '-';
 }
 
@@ -1613,14 +1613,18 @@ async function initData() {
         const [resWca, resHist, resComps] = await Promise.all([
             fetch('wca_data.json?t=' + new Date().getTime()),
             fetch('history_data.json?t=' + new Date().getTime()),
-            fetch('competitions_zh.json?v=1')
+            fetch('competitions_zh.json?v=2').catch(() => null)
         ]);
         allCubersData = await resWca.json();
         allHistoryData = await resHist.json();
-        if (resComps.ok) {
-            const chineseComps = await resComps.json();
-            chineseCompsById = new Map(chineseComps.map(comp => [comp.id, comp]));
-            chineseCompsByName = new Map(chineseComps.map(comp => [comp.name, comp]));
+        if (resComps?.ok) {
+            try {
+                const chineseComps = await resComps.json();
+                chineseCompsById = new Map(chineseComps.map(comp => [comp.id, comp]));
+                chineseCompsByName = new Map(chineseComps.map(comp => [comp.name, comp]));
+            } catch (error) {
+                console.warn('中文赛事缓存读取失败，改用在线赛事数据。', error);
+            }
         }
         isDataReady = true;
         if (loader) loader.style.display = 'none';
@@ -5459,11 +5463,25 @@ async function fetchCompetitions() {
     const grid = document.getElementById('recent-comps-grid');
     try {
         const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
-        const competitions = [...chineseCompsById.values()].map(item => ({
+        let competitions = [...chineseCompsById.values()].map(item => ({
             id: item.id, name: item.name, start_date: item.startDate,
             end_date: item.endDate || item.startDate, city: getChineseCompetitionLocation(item),
             alias: item.alias
         }));
+        if (!competitions.length) {
+            const year = new Date().getFullYear();
+            const responses = await Promise.allSettled([year, year + 1].map(y =>
+                fetch(`https://wca-api.cubing.com/competition/search?countryId=China&year=${y}&skip=0&take=100`)
+                    .then(response => response.ok ? response.json() : Promise.reject(new Error(`赛事接口 ${response.status}`)))
+            ));
+            competitions = responses.flatMap(result => result.status === 'fulfilled' ? result.value.data : [])
+                .map(item => ({
+                    id: item.wcaId, name: item.name, nameZh: item.nameZh,
+                    start_date: item.startDate, end_date: item.startDate,
+                    city: item.cityName || '中国'
+                }));
+            if (!competitions.length) throw new Error('赛事缓存及在线接口均不可用');
+        }
         const upcomingComps = competitions.filter(c => c.end_date >= todayStr)
             .sort((a, b) => a.start_date.localeCompare(b.start_date));
         const pastComps = competitions.filter(c => c.end_date < todayStr)
@@ -5493,7 +5511,7 @@ async function fetchCompetitions() {
 }
 
 function createCompCard(comp, isListPage = false) {
-    const compName = getChineseCompetitionName(comp.name, comp.id);
+    const compName = comp.nameZh || getChineseCompetitionName(comp.name, comp.id);
     const city = comp.city || '中国';
     const formatId = comp.alias || comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
     const cubingUrl = `https://cubing.com/competition/${formatId}`;
