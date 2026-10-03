@@ -184,6 +184,9 @@ let uiSettings = {
     fontSize: 100,
     scrambleSize: 100,
     smartCubeSize: 100,
+    smartCubeAppearance: 'black',
+    smartCubeLogo: 'puffpi',
+    virtualCubeAppearance: 'black',
     chalTimerSize: 100,    // <--- 新增：对战计时器大小
     chalScrambleSize: 100, // <--- 新增：对战打乱公式大小
     promptAction: true,
@@ -205,6 +208,75 @@ const fontOptions = [
     { id: 'georgia', name: 'Georgia (衬线)', family: "Georgia, serif" },
     { id: 'comic', name: 'Comic Sans (活泼)', family: "'Comic Sans MS', 'Chalkboard SE', cursive" }
 ];
+
+const cubeAppearanceOptions = [
+    { id: 'black', name: '黑底', body: '#1d2734', outline: '#111827' },
+    { id: 'white', name: '白底', body: '#edf2f5', outline: '#bacbd5' },
+    { id: 'stickerless', name: '一体式', body: '#f5d935', outline: '#d2ba2a' }
+];
+const smartCubeAppearanceOptions = cubeAppearanceOptions.filter(option => option.id !== 'white');
+let cubeAppearanceTarget = 'smart';
+function openCubeAppearanceModal(target) {
+    cubeAppearanceTarget = target === 'virtual' ? 'virtual' : 'smart';
+    document.getElementById('cube-appearance-title').textContent = cubeAppearanceTarget === 'smart' ? '智能魔方外观' : '虚拟魔方外观';
+    const list = document.getElementById('cube-appearance-options');
+    list.replaceChildren();
+    for (const option of cubeAppearanceTarget === 'smart' ? smartCubeAppearanceOptions : cubeAppearanceOptions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cube-appearance-option' + (uiSettings[`${cubeAppearanceTarget}CubeAppearance`] === option.id ? ' active' : '');
+        button.dataset.appearance = option.id;
+        const swatch = document.createElement('span');
+        swatch.className = 'cube-appearance-swatch';
+        swatch.style.setProperty('--swatch-body', option.body);
+        swatch.style.setProperty('--swatch-outline', option.outline);
+        for (let i = 0; i < 9; i++) swatch.appendChild(document.createElement('i'));
+        const name = document.createElement('span');
+        name.textContent = option.name;
+        button.append(swatch, name);
+        button.onclick = () => {
+            uiSettings[`${cubeAppearanceTarget}CubeAppearance`] = option.id;
+            saveTimerData();
+            applyUiSettings();
+            closeCubeAppearanceModal();
+        };
+        list.appendChild(button);
+    }
+    document.getElementById('cube-appearance-modal').hidden = false;
+}
+function openSmartCubeLogoModal() {
+    document.getElementById('cube-appearance-title').textContent = '智能魔方显示logo';
+    const list = document.getElementById('cube-appearance-options');
+    list.replaceChildren();
+    for (const option of [{ id: 'none', name: '不显示' }, { id: 'puffpi', name: 'PuffPi' }]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cube-appearance-option' + (uiSettings.smartCubeLogo === option.id ? ' active' : '');
+        const preview = document.createElement('span');
+        preview.className = 'cube-logo-swatch';
+        if (option.id === 'puffpi') {
+            const logo = document.createElement('img');
+            logo.src = 'PuffPi_black.png';
+            logo.alt = '';
+            preview.appendChild(logo);
+        } else preview.textContent = '—';
+        const name = document.createElement('span');
+        name.textContent = option.name;
+        button.append(preview, name);
+        button.onclick = () => {
+            uiSettings.smartCubeLogo = option.id;
+            saveTimerData();
+            applyUiSettings();
+            closeCubeAppearanceModal();
+        };
+        list.appendChild(button);
+    }
+    document.getElementById('cube-appearance-modal').hidden = false;
+}
+function closeCubeAppearanceModal(event) {
+    if (event && event.target.id !== 'cube-appearance-modal') return;
+    document.getElementById('cube-appearance-modal').hidden = true;
+}
 
 const countryDict = {
     'CN': '中国', 'HK': '中国香港', 'MO': '中国澳门', 'TW': '中国台湾',
@@ -427,7 +499,7 @@ function preloadFormulaViewer() {
     if (formulaViewerPromise) return formulaViewerPromise;
     formulaViewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'formulas/formula_viewer.js?v=8';
+        script.src = 'formulas/formula_viewer.js?v=18';
         script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
         script.onerror = () => reject(new Error('公式图示组件加载失败'));
         document.body.appendChild(script);
@@ -549,7 +621,7 @@ async function openFormulaCase(type, name) {
     try {
         await ensureThreeCore();
         if (request !== formulaCaseRequest || !document.getElementById('formula-detail-page').classList.contains('active')) return;
-        formulaDetailCube = viewer.mountCube(cubeContainer);
+        formulaDetailCube = viewer.mountCube(cubeContainer, uiSettings.virtualCubeAppearance);
         variants.querySelector('.formula-variant.active')?.click();
     } catch (error) {
         console.warn('公式魔方模型加载失败', error);
@@ -3178,32 +3250,36 @@ function rotateSquare1Layer(layer, amount) {
 }
 
 function canSliceSquare1(layer) {
-    return layer[0] !== layer[11] && layer[6] !== layer[5];
+    return layer[2] !== layer[3] && layer[8] !== layer[9];
 }
 
 function hasSquare1CubeShape(layer) {
-    if (!canSliceSquare1(layer)) return false;
+    const start = layer.findIndex((piece, i) => piece !== layer[(i + 11) % 12]);
+    if (start < 0) return false;
     const widths = [];
-    for (let i = 0; i < 12;) {
-        let end = i + 1;
-        while (end < 12 && layer[end] === layer[i]) end++;
-        widths.push(end - i);
-        i = end;
+    for (let offset = 0; offset < 12;) {
+        const piece = layer[(start + offset) % 12];
+        let width = 1;
+        while (offset + width < 12 && layer[(start + offset + width) % 12] === piece) width++;
+        widths.push(width);
+        offset += width;
     }
     return widths.length === 8 && widths.every((width, i) =>
         (width === 1 || width === 2) && width !== widths[(i + 1) % widths.length]);
 }
 
 function sliceSquare1(top, bottom) {
-    return [
-        bottom.slice(0, 6).reverse().concat(top.slice(6)),
-        top.slice(0, 6).reverse().concat(bottom.slice(6))
-    ];
+    const nextTop = top.slice(), nextBottom = bottom.slice();
+    for (const slot of [9, 10, 11, 0, 1, 2]) {
+        nextTop[11 - slot] = bottom[slot];
+        nextBottom[11 - slot] = top[slot];
+    }
+    return [nextTop, nextBottom];
 }
 
 function getSquare1Scramble() {
-    let top = [0, 0, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7];
-    let bottom = [8, 9, 9, 10, 11, 11, 12, 13, 13, 14, 15, 15];
+    let top = [0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11];
+    let bottom = [4, 4, 12, 5, 5, 13, 6, 6, 14, 7, 7, 15];
     const moves = [];
     let variedOpeningMoves = 0;
 
@@ -4351,6 +4427,13 @@ function loadTimerData() {
             if (parsed.stat1) stat1 = parsed.stat1;
             if (parsed.stat2) stat2 = parsed.stat2;
             if (parsed.uiSettings) uiSettings = { ...uiSettings, ...parsed.uiSettings };
+            if (!['none', 'puffpi'].includes(uiSettings.smartCubeLogo)) uiSettings.smartCubeLogo = 'puffpi';
+            for (const target of ['smart', 'virtual']) {
+                const key = `${target}CubeAppearance`;
+                if (uiSettings[key] === 'modern') uiSettings[key] = 'black';
+                const options = target === 'smart' ? smartCubeAppearanceOptions : cubeAppearanceOptions;
+                if (!options.some(option => option.id === uiSettings[key])) uiSettings[key] = 'black';
+            }
 
             document.getElementById('input-stat1-count').value = stat1.count;
             document.getElementById('input-stat2-count').value = stat2.count;
@@ -4390,6 +4473,18 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+    const smartCube = document.getElementById('timer-virtual-cube');
+    if (smartCube) smartCube.dataset.logo = uiSettings.smartCubeLogo === 'none' ? 'none' : 'puffpi';
+    const logoLabel = document.getElementById('smart-cube-logo-label');
+    if (logoLabel) logoLabel.textContent = uiSettings.smartCubeLogo === 'none' ? '不显示' : 'PuffPi';
+    for (const target of ['smart', 'virtual']) {
+        const options = target === 'smart' ? smartCubeAppearanceOptions : cubeAppearanceOptions;
+        const option = options.find(item => item.id === uiSettings[`${target}CubeAppearance`]) || options[0];
+        const label = document.getElementById(`${target}-cube-appearance-label`);
+        if (label) label.textContent = option.name;
+        if (target === 'smart') document.getElementById('timer-virtual-cube')?.setAttribute('data-appearance', option.id);
+        else formulaDetailCube?.setAppearance(option.id);
+    }
     for (const [name, enabled] of [['inspection', !!uiSettings.inspection], ['inspection-voice', !!uiSettings.inspectionVoice]]) {
         document.getElementById(`btn-${name}-no`)?.classList.toggle('active', !enabled);
         document.getElementById(`btn-${name}-yes`)?.classList.toggle('active', enabled);

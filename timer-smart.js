@@ -43,9 +43,11 @@ function renderTimerVirtualCube() {
     const order = timerSmartEvent === '222' ? 2 : 3;
     const root = document.getElementById('timer-virtual-cube');
     root.innerHTML = '';
+    root.dataset.order = String(order);
+    root.dataset.logo = uiSettings.smartCubeLogo === 'none' ? 'none' : 'puffpi';
     const body = document.createElement('div');
     body.className = 'timer-cube-body';
-    for (const [face, color] of Object.entries({top:'#f8fafc', bottom:'#f5d935', front:'#3bbd65', back:'#3979d5', left:'#e94b48', right:'#f49436'})) {
+    for (const [face, color] of Object.entries({top:'#ffffff', bottom:'#f7da2d', front:'#29b85e', back:'#3174cf', left:'#f69335', right:'#e74745'})) {
         const side = document.createElement('div');
         side.className = `timer-cube-face ${face}`;
         side.style.gridTemplateColumns = `repeat(${order},1fr)`;

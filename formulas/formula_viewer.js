@@ -132,7 +132,7 @@
         }
         return `<svg viewBox="0 0 118 115" role="img" aria-label="${type.toUpperCase()} 顶层案例图">${content}</svg>`;
     }
-    function mountCube(container) {
+    function mountCube(container, appearance='black') {
         if(mounted) mounted.dispose();
         if(!window.THREE) { container.textContent='魔方模型暂不可用'; return; }
         const THREE=window.THREE, scene=new THREE.Scene();
@@ -143,18 +143,86 @@
         container.replaceChildren(renderer.domElement);
         const root=new THREE.Group(); root.rotation.set(.45,-.55,0); scene.add(root);
         const cubies=[];
-        const bodyGeometry=new THREE.BoxGeometry(.97,.97,.97);
-        const stickerGeometry=new THREE.PlaneGeometry(.84,.84);
-        const bodyMaterial=new THREE.MeshStandardMaterial({color:0x19212c,roughness:.72});
-        // 贴纸保持纯色，并向镜头微移以避开手机 GPU 上贴纸与黑色块体的深度冲突。
+        const contactGeometry=new THREE.BoxGeometry(.97,.97,.97);
+        const recessGeometry=new THREE.PlaneGeometry(1,1);
+        const recessMaterial=new THREE.MeshBasicMaterial({color:appearance==='white'?0xe8eef2:0x19212c,side:THREE.FrontSide});
+        const coloredGeometry={},backingGeometry={},outlineGeometry={};
+        const roundedSticker=(size,topLeft,topRight,bottomRight,bottomLeft)=>{
+            const h=size/2,s=new THREE.Shape();
+            s.moveTo(-h+bottomLeft,-h);
+            s.lineTo(h-bottomRight,-h);s.quadraticCurveTo(h,-h,h,-h+bottomRight);
+            s.lineTo(h,h-topRight);s.quadraticCurveTo(h,h,h-topRight,h);
+            s.lineTo(-h+topLeft,h);s.quadraticCurveTo(-h,h,-h,h-topLeft);
+            s.lineTo(-h,-h+bottomLeft);s.quadraticCurveTo(-h,-h,-h+bottomLeft,-h);
+            return {surface:new THREE.ShapeGeometry(s),outline:new THREE.BufferGeometry().setFromPoints(s.getPoints(12))};
+        };
+        const corners={center:[1,1,1,1],top:[1,1,0,0],bottom:[0,0,1,1],left:[1,0,0,1],right:[0,1,1,0],corner:[0,0,0,0]};
+        for(const [kind,mask] of Object.entries(corners)){
+            const color=roundedSticker(.945,...mask.map(value=>value*.27));
+            const backing=roundedSticker(.99,...mask.map(value=>value*.29));
+            coloredGeometry[kind]=color.surface;
+            backingGeometry[kind]=backing.surface;
+            outlineGeometry[kind]=backing.outline;
+            color.outline.dispose();
+        }
+        const stickers=[];
+        const bodyColors={black:0x19212c,white:0xedf2f5};
+        const bodyMaterial=new THREE.MeshBasicMaterial({color:bodyColors[appearance] ?? bodyColors.black,side:THREE.FrontSide});
+        const contactMaterial=new THREE.MeshBasicMaterial({color:appearance==='white'?0xd8e1e8:0x19212c,side:THREE.DoubleSide});
+        const hiddenContactMaterial=new THREE.MeshBasicMaterial({visible:false});
+        const outlineMaterial=new THREE.LineBasicMaterial({color:0x263244,transparent:true,opacity:.85});
+        const setAppearance=id=>{
+            bodyMaterial.color.setHex(bodyColors[id] ?? bodyColors.black);
+            contactMaterial.color.setHex(id==='white'?0xd8e1e8:0x19212c);
+            recessMaterial.color.setHex(id==='white'?0xe8eef2:0x19212c);
+            for(const sticker of stickers){
+                const {kind,backing,outline}=sticker.userData;
+                sticker.geometry=id==='stickerless'?backingGeometry[kind]:coloredGeometry[kind];
+                backing.visible=id!=='stickerless';
+                outline.visible=id==='stickerless';
+            }
+            wake();
+        };
+        // 贴纸和同形底框分离；圆角缺口保持透明，不再由完整方块填充。
         const materials=Object.fromEntries(Object.entries(COLORS).map(([face,color])=>[face,new THREE.MeshBasicMaterial({
             color, side:THREE.FrontSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2
         })]));
         for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++) {
             if(x===0&&y===0&&z===0) continue;
             const piece=new THREE.Group(); piece.position.set(x,y,z);
-            piece.add(new THREE.Mesh(bodyGeometry,bodyMaterial));
-            const add=(face,position,rotation)=>{const sticker=new THREE.Mesh(stickerGeometry,materials[face]);sticker.position.set(...position);sticker.rotation.set(...rotation);piece.add(sticker);};
+            // BoxGeometry 材质顺序：右、左、上、下、前、后。只绘制朝向其他小块的接触面。
+            piece.add(new THREE.Mesh(contactGeometry,[
+                x===1?hiddenContactMaterial:contactMaterial,
+                x===-1?hiddenContactMaterial:contactMaterial,
+                y===1?hiddenContactMaterial:contactMaterial,
+                y===-1?hiddenContactMaterial:contactMaterial,
+                z===1?hiddenContactMaterial:contactMaterial,
+                z===-1?hiddenContactMaterial:contactMaterial
+            ]));
+            const add=(face,position,rotation)=>{
+                const sticker=new THREE.Mesh(coloredGeometry.corner,materials[face]);
+                sticker.position.set(...position);sticker.rotation.set(...rotation);
+                const onFace=[x,y,z].filter((_,axis)=>Math.abs(position[axis])<.01);
+                let kind='corner';
+                if(onFace.every(value=>value===0)) kind='center';
+                else if(onFace.filter(value=>value!==0).length===1){
+                    const inward=new THREE.Vector3(-x,-y,-z).applyQuaternion(new THREE.Quaternion().setFromEuler(sticker.rotation).invert());
+                    kind=Math.abs(inward.x)>Math.abs(inward.y)?(inward.x>0?'right':'left'):(inward.y>0?'top':'bottom');
+                }
+                const backing=new THREE.Mesh(backingGeometry[kind],bodyMaterial);
+                backing.position.z=-.006;
+                // 缺口后方留出层次，并由对应外观的内壁遮住页面背景。
+                const recess=new THREE.Mesh(recessGeometry,recessMaterial);
+                recess.position.z=-.025;
+                const outline=new THREE.LineLoop(outlineGeometry[kind],outlineMaterial);
+                outline.position.z=.006;
+                sticker.add(recess,backing,outline);
+                sticker.userData={kind,backing,outline};
+                sticker.geometry=appearance==='stickerless'?backingGeometry[kind]:coloredGeometry[kind];
+                backing.visible=appearance!=='stickerless';
+                outline.visible=appearance==='stickerless';
+                stickers.push(sticker);piece.add(sticker);
+            };
             if(y===1)add('U',[0,.502,0],[-Math.PI/2,0,0]);
             if(y===-1)add('D',[0,-.502,0],[Math.PI/2,0,0]);
             if(z===1)add('F',[0,0,.502],[0,0,0]);
@@ -203,7 +271,7 @@
             lastRun=lastRun.catch(()=>{}).then(()=>run(algorithm,token,speed));
             return lastRun;
         }
-        mounted={play,dispose(){++playToken;cancelAnimationFrame(frame);container.removeEventListener('pointerdown',onDown);container.removeEventListener('pointermove',onMove);container.removeEventListener('pointerup',onUp);container.removeEventListener('pointercancel',onUp);container.removeEventListener('touchmove',onTouchMove);renderer.dispose();container.replaceChildren();}};
+        mounted={play,setAppearance,dispose(){++playToken;cancelAnimationFrame(frame);container.removeEventListener('pointerdown',onDown);container.removeEventListener('pointermove',onMove);container.removeEventListener('pointerup',onUp);container.removeEventListener('pointercancel',onUp);container.removeEventListener('touchmove',onTouchMove);renderer.dispose();contactGeometry.dispose();recessGeometry.dispose();Object.values(coloredGeometry).forEach(geometry=>geometry.dispose());Object.values(backingGeometry).forEach(geometry=>geometry.dispose());Object.values(outlineGeometry).forEach(geometry=>geometry.dispose());recessMaterial.dispose();bodyMaterial.dispose();contactMaterial.dispose();hiddenContactMaterial.dispose();outlineMaterial.dispose();Object.values(materials).forEach(material=>material.dispose());container.replaceChildren();}};
         wake();
         return mounted;
     }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.17-formula-model-fix">
+    <link rel="stylesheet" href="style.css?v=1.17-cube-menu-20261003">
 </head>
 <body>
 
@@ -102,6 +102,7 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
                     <a onclick="navigateTo('settings-page', true)">设置</a>
+                    <a onclick="navigateTo('about-page', true)">关于本站</a>
                 </div>
             </div>
         </div>
@@ -325,16 +326,59 @@
                 </div>
             </div>
 
+            <div class="ios-setting-group custom-ui-group">
+                <span>智能魔方外观</span>
+                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('smart')"><span id="smart-cube-appearance-label">黑底</span><span aria-hidden="true">›</span></button>
+            </div>
+            <div class="ios-setting-group custom-ui-group">
+                <span>智能魔方显示logo</span>
+                <button type="button" class="cube-appearance-picker" onclick="openSmartCubeLogoModal()"><span id="smart-cube-logo-label">PuffPi</span><span aria-hidden="true">›</span></button>
+            </div>
+            <div class="ios-setting-group custom-ui-group">
+                <span>虚拟魔方外观</span>
+                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('virtual')"><span id="virtual-cube-appearance-label">黑底</span><span aria-hidden="true">›</span></button>
+            </div>
+
             <hr class="settings-divider">
 
             <div class="sidebar-settings-title">系统</div>
 
+            <div class="ios-setting-group custom-ui-group">
+                <span>关于本站</span>
+                <button type="button" class="cube-appearance-picker" onclick="navigateTo('about-page', true)"><span>查看</span><span aria-hidden="true">›</span></button>
+            </div>
+
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.30.12</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.30.17</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
+    </div>
+
+    <div id="about-page" class="page-container">
+        <div class="page-header" style="max-width: 700px; margin: 24px auto 30px auto; padding: 0; width: 100%; position: relative;">
+            <button onclick="goBack()">返回上一页</button>
+            <div><h2 style="margin-bottom: 5px;">关于本站</h2></div>
+        </div>
+        <div class="card" style="max-width: 650px; margin: 0 auto;">
+            <div class="sidebar-settings-title">公式</div>
+            <div class="ios-setting-group custom-ui-group about-source-row">
+                <span>CFOP</span>
+                <span>Cube Coach · github.com/lukejacksonn/cube</span>
+            </div>
+            <div class="ios-setting-group custom-ui-group about-source-row" style="margin-bottom: 0;">
+                <span>COLL</span>
+                <span>CubingApp · cubingapp.com/algorithms/COLL</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="cube-appearance-modal" class="cube-appearance-overlay" hidden onclick="closeCubeAppearanceModal(event)">
+        <div class="cube-appearance-card" role="dialog" aria-modal="true" aria-labelledby="cube-appearance-title">
+            <div class="cube-appearance-heading"><h3 id="cube-appearance-title">魔方外观</h3><button type="button" aria-label="关闭" onclick="closeCubeAppearanceModal()">×</button></div>
+            <div id="cube-appearance-options" class="cube-appearance-options"></div>
+        </div>
     </div>
 
     <!-- =========================================
@@ -920,7 +964,7 @@
                     </div>
 
                     <div class="ios-setting-group custom-ui-group">
-                        <span>智能/虚拟魔方尺寸</span>
+                        <span>智能魔方尺寸</span>
                         <div class="ui-control-right ui-slider-wrapper">
                             <span id="smart-cube-size-val">100%</span>
                             <input type="range" id="smart-cube-size-slider" min="50" max="150" value="100" oninput="updateSmartCubeSize(this.value)">
@@ -1729,8 +1773,8 @@
     </div>
 
     <script src="database.js"></script>
-    <script src="main.js?v=1.17-formula-sticker-20261002"></script>
-    <script src="timer-smart.js?v=1.17-detail18"></script>
+    <script src="main.js?v=1.17-cube-menu-20261003"></script>
+    <script src="timer-smart.js?v=1.17-cube-palette-20261003"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>
 </html>
