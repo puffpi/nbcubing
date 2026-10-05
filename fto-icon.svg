@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="#263244">
+  <defs>
+    <g id="fto-side">
+      <path d="M8 8h14l-7 8zm17 0h14l-7 8zm17 0h14l-7 8z"/>
+      <path d="m21 17 5-6 5 6zm12 0 5-6 5 6z"/>
+      <path d="M18 19h12l-6 7zm16 0h12l-6 7z"/>
+      <path d="M27 25h10l-5 6z"/>
+      <path d="M27 21h10v2H27z"/>
+    </g>
+  </defs>
+  <use href="#fto-side"/>
+  <use href="#fto-side" transform="rotate(90 32 32)"/>
+  <use href="#fto-side" transform="rotate(180 32 32)"/>
+  <use href="#fto-side" transform="rotate(270 32 32)"/>
+</svg>

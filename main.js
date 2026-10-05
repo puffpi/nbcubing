@@ -1,5 +1,10 @@
 let allCubersData = [];
 let historyStack = [];
+let competitionCountdownTimer = null;
+let competitionAvailabilityTimer = null;
+let activeCompetitionDetail = null;
+let activeCompetitionWcaData = null;
+let activeCompetitionWcif = null;
 let pkHistoryList = [];
 let searchHistoryList = [];
 let inlinePkState = 0;
@@ -174,7 +179,7 @@ let supabaseClient = null;
 async function ensureSupabaseClient() {
     if (supabaseClient) return supabaseClient;
     await loadOptionalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', () => !!window.supabase?.createClient);
-    return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { detectSessionInUrl: false } });
 }
 
 // ================= 新增：界面设置全局变量 =================
@@ -216,8 +221,9 @@ const cubeAppearanceOptions = [
 ];
 const smartCubeAppearanceOptions = cubeAppearanceOptions.filter(option => option.id !== 'white');
 let cubeAppearanceTarget = 'smart';
-function openCubeAppearanceModal(target) {
+function openCubeAppearanceModal(target, fromTimer = false) {
     cubeAppearanceTarget = target === 'virtual' ? 'virtual' : 'smart';
+    document.getElementById('cube-appearance-modal').classList.toggle('timer-settings-context', fromTimer);
     document.getElementById('cube-appearance-title').textContent = cubeAppearanceTarget === 'smart' ? '智能魔方外观' : '虚拟魔方外观';
     const list = document.getElementById('cube-appearance-options');
     list.replaceChildren();
@@ -245,7 +251,7 @@ function openCubeAppearanceModal(target) {
     document.getElementById('cube-appearance-modal').hidden = false;
 }
 function openSmartCubeLogoModal() {
-    document.getElementById('cube-appearance-title').textContent = '智能魔方显示logo';
+    document.getElementById('cube-appearance-title').textContent = '智能魔方显示LOGO';
     const list = document.getElementById('cube-appearance-options');
     list.replaceChildren();
     for (const option of [{ id: 'none', name: '不显示' }, { id: 'puffpi', name: 'PuffPi' }]) {
@@ -276,6 +282,7 @@ function openSmartCubeLogoModal() {
 function closeCubeAppearanceModal(event) {
     if (event && event.target.id !== 'cube-appearance-modal') return;
     document.getElementById('cube-appearance-modal').hidden = true;
+    document.getElementById('cube-appearance-modal').classList.remove('timer-settings-context');
 }
 
 const countryDict = {
@@ -694,6 +701,13 @@ function goBack() {
 
 function showPage(pageId) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
+    if (typeof forumPageChanged === 'function') forumPageChanged(pageId);
+    if (pageId !== 'competition-detail-page') {
+        if (competitionCountdownTimer) clearInterval(competitionCountdownTimer);
+        if (competitionAvailabilityTimer) clearInterval(competitionAvailabilityTimer);
+        competitionCountdownTimer = null;
+        competitionAvailabilityTimer = null;
+    }
     if (pageId !== 'timer-page' && typeof resetInspection === 'function') resetInspection();
     const page = document.getElementById(pageId);
     document.querySelectorAll('.page-container').forEach(p => {
@@ -701,6 +715,9 @@ function showPage(pageId) {
     });
     void page.offsetWidth;
     page.classList.add('active');
+    if(pageId==='person-page'&&typeof restorePublicProfile==='function')restorePublicProfile();
+    if (pageId === 'competition-detail-page' && (activeCompetitionWcaData || activeCompetitionWcif)) startCompetitionCountdown();
+    if (pageId === 'competition-detail-page' && activeCompetitionDetail) startCompetitionAvailabilityRefresh(activeCompetitionDetail);
 }
 
 function getPkButtonHtml(wcaId, formattedName) {
@@ -1094,6 +1111,7 @@ function renderPK(pA, pB) {
 }
 
 function renderPersonPage(cuber, preserveScroll = false) {
+    if(typeof renderUnifiedPersonPage==='function')return renderUnifiedPersonPage(cuber,preserveScroll);
     const previousScrollY = preserveScroll ? window.scrollY : 0;
     ++remoteHistoryRequest;
     document.getElementById('person-title-name').innerText = formatName(cuber.person.name);
@@ -1102,8 +1120,8 @@ function renderPersonPage(cuber, preserveScroll = false) {
     const wcaLinkContainer = document.getElementById('person-wca-link');
     if (wcaLinkContainer) {
         wcaLinkContainer.innerHTML = `
-            <a href="https://www.worldcubeassociation.org/persons/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">🔗 WCA 官方</a>
-            <a href="https://cubing.com/results/person/${cuber.person.wca_id}" target="_blank" class="btn btn-outline btn-cubing" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; border-color: #f59e0b; color: #f59e0b; margin-left: 8px;">📊 粗饼主页</a>
+            <a href="https://www.worldcubeassociation.org/persons/${cuber.person.wca_id}" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">🔗 WCA 主页</a>
+            <a href="https://cubing.com/results/person/${cuber.person.wca_id}" target="_blank" class="btn btn-outline btn-cubing" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; border-color: #f59e0b; color: #f59e0b; margin-left: 8px;">🔗 粗饼主页</a>
         `;
     }
 
@@ -1296,7 +1314,7 @@ function renderPersonPage(cuber, preserveScroll = false) {
         chartCard.style.display = 'none';
     }
 
-    navigateTo('person-page', true);
+    if (!preserveScroll) navigateTo('person-page', true);
     if (preserveScroll) requestAnimationFrame(() => window.scrollTo(0, previousScrollY));
 
     // 名单内选手等待共享历史文件；名单外选手才单独请求其 WCA 历史。
@@ -2861,6 +2879,7 @@ function openEditPopup(index) {
         let cleanScramble = r.scramble.replace(/<br>/g, ' ');
         const puzzleEvent = currentTimerMode === 'smart' ? timerSmartEvent : currentTimerEvent;
         editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
+        editDisplayEl.setAttribute('visualization', puzzleEvent === 'fto' ? 'auto' : '2D');
         editDisplayEl.setAttribute('alg', cleanScramble);
 
         editDisplayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
@@ -3089,6 +3108,7 @@ function copyEditScramble() {
 function switchTimerTab(tabName) {
     // 核心新增：只要不是空闲状态（正在长按或计时中），一律禁止切换栏目
     if (timerState !== 'IDLE') return;
+    if (document.getElementById('timer-event-popup')?.style.display === 'flex') return;
 
     if (window.innerWidth > 768) return;
 
@@ -3309,6 +3329,22 @@ function getSquare1Scramble() {
     return moves.join(' / ') + ' /';
 }
 
+function getFtoScramble() {
+    const faces = ['U', 'D', 'F', 'B', 'L', 'R', 'BL', 'BR'];
+    const opposite = { U:'D', D:'U', F:'B', B:'F', L:'BR', BR:'L', R:'BL', BL:'R' };
+    const result = [];
+    let previous = '', beforePrevious = '';
+    for (let index = 0; index < 25; index++) {
+        const choices = faces.filter(face => face !== previous &&
+            !(face === beforePrevious && opposite[face] === previous));
+        const face = choices[Math.floor(Math.random() * choices.length)];
+        result.push(face + (Math.random() < .5 ? "'" : ''));
+        beforePrevious = previous;
+        previous = face;
+    }
+    return result.join(' ');
+}
+
 // 提取通用的打乱引擎
 function getScrambleByEvent(ev) {
     let scramble = "";
@@ -3353,6 +3389,8 @@ function getScrambleByEvent(ev) {
         scramble = res.join(" ");
     } else if (ev === 'sq1') {
         scramble = getSquare1Scramble();
+    } else if (ev === 'fto') {
+        scramble = getFtoScramble();
     } else if (ev === 'clock') {
         // 核心修复魔表：严格区分正负数语法，完美适配官方解析器
         let clockMoves1 = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
@@ -3428,7 +3466,7 @@ function getCubingJsPuzzle(eventId) {
         '444': '4x4x4', '444bf': '4x4x4',
         '555': '5x5x5', '555bf': '5x5x5',
         '666': '6x6x6', '777': '7x7x7',
-        'pyram': 'pyraminx', 'minx': 'megaminx', 'skewb': 'skewb', 'sq1': 'square1', 'clock': 'clock'
+        'pyram': 'pyraminx', 'minx': 'megaminx', 'skewb': 'skewb', 'sq1': 'square1', 'clock': 'clock', 'fto': 'fto'
     };
     return map[eventId] || '3x3x3';
 }
@@ -3445,6 +3483,7 @@ function getScrambleZoom(eventId) {
         'minx': 1.05,               // 五魔方形状特殊，稍微放大
         'pyram': 1.0,
         'sq1': 1.0,
+        'fto': 1.0,
         'skewb': 1.15,
         'clock': 1.0
     };
@@ -3464,6 +3503,7 @@ function generateScramble() {
         let cleanScramble = scramble.replace(/<br>/g, ' ');
 
         displayEl.setAttribute('puzzle', getCubingJsPuzzle(currentTimerEvent));
+        displayEl.setAttribute('visualization', currentTimerEvent === 'fto' ? 'auto' : '2D');
         displayEl.setAttribute('alg', cleanScramble);
 
         // 核心修复：根据当前项目，动态注入缩放比例，并附带 0.3 秒丝滑过渡动画
@@ -3865,6 +3905,8 @@ let chalStartTime = 0;
 let chalAnimFrame = null;
 let chalTopTime = 0;
 let chalBottomTime = 0;
+let chalRoundHandicapSide = 'none';
+let chalRoundHandicapMs = 0;
 let chalCurrentEvent = '333';
 let chalHasInit = false;
 
@@ -3893,6 +3935,18 @@ function initChallenge() {
     requestAnimationFrame(updateChallengeScrambleBounds);
 }
 
+function getChallengeHandicapLabel() {
+    return `（+${(chalRoundHandicapMs / 1000).toFixed(2).replace(/\.?0+$/, '')}）`;
+}
+
+function showChallengeHandicap() {
+    for (const side of ['top', 'bottom']) {
+        const suffix = document.getElementById(`challenge-handicap-${side}`);
+        suffix.hidden = side !== chalRoundHandicapSide || !chalRoundHandicapMs;
+        suffix.textContent = suffix.hidden ? '' : getChallengeHandicapLabel();
+    }
+}
+
 let challengeScrambleObserver = null;
 let challengeScrambleTokens = [];
 let challengeScrambleIsMinx = false;
@@ -3908,6 +3962,7 @@ function updateChallengeScrambleBounds() {
     ['top', 'bottom'].forEach(side => {
         const half = document.getElementById(`challenge-${side}-area`);
         const timer = document.getElementById(`challenge-timer-${side}`);
+        const timerTop = timer.parentElement.offsetTop;
         if (!half.clientHeight) return;
         const before = document.getElementById(`challenge-scramble-${side}`);
         const after = document.getElementById(`challenge-scramble-${side}-after`);
@@ -3919,7 +3974,7 @@ function updateChallengeScrambleBounds() {
             const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chal-scramble-scale')) || 1;
             let size = (challengeScrambleIsMinx ? 17 : 19) * scale;
             before.style.fontSize = after.style.fontSize = `${size}px`;
-            const split = before.offsetHeight > timer.offsetTop - gap - 16;
+            const split = before.offsetHeight > timerTop - gap - 16;
             if (split) {
                 const midpoint = Math.ceil(challengeScrambleTokens.length / 2);
                 before.innerHTML = renderChallengeScramble(challengeScrambleTokens.slice(0, midpoint));
@@ -3927,14 +3982,14 @@ function updateChallengeScrambleBounds() {
             }
             for (let i = 0; i < 20; i++) {
                 before.style.fontSize = after.style.fontSize = `${size}px`;
-                const upperGap = timer.offsetTop - 16 - before.offsetHeight;
-                const lowerBottom = timer.offsetTop + timer.offsetHeight + upperGap + after.offsetHeight;
+                const upperGap = timerTop - 16 - before.offsetHeight;
+                const lowerBottom = timerTop + timer.offsetHeight + upperGap + after.offsetHeight;
                 if (upperGap >= gap && (!split || lowerBottom <= half.clientHeight - 16)) break;
                 size = Math.max(10, size * .92);
             }
             before.style.top = '16px';
             after.style.top = split
-                ? `${timer.offsetTop + timer.offsetHeight + timer.offsetTop - 16 - before.offsetHeight}px`
+                ? `${timerTop + timer.offsetHeight + timerTop - 16 - before.offsetHeight}px`
                 : '';
         } else {
             before.style.fontSize = after.style.fontSize = '';
@@ -4040,6 +4095,30 @@ function openChalSettingsModal(type) {
             let val = parseInt(document.getElementById('chal-input-winscore').value);
             if (!isNaN(val) && val > 0) chalWinScore = val;
             checkChalWinCondition();
+            closeChalSettings();
+        };
+    } else if (type === 'handicap') {
+        titleEl.innerText = '公平让秒';
+        const side = uiSettings.chalHandicapSide || 'none';
+        const savedSeconds = Number(uiSettings.chalHandicapSeconds);
+        const secondsValue = Number.isFinite(savedSeconds) && savedSeconds > 0 ? String(savedSeconds) : '';
+        bodyEl.innerHTML = `
+            <div class="chal-handicap-choices" role="radiogroup" aria-label="让秒玩家">
+                <label><input type="radio" name="chal-handicap-side" value="none" ${side === 'none' ? 'checked' : ''}>不让秒</label>
+                <label><input type="radio" name="chal-handicap-side" value="top" ${side === 'top' ? 'checked' : ''}>上屏玩家</label>
+                <label><input type="radio" name="chal-handicap-side" value="bottom" ${side === 'bottom' ? 'checked' : ''}>下屏玩家</label>
+            </div>
+            <label class="chal-handicap-amount">让（<input type="number" id="chal-handicap-seconds" class="ios-input" min="0.01" max="120" step="0.01" value="${secondsValue}" inputmode="decimal" aria-label="让秒数">）秒</label>`;
+        confirmBtn.onclick = () => {
+            const selected = document.querySelector('input[name="chal-handicap-side"]:checked')?.value || 'none';
+            const value = Number(document.getElementById('chal-handicap-seconds').value);
+            if (selected !== 'none' && (!Number.isFinite(value) || value <= 0 || value > 120)) {
+                alert('请输入大于 0 且不超过 120 秒的让秒数。');
+                return;
+            }
+            uiSettings.chalHandicapSide = selected;
+            uiSettings.chalHandicapSeconds = selected === 'none' ? 0 : Math.round(value * 100) / 100;
+            saveTimerData();
             closeChalSettings();
         };
     } else if (type === 'adjust') {
@@ -4326,6 +4405,9 @@ function startChallenge() {
     chalTopState = 'RUNNING';
     chalBottomState = 'RUNNING';
     chalStartTime = performance.now();
+    chalRoundHandicapSide = uiSettings.chalHandicapSide || 'none';
+    chalRoundHandicapMs = Math.round(Number(uiSettings.chalHandicapSeconds || 0) * 1000);
+    showChallengeHandicap();
 
     document.getElementById('challenge-timer-top').className = 'challenge-timer';
     document.getElementById('challenge-timer-bottom').className = 'challenge-timer';
@@ -4348,9 +4430,11 @@ function checkChallengeFinish() {
         chalState = 'DONE';
         cancelAnimationFrame(chalAnimFrame);
 
-        if (chalTopTime < chalBottomTime) {
+        const adjustedTop = chalTopTime + (chalRoundHandicapSide === 'top' ? chalRoundHandicapMs : 0);
+        const adjustedBottom = chalBottomTime + (chalRoundHandicapSide === 'bottom' ? chalRoundHandicapMs : 0);
+        if (adjustedTop < adjustedBottom) {
             chalScoreTop++;
-        } else if (chalBottomTime < chalTopTime) {
+        } else if (adjustedBottom < adjustedTop) {
             chalScoreBottom++;
         }
         updateChallengeScores();
@@ -4473,6 +4557,7 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+    const profileLayoutLabel=document.getElementById('person-layout-label');if(profileLayoutLabel)profileLayoutLabel.textContent=({classic:'经典',card:'卡片',dense:'密集'})[uiSettings.personLayout||'dense'];
     const smartCube = document.getElementById('timer-virtual-cube');
     if (smartCube) smartCube.dataset.logo = uiSettings.smartCubeLogo === 'none' ? 'none' : 'puffpi';
     const logoLabel = document.getElementById('smart-cube-logo-label');
@@ -4482,6 +4567,10 @@ function applyUiSettings() {
         const option = options.find(item => item.id === uiSettings[`${target}CubeAppearance`]) || options[0];
         const label = document.getElementById(`${target}-cube-appearance-label`);
         if (label) label.textContent = option.name;
+        if (target === 'smart') {
+            const timerLabel = document.getElementById('timer-smart-cube-appearance-label');
+            if (timerLabel) timerLabel.textContent = option.name;
+        }
         if (target === 'smart') document.getElementById('timer-virtual-cube')?.setAttribute('data-appearance', option.id);
         else formulaDetailCube?.setAppearance(option.id);
     }
@@ -4559,7 +4648,7 @@ function applyUiSettings() {
     if (userEl) userEl.value = uiSettings.username || '';
 
     let wcaEl = document.getElementById('setting-wcaid');
-    if (wcaEl) wcaEl.value = uiSettings.wcaId || '';
+    if (wcaEl) wcaEl.textContent = uiSettings.wcaId || '未登录';
 
     // 👇 核心新增：渲染每次成绩确认开关 👇
     let btnPromptNo = document.getElementById('btn-prompt-no');
@@ -4623,7 +4712,14 @@ function openNbTimingModal(kind) {
         };
         list.appendChild(button);
     }
-    document.getElementById('nb-timing-modal').style.display = 'flex';
+    showNbTimerSettingOverlay(document.getElementById('nb-timing-modal'));
+}
+
+function showNbTimerSettingOverlay(modal) {
+    // Keep all timer setting backdrops at the same DOM level as the appearance picker.
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.classList.add('timer-setting-overlay');
+    modal.style.display = 'flex';
 }
 
 function closeNbTimingModal(e) {
@@ -4648,7 +4744,7 @@ function openFontModal() {
         };
         list.appendChild(btn);
     });
-    document.getElementById('font-select-modal').style.display = 'flex';
+    showNbTimerSettingOverlay(document.getElementById('font-select-modal'));
 }
 
 function closeFontModal(e) {
@@ -4872,14 +4968,16 @@ document.addEventListener('mouseup', (e) => {
 function saveUsername(val) {
     uiSettings.username = val.trim();
     saveTimerData();
+    if (typeof updateAccountNickname === 'function') updateAccountNickname(val);
 }
 
 function saveWcaId(val) {
+    if (typeof accountProfile !== 'undefined' && accountProfile) val = accountProfile.wca_id;
     uiSettings.wcaId = val.trim().toUpperCase();
     saveTimerData();
     // 失去焦点时自动变成大写并刷新显示
     let wcaEl = document.getElementById('setting-wcaid');
-    if (wcaEl) wcaEl.value = uiSettings.wcaId;
+    if (wcaEl) wcaEl.textContent = uiSettings.wcaId;
 }
 
 // ================= 巅峰月赛渲染引擎 =================
@@ -4917,42 +5015,72 @@ function getCurrentMonthCloudRange() {
     return { start: start.toISOString(), end: end.toISOString() };
 }
 
+function getCurrentWeekKey() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const value = type => parts.find(part => part.type === type).value;
+    const monday = new Date(`${value('year')}-${value('month')}-${value('day')}T00:00:00Z`);
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    return monday.toISOString().slice(0, 10);
+}
+
+function getCurrentWeekCloudRange() {
+    const monday = new Date(`${getCurrentWeekKey()}T00:00:00+08:00`);
+    const nextMonday = new Date(monday.getTime() + 7 * 86400000);
+    const month = getCurrentMonthCloudRange();
+    return {
+        start: new Date(Math.max(monday.getTime(), Date.parse(month.start))).toISOString(),
+        end: new Date(Math.min(nextMonday.getTime(), Date.parse(month.end))).toISOString()
+    };
+}
+
 function getEventFormat(evId) {
     if (['666', '777', '333bf', '444bf', '555bf', '333fm'].includes(evId)) return { count: 3 };
     return { count: 5 };
 }
 
-// 本地参赛记录和打乱按北京时间月份分组，与月赛周期一致。
+// 参赛按北京时间周封存，榜单仍按月份聚合。
 function getMonthlyAttempts(eventId) {
-    let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
-    let key = getCurrentMonthKey();
-    return data[key] ? data[key][eventId] : null;
+    const data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
+    const record = data[getCurrentMonthKey()]?.[eventId];
+    if (Array.isArray(record) || record === 'DNF') {
+        const attempts = Array.isArray(record) ? record :
+            Array.from({length:getEventFormat(eventId).count}, () => ({rawMs:0, penalty:'DNS'}));
+        data[getCurrentMonthKey()][eventId] = { [getCurrentWeekKey()]: attempts };
+        localStorage.setItem('monthlyParticipation', JSON.stringify(data));
+        return attempts;
+    }
+    return record?.[getCurrentWeekKey()] || null;
+}
+
+function getMonthlyBestAttempts(eventId) {
+    const data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
+    const record = data[getCurrentMonthKey()]?.[eventId];
+    const weeks = Array.isArray(record) ? [record] : Object.values(record || {});
+    return weeks.filter(Array.isArray).reduce((best, attempts) =>
+        !best || processMonthlyResults(attempts, eventId).sortAvgMs < processMonthlyResults(best, eventId).sortAvgMs
+            ? attempts : best, null);
 }
 
 function markMonthlyParticipated(eventId, attemptsArr) {
     let data = JSON.parse(localStorage.getItem('monthlyParticipation') || '{}');
     let key = getCurrentMonthKey();
     if (!data[key]) data[key] = {};
-    data[key][eventId] = attemptsArr || 'DNF';
+    const old = data[key][eventId];
+    data[key][eventId] = Array.isArray(old) ? { [getCurrentWeekKey()]: old } : (old || {});
+    data[key][eventId][getCurrentWeekKey()] = attemptsArr || 'DNF';
     localStorage.setItem('monthlyParticipation', JSON.stringify(data));
 }
 
-function ensureMonthlyScrambles() {
-    const key = 'monthlyScrambles_' + getCurrentMonthKey();
+function ensureMonthlyScrambles(eventId) {
+    const key = 'monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + getCurrentWeekKey();
     let cached = localStorage.getItem(key);
-    if (cached) return JSON.parse(cached);
-
-    let generated = {};
-    const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
-    eventDict.forEach(ev => {
-        if (!excludedEvents.includes(ev.id)) {
-            let format = getEventFormat(ev.id);
-            let scrs = [];
-            for (let i = 0; i < format.count; i++) scrs.push(getScrambleByEvent(ev.id));
-            generated[ev.id] = scrs;
-        }
-    });
-    localStorage.setItem(key, JSON.stringify(generated));
+    const generated = cached ? JSON.parse(cached) : {};
+    if (eventId && !generated[eventId]) {
+        generated[eventId] = Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId));
+        localStorage.setItem(key, JSON.stringify(generated));
+    }
     return generated;
 }
 
@@ -5081,6 +5209,7 @@ async function renderMonthlyList() {
     validEvents.forEach(ev => {
         let cnName = ev.name.split('（')[0].split('(')[0].trim();
         let attemptsData = getMonthlyAttempts(ev.id);
+        let bestAttempts = getMonthlyBestAttempts(ev.id);
 
         // 预留排名的 span，给它一个专属 ID 方便等下填入数据
         let rankHtml = `<span id="monthly-rank-${ev.id}" style="font-size: 13.5px; color: var(--text-muted); font-weight: normal; margin-left: 10px; font-family: 'SFMono-Regular', Consolas, monospace;">[...]</span>`;
@@ -5090,7 +5219,7 @@ async function renderMonthlyList() {
 
         if (attemptsData) {
             let res = processMonthlyResults(attemptsData, ev.id);
-            btnAction = `event.stopPropagation(); alert('您已完成或中途退出了本周该项目的比赛，无法再次进入！')`;
+            btnAction = `event.stopPropagation(); alert('本月该项目已经参加过，不能再次参加。')`;
 
             resultHtml = `
                 <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
@@ -5098,6 +5227,10 @@ async function renderMonthlyList() {
                     <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${res.detailsStr}</div>
                 </div>
             `;
+        } else if (bestAttempts) {
+            const best = processMonthlyResults(bestAttempts, ev.id);
+            resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">本周参加</button>
+                <span style="font-size: 12px; color: var(--text-muted);">本月最佳 ${best.avgDisp}</span>`;
         }
 
         let row = document.createElement('div');
@@ -5137,7 +5270,7 @@ async function renderMonthlyList() {
             // 数据回来后，悄悄把每个项目的人数填进去
             validEvents.forEach(ev => {
                 let cloudData = eventLeaderboards[ev.id] || [];
-                let attemptsData = getMonthlyAttempts(ev.id);
+                let attemptsData = getMonthlyBestAttempts(ev.id);
 
                 if (attemptsData) {
                     let res = processMonthlyResults(attemptsData, ev.id);
@@ -5228,7 +5361,7 @@ async function openMonthlyRanking(evId, cnName) {
     let allEntries = [];
 
     // 把本地的最新的这一组成绩也临时加进来一起比对
-    let attemptsData = getMonthlyAttempts(evId);
+    let attemptsData = getMonthlyBestAttempts(evId);
     if (attemptsData) {
         let res = processMonthlyResults(attemptsData, evId);
         allEntries.push({
@@ -5368,7 +5501,34 @@ function closeWcaidCheckModal(e) {
 }
 
 // ---------------- 弹窗与进出控制 ----------------
-function openMonthlyEntry(evId, cnName) {
+let monthlyEntryChecking = false;
+async function openMonthlyEntry(evId, cnName) {
+    if (monthlyEntryChecking) return;
+    if (getMonthlyAttempts(evId)) {
+        alert('本周该项目已经参加过，下周可再次参赛。');
+        return;
+    }
+    monthlyEntryChecking = true;
+    try {
+        const client = await ensureSupabaseClient();
+        const range = getCurrentWeekCloudRange();
+        const {data, error} = await monthlyCloudRequest(client.from('WeeklyRecord')
+            .select('wca_id,username').eq('event_id', evId)
+            .gte('created_at', range.start).lt('created_at', range.end));
+        if (error) throw error;
+        const myId = (uiSettings.wcaId || '').trim().toUpperCase();
+        if (data.some(entry => myId ? (entry.wca_id || '').trim().toUpperCase() === myId
+            : !(entry.wca_id || '').trim() && entry.username === uiSettings.username)) {
+            alert('本周该项目已经参加过，下周可再次参赛。');
+            return;
+        }
+    } catch (error) {
+        console.warn('月赛参赛资格验证失败', error);
+        alert('暂时无法验证本周参赛记录，请稍后重试。');
+        return;
+    } finally {
+        monthlyEntryChecking = false;
+    }
     currentMonthlyEventTarget = evId;
     currentMonthlyEventName = cnName;
     document.getElementById('monthly-entry-modal').style.display = 'flex';
@@ -5396,6 +5556,11 @@ function confirmMonthlyExit() {
 }
 
 function confirmMonthlyEntry() {
+    if (getMonthlyAttempts(currentMonthlyEventTarget)) {
+        closeMonthlyEntry();
+        alert('本周该项目已经参加过，下周可再次参赛。');
+        return;
+    }
     // 无论渲染组件出现任何报错，都绝不能阻断页面跳转
     try {
         document.getElementById('monthly-entry-modal').style.display = 'none';
@@ -5416,6 +5581,9 @@ function confirmMonthlyEntry() {
         const monthlyWatermark = document.getElementById('monthly-event-watermark');
         if (monthlyWatermark) monthlyWatermark.className = `cubing-icon event-${currentMonthlyEventTarget}`;
 
+        // 开始时即封存本周名额，刷新或中途退出也不能重复领取同一组打乱。
+        markMonthlyParticipated(currentMonthlyEventTarget,
+            Array.from({length:getEventFormat(currentMonthlyEventTarget).count}, () => ({rawMs:0, penalty:'DNS'})));
         renderMonthlyAttemptsList();
         renderMonthlyScramble(0);
     } catch (err) {
@@ -5484,14 +5652,8 @@ function renderMonthlyAttemptsList() {
 
 function renderMonthlyScramble(attemptIndex) {
     try {
-        let allScrambles = ensureMonthlyScrambles();
+        let allScrambles = ensureMonthlyScrambles(currentMonthlyEventTarget);
         let scrambles = allScrambles[currentMonthlyEventTarget];
-
-        if (!scrambles) {
-            localStorage.removeItem('monthlyScrambles_' + getCurrentMonthKey());
-            allScrambles = ensureMonthlyScrambles();
-            scrambles = allScrambles[currentMonthlyEventTarget];
-        }
 
         if (!scrambles || attemptIndex >= scrambles.length) return;
 
@@ -5509,6 +5671,7 @@ function renderMonthlyScramble(attemptIndex) {
             // 给官方组件的操作套上异常捕获罩，即使报错也只在后台静默处理
             try {
                 displayEl.setAttribute('puzzle', getCubingJsPuzzle(currentMonthlyEventTarget));
+                displayEl.setAttribute('visualization', currentMonthlyEventTarget === 'fto' ? 'auto' : '2D');
                 displayEl.setAttribute('alg', cleanScramble);
                 displayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
                 displayEl.style.transform = `scale(${getScrambleZoom(currentMonthlyEventTarget)})`;
@@ -5955,8 +6118,7 @@ async function fetchWeeklyLeaderboard(eventId) {
         .eq('event_id', eventId)
         .gte('created_at', monthRange.start)
         .lt('created_at', monthRange.end)
-        .order('raw_ms', { ascending: true }) // 毫秒数越小（越快）排得越靠前
-        .limit(50)); // 最多拉取前 50 名的数据
+        .order('raw_ms', { ascending: true })); // 月内每周成绩在客户端按选手取最佳
 
     if (error) {
         console.error('拉取排行榜失败：', error);
@@ -6082,8 +6244,6 @@ async function fetchCompetitions() {
 function createCompCard(comp, isListPage = false) {
     const compName = comp.nameZh || getChineseCompetitionName(comp.name, comp.id);
     const city = comp.city || '中国';
-    const formatId = comp.alias || comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
-    const cubingUrl = `https://cubing.com/competition/${formatId}`;
 
     const d = new Date();
     const y = d.getFullYear();
@@ -6108,7 +6268,16 @@ function createCompCard(comp, isListPage = false) {
 
     const card = document.createElement('div');
     card.className = 'comp-card';
-    card.onclick = () => window.open(cubingUrl, '_blank');
+    card.setAttribute('role', 'link');
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', `查看${compName}详情`);
+    card.onclick = () => openCompetitionDetail(comp);
+    card.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openCompetitionDetail(comp);
+        }
+    };
 
     let tagHtml = statusText ? `<div class="comp-status-tag ${statusClass}">${statusText}</div>` : '';
 
@@ -6121,6 +6290,521 @@ function createCompCard(comp, isListPage = false) {
         ${tagHtml}
     `;
     return card;
+}
+
+let competitionDetailController = null;
+let competitionWcifPromise = null;
+let activeCompetitionChineseVenue = null;
+
+function competitionDetailDate(start, end) {
+    if (!start) return '待公布';
+    return end && end !== start ? `${start} 至 ${end}` : start;
+}
+
+function competitionDetailFact(label, value, countdownId = '') {
+    if (value === undefined || value === null || value === '') return;
+    const group = document.createElement('div');
+    group.className = 'competition-detail-registration-group';
+    const row = document.createElement('div');
+    row.className = 'competition-detail-fact';
+    const title = document.createElement('span');
+    title.textContent = label;
+    const content = document.createElement('span');
+    content.textContent = String(value);
+    row.append(title, content);
+    group.append(row);
+    if (countdownId) {
+        const countdown = document.createElement('div');
+        countdown.id = countdownId;
+        countdown.className = 'competition-detail-countdown';
+        countdown.hidden = true;
+        group.append(countdown);
+    }
+    document.getElementById('competition-detail-registration').appendChild(group);
+}
+
+function renderCompetitionDetail(comp, detail) {
+    const name = comp.nameZh || getChineseCompetitionName(detail?.name || comp.name, comp.id);
+    const start = detail?.start_date || comp.start_date;
+    const end = detail?.end_date || comp.end_date;
+    document.getElementById('competition-detail-name').textContent = name;
+    document.getElementById('competition-detail-date').textContent = competitionDetailDate(start, end);
+    document.getElementById('competition-detail-city').textContent = comp.city || detail?.city || '中国';
+    const capacity = detail?.competitor_limit || activeCompetitionWcif?.competitorLimit;
+    document.getElementById('competition-detail-capacity').textContent = capacity ? `${capacity} 人` : '人数待公布';
+    const facts = document.getElementById('competition-detail-registration');
+    facts.replaceChildren();
+    competitionDetailFact('开放', competitionDetailTime(detail?.registration_open || activeCompetitionWcif?.registrationInfo?.openTime), 'competition-detail-open-countdown');
+    competitionDetailFact('截止', competitionDetailTime(detail?.registration_close || activeCompetitionWcif?.registrationInfo?.closeTime), 'competition-detail-close-countdown');
+    if (!facts.childElementCount) facts.textContent = '报名时间待公布';
+    startCompetitionCountdown();
+    const venue = detail?.venue || '';
+    const chineseVenue = venue.match(/[（(]([^（）()]*[\u3400-\u9fff][^（）()]*)[）)]/)?.[1];
+    document.getElementById('competition-detail-venue').textContent = activeCompetitionChineseVenue?.venue || chineseVenue || venue || '场馆待公布';
+    const address = [detail?.venue_address, detail?.venue_details].filter(Boolean).join(' · ');
+    document.getElementById('competition-detail-address').textContent = activeCompetitionChineseVenue?.address || address;
+    const eventIds = Array.isArray(detail?.event_ids) ? detail.event_ids : [];
+    const eventsSection = document.getElementById('competition-detail-events-section');
+    const events = document.getElementById('competition-detail-events');
+    events.replaceChildren();
+    eventsSection.hidden = !eventIds.length;
+    document.getElementById('competition-detail-event-count').textContent = eventIds.length ? `共 ${eventIds.length} 项` : '';
+    renderCompetitionEventFilters(eventIds);
+    eventIds.forEach(id => {
+        const item = document.createElement('span');
+        const icon = document.createElement('i');
+        icon.className = `cubing-icon event-${id}`;
+        icon.setAttribute('aria-hidden', 'true');
+        item.append(icon, document.createTextNode(eventDict.find(event => event.id === id)?.name || id));
+        events.appendChild(item);
+    });
+    const rawInfo = typeof detail?.information === 'string' ? detail.information.trim() : '';
+    const info = rawInfo.includes('<') ? new DOMParser().parseFromString(rawInfo, 'text/html').body.textContent.trim() : rawInfo;
+    const genericInfo = /please check the competition website for more information/i.test(info);
+    document.getElementById('competition-detail-info-section').hidden = !info || genericInfo;
+    document.getElementById('competition-detail-info').textContent = genericInfo ? '' : info;
+}
+
+function competitionDetailTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).format(date);
+}
+
+function paintCompetitionCountdown(element, remainingMs) {
+    if (!element) return;
+    const total = Math.max(0, Math.ceil(remainingMs / 1000));
+    const values = [Math.floor(total / 86400), Math.floor(total % 86400 / 3600), Math.floor(total % 3600 / 60), total % 60];
+    const labels = ['天', '小时', '分钟', '秒'];
+    if (!element.firstElementChild) {
+        values.forEach((_, index) => {
+            const part = document.createElement('span');
+            part.className = 'competition-detail-countdown-part';
+            const number = document.createElement('strong');
+            const label = document.createElement('small');
+            label.textContent = labels[index];
+            part.append(number, label);
+            element.append(part);
+        });
+    }
+    [...element.children].forEach((part, index) => { part.firstElementChild.textContent = String(values[index]); });
+}
+
+function updateCompetitionCountdown() {
+    const detail = activeCompetitionWcaData;
+    const openEl = document.getElementById('competition-detail-open-countdown');
+    const closeEl = document.getElementById('competition-detail-close-countdown');
+    if (!openEl && !closeEl) return;
+    const open = Date.parse(detail?.registration_open || activeCompetitionWcif?.registrationInfo?.openTime || '');
+    const close = Date.parse(detail?.registration_close || activeCompetitionWcif?.registrationInfo?.closeTime || '');
+    const now = Date.now();
+    const capacity = Number(detail?.competitor_limit || activeCompetitionWcif?.competitorLimit);
+    const accepted = activeCompetitionWcif ? (activeCompetitionWcif.persons || []).filter(person => person.registration?.status === 'accepted' && person.registration?.isCompeting !== false).length : null;
+    const availabilityKnown = Number.isFinite(capacity) && capacity > 0 && accepted !== null;
+    if (openEl) {
+        openEl.hidden = !Number.isFinite(open) || (now >= open && !availabilityKnown);
+        if (!openEl.hidden) paintCompetitionCountdown(openEl, open - now);
+    }
+    if (closeEl) {
+        closeEl.hidden = !Number.isFinite(close) || !Number.isFinite(open) || now < open || !availabilityKnown || accepted >= capacity;
+        if (!closeEl.hidden) paintCompetitionCountdown(closeEl, close - now);
+    }
+}
+
+function startCompetitionCountdown() {
+    if (competitionCountdownTimer) clearInterval(competitionCountdownTimer);
+    updateCompetitionCountdown();
+    if (document.getElementById('competition-detail-page').classList.contains('active') &&
+        (activeCompetitionWcaData?.registration_open || activeCompetitionWcaData?.registration_close || activeCompetitionWcif?.registrationInfo?.openTime)) {
+        competitionCountdownTimer = setInterval(updateCompetitionCountdown, 1000);
+    }
+}
+
+function startCompetitionAvailabilityRefresh(comp) {
+    if (competitionAvailabilityTimer) clearInterval(competitionAvailabilityTimer);
+    competitionAvailabilityTimer = setInterval(() => {
+        if (activeCompetitionDetail !== comp || !document.getElementById('competition-detail-page').classList.contains('active')) return;
+        const open = Date.parse(activeCompetitionWcaData?.registration_open || activeCompetitionWcif?.registrationInfo?.openTime || '');
+        const close = Date.parse(activeCompetitionWcaData?.registration_close || activeCompetitionWcif?.registrationInfo?.closeTime || '');
+        if (Number.isFinite(open) && Number.isFinite(close) && Date.now() >= open && Date.now() < close) {
+            competitionWcifPromise = null;
+            activeCompetitionWcif = null;
+            updateCompetitionCountdown();
+            loadCompetitionWcif(comp);
+        }
+    }, 5 * 60 * 1000);
+}
+
+async function openCompetitionDetail(comp) {
+    if (!comp?.id || !/^[A-Za-z0-9_-]+$/.test(comp.id)) return;
+    competitionDetailController?.abort();
+    const controller = new AbortController();
+    competitionDetailController = controller;
+    activeCompetitionDetail = comp;
+    activeCompetitionWcaData = null;
+    activeCompetitionChineseVenue = null;
+    activeCompetitionWcif = null;
+    competitionPeopleEventFilter = '';
+    competitionPeopleSortType = 'average';
+    competitionWcifPromise = null;
+    if (competitionAvailabilityTimer) clearInterval(competitionAvailabilityTimer);
+    navigateTo('competition-detail-page', true);
+    renderCompetitionDetail(comp, null);
+    document.getElementById('competition-detail-schedule').textContent = '载入中…';
+    document.getElementById('competition-detail-people').textContent = '载入中…';
+    document.getElementById('competition-detail-hot-people').textContent = '载入中…';
+    showCompetitionDetailTab('schedule');
+    loadCompetitionWcif(comp);
+    const cubingId = comp.alias || comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');
+    document.getElementById('competition-detail-wca-link').href = `https://www.worldcubeassociation.org/competitions/${encodeURIComponent(comp.id)}`;
+    document.getElementById('competition-detail-cubing-link').href = `https://cubing.com/competition/${encodeURIComponent(cubingId)}`;
+    // This is the same Cubing China search API already used for the competition list.
+    // Its optional Chinese venue fields vary, so only use values that contain Chinese text.
+    const year = String(comp.start_date || '').slice(0, 4);
+    if (/^\d{4}$/.test(year)) {
+        fetch(`https://wca-api.cubing.com/competition/search?countryId=China&year=${year}&skip=0&take=100`, { signal: controller.signal })
+            .then(response => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
+            .then(result => {
+                if (controller.signal.aborted || activeCompetitionDetail !== comp) return;
+                const item = (Array.isArray(result.data) ? result.data : []).find(entry => entry.wcaId === comp.id);
+                if (!item) return;
+                const chineseFields = Object.entries(item).filter(([key, value]) =>
+                    /venue|address|location|place|hall/i.test(key) && typeof value === 'string' && /[\u3400-\u9fff]/.test(value));
+                const venue = chineseFields.find(([key]) => /venue|hall|place/i.test(key))?.[1] || '';
+                const address = chineseFields.find(([key]) => /address|location/i.test(key))?.[1] || '';
+                if (venue || address) {
+                    activeCompetitionChineseVenue = { venue, address };
+                    renderCompetitionDetail(comp, activeCompetitionWcaData);
+                }
+            }).catch(error => { if (error.name !== 'AbortError') console.info('粗饼接口暂无可用的中文场馆资料', error); });
+    }
+    try {
+        const response = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${encodeURIComponent(comp.id)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+        if (controller.signal.aborted || activeCompetitionDetail !== comp) return;
+        activeCompetitionWcaData = result.competition || result;
+        renderCompetitionDetail(comp, activeCompetitionWcaData);
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.warn('赛事详情加载失败', error);
+    }
+}
+
+function getCompetitionWcif(comp) {
+    if (!competitionWcifPromise) {
+        const url = `https://www.worldcubeassociation.org/api/v0/competitions/${encodeURIComponent(comp.id)}/wcif/public`;
+        const signal = competitionDetailController?.signal;
+        const request = (async () => {
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
+                if (response.ok) return response.json();
+                if (attempt === 0 && [429, 502, 503, 504].includes(response.status)) {
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                    continue;
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+        })();
+        competitionWcifPromise = request;
+        request.catch(() => { if (competitionWcifPromise === request) competitionWcifPromise = null; });
+    }
+    return competitionWcifPromise;
+}
+
+function showCompetitionDetailTab(tab) {
+    for (const name of ['schedule', 'people']) {
+        const selected = name === tab;
+        document.getElementById(`competition-detail-${name}`).hidden = !selected;
+        const button = document.getElementById(`competition-detail-${name}-tab`);
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-selected', String(selected));
+    }
+}
+
+async function loadCompetitionWcif(comp) {
+    try {
+        const wcif = await getCompetitionWcif(comp);
+        if (activeCompetitionDetail !== comp) return;
+        activeCompetitionWcif = wcif;
+        renderCompetitionDetail(comp, activeCompetitionWcaData);
+        updateCompetitionCountdown();
+        loadCompetitionSchedule(wcif);
+        loadCompetitionPeople(wcif);
+    } catch (error) {
+        if (activeCompetitionDetail !== comp || error.name === 'AbortError') return;
+        console.warn('公开 WCIF 加载失败', error);
+        const message = error.message === 'HTTP 404' ? 'WCA 暂未提供这场赛事的公开 WCIF 数据。' : `WCA 公开接口暂时无法读取${/^HTTP \d+$/.test(error.message) ? `（${error.message}）` : '（网络错误）'}，请稍后重试。`;
+        document.getElementById('competition-detail-schedule').textContent = message;
+        document.getElementById('competition-detail-people').textContent = message;
+        document.getElementById('competition-detail-hot-people').textContent = message;
+    }
+}
+
+function loadCompetitionSchedule(wcif = activeCompetitionWcif) {
+    const comp = activeCompetitionDetail;
+    if (!comp) return;
+    const container = document.getElementById('competition-detail-schedule');
+    if (!wcif) return;
+    try {
+        const rounds = new Map((wcif.events || []).flatMap(event => (event.rounds || []).map((round, index) =>
+            [round.id, { index: index + 1, count: event.rounds.length, advancement: round.advancementCondition }])));
+        const activityMap = new Map();
+        const collect = (activities, room) => (activities || []).forEach(activity => {
+            const code = String(activity.activityCode || '').match(/^([^-]+-r\d+)(?:-(?:g|a)\d+)*$/)?.[1];
+            if (code && activity.startTime && activity.endTime) {
+                const existing = activityMap.get(code);
+                if (!existing) activityMap.set(code, { activityCode: code, startTime: activity.startTime, endTime: activity.endTime, room });
+                else {
+                    if (activity.startTime < existing.startTime) existing.startTime = activity.startTime;
+                    if (activity.endTime > existing.endTime) existing.endTime = activity.endTime;
+                }
+            }
+            collect(activity.childActivities, room);
+        });
+        (wcif.schedule?.venues || []).forEach(venue => (venue.rooms || []).forEach(room => collect(room.activities, room.name)));
+        const activities = [...activityMap.values()];
+        activities.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+        container.replaceChildren();
+        if (!activities.length) {
+            container.textContent = '该赛事暂未公布公开赛程。';
+            return;
+        }
+        let currentDay = '';
+        activities.forEach(activity => {
+            const date = new Date(activity.startTime);
+            if (Number.isNaN(date.getTime())) return;
+            const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+            if (day !== currentDay) {
+                currentDay = day;
+                const heading = document.createElement('div');
+                heading.className = 'competition-detail-day';
+                const dateText = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric' }).format(date);
+                const weekdayText = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'long' }).format(date);
+                heading.textContent = `${dateText} ${weekdayText}`;
+                container.appendChild(heading);
+            }
+            const row = document.createElement('div');
+            row.className = 'competition-detail-schedule-row';
+            const eventId = activity.activityCode.split('-')[0];
+            const eventName = eventDict.find(event => event.id === eventId)?.name || eventId;
+            const round = rounds.get(activity.activityCode);
+            const roundNumber = round?.index || Number(activity.activityCode.match(/-r(\d+)$/)?.[1]) || 1;
+            const roundCount = round?.count || roundNumber;
+            const roundName = roundNumber === roundCount ? '决赛' : roundNumber === 1 ? '初赛' : roundNumber === roundCount - 1 && roundCount >= 4 ? '半决赛' : '复赛';
+            const time = document.createElement('time');
+            const clock = value => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value));
+            time.textContent = `${clock(activity.startTime)}–${clock(activity.endTime)}`;
+            const content = document.createElement('div');
+            const title = document.createElement('strong');
+            title.textContent = `${eventName} · ${roundName}`;
+            const meta = document.createElement('span');
+            meta.className = 'competition-detail-advancement';
+            const advance = round?.advancement;
+            const advancementText = advance?.type === 'ranking' ? `前 ${advance.level} 名晋级` :
+                advance?.type === 'percent' ? `前 ${advance.level}% 晋级` : '';
+            meta.textContent = advancementText;
+            content.append(title);
+            row.append(time, content, meta);
+            container.appendChild(row);
+        });
+    } catch (error) {
+        console.warn('赛事赛程加载失败', error);
+        if (activeCompetitionDetail === comp) {
+            container.textContent = '赛程暂时无法读取，请稍后重试。';
+        }
+    }
+}
+
+let competitionPeopleEventFilter = '';
+let competitionPeopleSortType = 'average';
+const competitionSingleRankEvents = new Set(['333bf', '444bf', '555bf', '333mbf']);
+function competitionPersonName(person) {
+    const name = person.name || '未署名';
+    const match = name.match(/^(.+?)\s*[（(]([^（）()]*[\u3400-\u9fff][^（）()]*)[）)]$/);
+    return match ? `${match[2]} (${match[1].trim()})` : name;
+}
+
+function competitionPersonRecord(person, eventId, type) {
+    return (person.personalBests || []).find(best => best.eventId === eventId && best.type === type && Number(best.best) > 0);
+}
+
+function competitionPersonRank(person, eventId, type = competitionSingleRankEvents.has(eventId) ? 'single' : 'average') {
+    const record = competitionPersonRecord(person, eventId, type);
+    return Number(record?.best) > 0 ? Number(record.best) : Infinity;
+}
+
+function competitionPersonScore(person, eventId, type) {
+    const record = competitionPersonRecord(person, eventId, type);
+    return record ? formatWcaResult(Number(record.best), eventId, type).replace(/&nbsp;/g, ' ') : '—';
+}
+
+function competitionEventIcon(eventId) {
+    const icon = document.createElement('i');
+    icon.className = `cubing-icon event-${eventId}`;
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+}
+
+function renderCompetitionEventFilters(eventIds) {
+    const filter = document.getElementById('competition-detail-event-filters');
+    if (!filter) return;
+    filter.replaceChildren();
+    const add = (id, label) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `competition-detail-event-filter${competitionPeopleEventFilter === id ? ' active' : ''}`;
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        if (id) button.append(competitionEventIcon(id));
+        else button.textContent = '全部';
+        button.onclick = () => { competitionPeopleEventFilter = id; competitionPeopleSortType = competitionSingleRankEvents.has(id) ? 'single' : 'average'; loadCompetitionPeople(); };
+        filter.appendChild(button);
+    };
+    add('', '全部');
+    eventIds.forEach(id => add(id, eventDict.find(event => event.id === id)?.name || id));
+}
+
+function loadCompetitionPeople(wcif = activeCompetitionWcif) {
+    if (!wcif || !activeCompetitionDetail) return;
+    const container = document.getElementById('competition-detail-people');
+    const hot = document.getElementById('competition-detail-hot-people');
+    const previousSearch = container.querySelector('input[type="search"]')?.value || '';
+    const people = (wcif.persons || []).filter(person =>
+        person.registration?.status === 'accepted' && person.registration?.isCompeting !== false);
+    container.replaceChildren();
+    hot.replaceChildren();
+    if (!people.length) {
+        container.textContent = 'WCA 公开数据尚未同步这场赛事的选手名单。';
+        if (activeCompetitionDetail.alias) {
+            const link = document.createElement('a');
+            link.href = `https://cubing.com/competition/${encodeURIComponent(activeCompetitionDetail.alias)}/competitors`;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = '在粗饼查看已公布的名单 ↗';
+            link.className = 'competition-detail-fallback-link';
+            container.append(link);
+        }
+        hot.textContent = 'WCA 公开数据尚未同步选手名单';
+        return;
+    }
+    const eventIds = (wcif.events || []).map(event => event.id);
+    const filter = document.createElement('div');
+    filter.id = 'competition-detail-event-filters';
+    filter.className = 'competition-detail-event-filters';
+    const count = document.createElement('p');
+    count.className = 'competition-detail-people-count';
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.placeholder = '搜索选手姓名或 WCA ID';
+    search.setAttribute('aria-label', '搜索参赛选手');
+    search.value = previousSearch;
+    const list = document.createElement('div');
+    list.className = 'competition-detail-people-list';
+    const columns = document.createElement('div');
+    columns.className = 'competition-detail-person-columns';
+    if (competitionPeopleEventFilter) columns.classList.add('has-scores');
+    const numberHeading = document.createElement('span');
+    numberHeading.textContent = competitionPeopleEventFilter ? '排名' : '序号';
+    const nameHeading = document.createElement('span');
+    nameHeading.textContent = '姓名';
+    columns.append(numberHeading, nameHeading);
+    if (competitionPeopleEventFilter) {
+        for (const type of ['single', 'average']) {
+            const heading = document.createElement('button');
+            heading.type = 'button';
+            heading.className = competitionPeopleSortType === type ? 'active' : '';
+            heading.textContent = type === 'single' ? '单次' : '平均';
+            heading.onclick = () => {
+                if (competitionPeopleSortType === type) return;
+                competitionPeopleSortType = type;
+                loadCompetitionPeople();
+            };
+            columns.append(heading);
+        }
+    }
+    container.append(filter, count, search, columns, list);
+    renderCompetitionEventFilters(eventIds);
+    const selected = competitionPeopleEventFilter;
+    const sorted = people.map((person, index) => ({ person, index })).sort((a, b) => {
+        if (!selected) {
+            const aId = Number(a.person.registrantId || a.person.registration?.wcaRegistrationId) || Infinity;
+            const bId = Number(b.person.registrantId || b.person.registration?.wcaRegistrationId) || Infinity;
+            return aId - bId || a.index - b.index;
+        }
+        const aRegistered = a.person.registration.eventIds?.includes(selected) ? 0 : 1;
+        const bRegistered = b.person.registration.eventIds?.includes(selected) ? 0 : 1;
+        return aRegistered - bRegistered || (aRegistered ? a.index - b.index : competitionPersonRank(a.person, selected, competitionPeopleSortType) - competitionPersonRank(b.person, selected, competitionPeopleSortType) || a.index - b.index);
+    });
+    sorted.forEach((entry, index) => { entry.rank = index + 1; });
+    const render = () => {
+        list.replaceChildren();
+        const query = search.value.trim().toLowerCase();
+        const matches = sorted.filter(({ person }) => `${person.name} ${person.wcaId || ''}`.toLowerCase().includes(query));
+        count.textContent = `已公开 ${people.length} 位参赛选手`;
+        matches.forEach(({ person, rank }) => {
+            const item = document.createElement('div');
+            item.className = 'competition-detail-person';
+            if (selected) item.classList.add('has-scores');
+            const number = document.createElement('span');
+            number.className = 'competition-detail-person-number';
+            number.textContent = selected ? (person.registration.eventIds?.includes(selected) ? String(rank) : '—') : String(rank);
+            const label = document.createElement('button');
+            label.type = 'button';
+            label.className = 'competition-detail-person-name';
+            label.textContent = competitionPersonName(person);
+            if (person.wcaId && /^[0-9]{4}[A-Z]{4}[0-9]{2}$/.test(person.wcaId)) label.onclick = () => showPerson(person.wcaId);
+            else label.disabled = true;
+            item.append(number, label);
+            if (selected) {
+                for (const type of ['single', 'average']) {
+                    const value = document.createElement('span');
+                    value.className = 'competition-detail-person-score';
+                    value.textContent = person.registration.eventIds?.includes(selected) ? competitionPersonScore(person, selected, type) : '—';
+                    item.append(value);
+                }
+            } else {
+                const icons = document.createElement('span');
+                icons.className = 'competition-detail-person-events';
+                (person.registration.eventIds || []).forEach(id => { const icon = competitionEventIcon(id); icon.title = eventDict.find(event => event.id === id)?.name || id; icons.append(icon); });
+                item.append(icons);
+            }
+            list.appendChild(item);
+        });
+        if (!matches.length) list.textContent = '没有找到匹配的选手。';
+    };
+    search.addEventListener('input', render);
+    render();
+    const seen = new Set();
+    eventIds.forEach(id => {
+        const leaders = people.filter(person => person.registration.eventIds?.includes(id) && Number.isFinite(competitionPersonRank(person, id)))
+            .sort((a, b) => competitionPersonRank(a, id) - competitionPersonRank(b, id)).slice(0, 3)
+            .filter(person => !seen.has(person.wcaId || person.registrantId || person.name));
+        if (!leaders.length) return;
+        const section = document.createElement('section');
+        section.className = 'competition-detail-hot-section';
+        const heading = document.createElement('h4');
+        heading.append(competitionEventIcon(id), document.createTextNode(eventDict.find(event => event.id === id)?.name || id));
+        section.append(heading);
+        leaders.forEach(person => {
+                const key = person.wcaId || person.registrantId || person.name;
+                seen.add(key);
+                const row = document.createElement('div');
+                row.className = 'competition-detail-hot-person';
+                const name = document.createElement('button');
+                name.type = 'button';
+                name.textContent = competitionPersonName(person);
+                if (person.wcaId && /^[0-9]{4}[A-Z]{4}[0-9]{2}$/.test(person.wcaId)) name.onclick = () => showPerson(person.wcaId);
+                else name.disabled = true;
+                row.append(name);
+                section.appendChild(row);
+            });
+        hot.append(section);
+    });
+    if (!seen.size) hot.textContent = '暂无可用于预排名的官方成绩。';
 }
 
 // ---------------- 翻页组件与跳转引擎 ----------------

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.17-cube-menu-20261003">
+    <link rel="stylesheet" href="style.css?v=1.41-dark-switches-20261006">
 </head>
 <body>
 
@@ -96,13 +96,14 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
                     <a onclick="openFormulaLibrary()">公式 · 方法</a>
+                    <a onclick="openForum()">论坛</a>
                 </div>
             </div>
             <div class="nav-menu-item has-dropdown">系统
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
+                    <a onclick="openAccountPage()" id="account-nav-entry">登录</a>
                     <a onclick="navigateTo('settings-page', true)">设置</a>
-                    <a onclick="navigateTo('about-page', true)">关于本站</a>
                 </div>
             </div>
         </div>
@@ -151,6 +152,10 @@
             <button onclick="goBack()">返回上一页</button>
             <h2>赛事列表</h2>
         </div>
+        <div class="competition-list-links">
+            <a class="btn btn-outline" href="https://www.worldcubeassociation.org/" target="_blank" rel="noopener noreferrer">🔗 WCA</a>
+            <a class="btn btn-outline btn-cubing" href="https://cubing.com/" target="_blank" rel="noopener noreferrer">🔗 粗饼</a>
+        </div>
         <div class="list-page-container">
             <div id="all-comps-grid" class="comps-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));"></div>
             <div class="pagination-controls">
@@ -158,6 +163,52 @@
                 <span class="page-info" id="comps-page-info">第 1 页</span>
                 <button class="page-btn" id="comps-next-btn" onclick="changeCompsPage(1)">下一页</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 单场赛事详情：进入后才请求远端资料 -->
+    <div id="competition-detail-page" class="page-container">
+        <div class="page-header">
+            <button onclick="goBack()">返回上一页</button>
+            <h2>赛事详情</h2>
+        </div>
+        <div class="competition-detail-layout">
+            <div class="card competition-detail-hero">
+                <div class="competition-detail-title-row"><h2 id="competition-detail-name"></h2><div class="competition-detail-links">
+                    <a id="competition-detail-wca-link" class="competition-detail-logo-link" target="_blank" rel="noopener noreferrer" title="WCA 官方页面" aria-label="WCA 官方页面">WCA ↗</a>
+                    <a id="competition-detail-cubing-link" class="competition-detail-logo-link" target="_blank" rel="noopener noreferrer" title="粗饼中文页面" aria-label="粗饼中文页面">粗饼 ↗</a>
+                </div></div>
+                <div class="competition-detail-highlights">
+                    <div><span aria-hidden="true">📅</span><strong id="competition-detail-date"></strong></div>
+                    <div><span aria-hidden="true">📍</span><strong id="competition-detail-city"></strong></div>
+                    <div><span aria-hidden="true">◉</span><strong id="competition-detail-capacity">待公布</strong></div>
+                </div>
+                <div class="competition-detail-venue-line"><strong id="competition-detail-venue">场馆待公布</strong><span id="competition-detail-address"></span></div>
+            </div>
+            <div class="competition-detail-main">
+                <div class="card competition-detail-section" id="competition-detail-events-section" hidden>
+                    <div class="competition-detail-section-heading"><h3>比赛项目</h3><span id="competition-detail-event-count"></span></div>
+                    <div id="competition-detail-events" class="competition-detail-events"></div>
+                </div>
+                <div class="card competition-detail-section" id="competition-detail-content-section">
+                    <div class="competition-detail-tabs" role="tablist" aria-label="赛事内容"><button id="competition-detail-schedule-tab" class="active" type="button" role="tab" aria-selected="true" onclick="showCompetitionDetailTab('schedule')">比赛赛程</button><button id="competition-detail-people-tab" type="button" role="tab" aria-selected="false" onclick="showCompetitionDetailTab('people')">参赛选手</button></div>
+                    <div id="competition-detail-schedule" class="competition-detail-schedule" role="tabpanel">载入中…</div>
+                    <div id="competition-detail-people" class="competition-detail-people" role="tabpanel" hidden>载入中…</div>
+                </div>
+                <div class="card competition-detail-section" id="competition-detail-info-section" hidden>
+                    <h3>赛事说明</h3>
+                    <p id="competition-detail-info" class="competition-detail-copy"></p>
+                </div>
+            </div>
+            <aside class="competition-detail-side">
+                <div class="card competition-detail-section competition-detail-registration-section">
+                    <h3>报名信息</h3>
+                    <div id="competition-detail-registration" class="competition-detail-facts"></div>
+                </div>
+                <div class="card competition-detail-section competition-detail-hot-section-card">
+                    <h3>热门选手</h3><div id="competition-detail-hot-people" class="competition-detail-hot-people">载入中…</div>
+                </div>
+            </aside>
         </div>
     </div>
 
@@ -310,13 +361,17 @@
             </div>
 
             <div class="ios-setting-group custom-ui-group">
-                <span>WCA ID</span>
+                <span>账号</span>
                 <!-- 强制大写，样式与用户名严格对齐 -->
-                <input type="text" id="setting-wcaid" class="ios-input" style="width: 140px; padding: 6px 10px; margin: 0; text-transform: uppercase;" placeholder="输入 WCA ID" onchange="saveWcaId(this.value)">
+                <span id="setting-wcaid" style="font-weight:600"></span>
             </div>
 
             <hr class="settings-divider">
             <div class="sidebar-settings-title">个性化</div>
+            <div class="ios-setting-group custom-ui-group">
+                <span>显示模式</span>
+                <button type="button" class="cube-appearance-picker" onclick="openDisplayModeModal()"><span id="display-mode-label">浅色</span><span aria-hidden="true">›</span></button>
+            </div>
 
             <div class="ios-setting-group custom-ui-group">
                 <span>首页排版</span>
@@ -327,11 +382,16 @@
             </div>
 
             <div class="ios-setting-group custom-ui-group">
+                <span>个人主页排版</span>
+                <button type="button" class="cube-appearance-picker" onclick="openPersonLayoutModal()"><span id="person-layout-label">密集</span><span aria-hidden="true">›</span></button>
+            </div>
+
+            <div class="ios-setting-group custom-ui-group">
                 <span>智能魔方外观</span>
                 <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('smart')"><span id="smart-cube-appearance-label">黑底</span><span aria-hidden="true">›</span></button>
             </div>
             <div class="ios-setting-group custom-ui-group">
-                <span>智能魔方显示logo</span>
+                <span>智能魔方显示LOGO</span>
                 <button type="button" class="cube-appearance-picker" onclick="openSmartCubeLogoModal()"><span id="smart-cube-logo-label">PuffPi</span><span aria-hidden="true">›</span></button>
             </div>
             <div class="ios-setting-group custom-ui-group">
@@ -347,10 +407,9 @@
                 <span>关于本站</span>
                 <button type="button" class="cube-appearance-picker" onclick="navigateTo('about-page', true)"><span>查看</span><span aria-hidden="true">›</span></button>
             </div>
-
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.30.17</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.37.0</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -371,7 +430,60 @@
                 <span>COLL</span>
                 <span>CubingApp · cubingapp.com/algorithms/COLL</span>
             </div>
+            <div class="sidebar-settings-title about-data-title">数据</div>
+            <div class="ios-setting-group custom-ui-group about-source-row"><span>WCA</span><span>世界魔方协会官网</span></div>
+            <div class="ios-setting-group custom-ui-group about-source-row" style="margin-bottom: 0;"><span>中国赛事</span><span>粗饼 · 中国魔方赛事网</span></div>
         </div>
+    </div>
+
+    <div id="account-page" class="page-container">
+        <div class="page-header"><h2>账号登录</h2></div>
+        <section class="card account-card">
+            <div id="account-signed-in" hidden><h3 id="account-profile-title"></h3><p>论坛与月赛数据已绑定此账号。</p><div class="account-actions"><button class="btn" onclick="goHome()">返回首页</button><button class="btn btn-outline" onclick="accountSignOut()">退出登录</button></div></div>
+            <form id="account-login-form" onsubmit="submitAccountForm(event)">
+                <label>昵称（选填）<input name="nickname" maxlength="24" autocomplete="nickname" placeholder="不填写则自动生成用户名"></label>
+                <label>账号（至少 8 位，可使用 WCA ID）<input name="wcaId" minlength="8" maxlength="32" required autocomplete="username" placeholder="8–32 位字母、数字、下划线或短横线"></label>
+                <label>密码<input name="password" type="password" required maxlength="128" autocomplete="current-password" placeholder="至少 8 位"></label>
+                <label>邮箱（注册时填写，用于找回密码）<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="登录时可不填"></label>
+                <div class="account-actions"><button type="submit" name="action" value="register" class="btn btn-outline">注册</button><button type="submit" name="action" value="login" class="btn">登录</button></div>
+                <button type="button" class="account-text-link" onclick="openAccountRecovery()">忘记密码？</button>
+            </form><p id="account-status" role="status"></p>
+        </section>
+    </div>
+    <div id="account-recovery-page" class="page-container">
+        <div class="page-header"><h2>找回密码</h2></div>
+        <section class="card account-card"><form onsubmit="submitAccountRecovery(event)"><label>账号<input name="wcaId" required minlength="8" maxlength="32" autocomplete="username"></label><label>注册邮箱<input name="email" required type="email" autocomplete="email"></label><div class="account-actions"><button type="button" class="btn btn-outline" onclick="openAccountPage()">返回登录</button><button type="submit" class="btn">发送重置链接</button></div></form><p id="account-recovery-status" role="status"></p></section>
+    </div>
+    <div id="account-password-page" class="page-container">
+        <div class="page-header"><h2>设置新密码</h2></div>
+        <section class="card account-card"><form onsubmit="submitAccountPassword(event)"><label>新密码<input name="password" required type="password" minlength="8" maxlength="128" autocomplete="new-password"></label><label>重复输入新密码<input name="repeat" required type="password" minlength="8" maxlength="128" autocomplete="new-password"></label><button type="submit" class="btn">保存新密码</button></form><p id="account-password-status" role="status"></p></section>
+    </div>
+    <div id="forum-page" class="page-container">
+        <div class="page-header"><button onclick="goBack()">返回上一页</button><h2>论坛</h2></div>
+        <div class="forum-shell">
+            <p class="forum-intro">聊聊魔方练习、公式和比赛。选择话题后可查看并留言。</p>
+            <div id="forum-topics" class="forum-topic-grid"></div>
+            <p id="forum-list-status" role="status"></p>
+        </div>
+        <button type="button" class="btn btn-primary forum-new-topic" onclick="openNewForumTopic()">＋ 新话题</button>
+    </div>
+    <div id="forum-topic-page" class="page-container">
+        <div class="forum-shell">
+            <article class="card forum-topic-detail"><div id="forum-topic-menu" class="forum-topic-detail-menu"></div><h3 id="forum-topic-title"></h3><p id="forum-topic-body"></p><div class="forum-topic-footer"><span id="forum-topic-tag"></span></div></article>
+            <section class="card forum-comments-card"><div id="forum-comments-status" aria-live="polite"></div><div id="forum-comments"></div></section>
+        </div>
+        <form id="forum-comment-form" onsubmit="submitForumComment(event)">
+            <div id="forum-reply-target" hidden><span></span><button type="button" onclick="clearForumReplyTarget()" aria-label="取消回复">×</button></div>
+            <div class="forum-composer-fields"><label for="forum-comment-body">留言内容<textarea id="forum-comment-body" maxlength="500" required placeholder="友善交流，分享你的想法"></textarea></label><button type="submit" class="btn btn-primary">发布</button></div>
+        </form>
+    </div>
+
+    <div id="forum-developer-page" class="page-container">
+        <div class="page-header"><h2>开发者模式</h2></div>
+        <section class="card forum-shell"><div class="forum-admin-heading"><h3>举报审核</h3><button class="btn" onclick="loadForumReports()">刷新</button><button class="btn" onclick="exitForumDeveloper()">退出验证</button></div><p id="forum-admin-status" role="status"></p><div id="forum-reports"></div></section>
+    </div>
+    <div id="forum-modal" class="forum-modal" hidden>
+        <div class="forum-modal-card" role="dialog" aria-modal="true" aria-labelledby="forum-modal-title" tabindex="-1"><div class="forum-modal-heading"><h3 id="forum-modal-title"></h3><button type="button" aria-label="关闭" onclick="closeForumModal()">×</button></div><div id="forum-modal-content"></div></div>
     </div>
 
     <div id="cube-appearance-modal" class="cube-appearance-overlay" hidden onclick="closeCubeAppearanceModal(event)">
@@ -408,7 +520,7 @@
     <div id="monthly-entry-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
             <h3 style="margin-top:0;">参赛确认</h3>
-            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">若未完成全部尝试就退出，此项目成绩将不会被保留，是否确认参加月赛？</p>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">每月每个项目只能参加一次。成绩逐次保存，刷新或换设备可继续；确认退出则将剩余尝试记为 DNS。是否参加？</p>
             <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
                 <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyEntry()">取消</button>
                 <button class="btn" style="flex:1;" onclick="confirmMonthlyEntry()">确定</button>
@@ -420,7 +532,7 @@
     <div id="monthly-exit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
             <h3 style="margin-top:0;">警 告</h3>
-            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">若未完成此轮尝试，退出后记录将不被保留，且无法再次进入</p>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">确认退出后，剩余尝试记为 DNS，本月不能再次参加此项目。</p>
             <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
                 <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyExit()">取消</button>
                 <button class="btn" style="flex:1;" onclick="confirmMonthlyExit()">确定</button>
@@ -964,6 +1076,11 @@
                     </div>
 
                     <div class="ios-setting-group custom-ui-group">
+                        <span>智能魔方外观</span>
+                        <div class="ui-control-right" role="button" tabindex="0" onclick="openCubeAppearanceModal('smart', true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCubeAppearanceModal('smart', true)}"><span id="timer-smart-cube-appearance-label">黑底</span><span style="font-size: 10px; color: var(--text-muted);">▼</span></div>
+                    </div>
+
+                    <div class="ios-setting-group custom-ui-group">
                         <span>智能魔方尺寸</span>
                         <div class="ui-control-right ui-slider-wrapper">
                             <span id="smart-cube-size-val">100%</span>
@@ -1014,19 +1131,15 @@
                 <!-- 字体选择专属弹窗 (毛玻璃) -->
                 <div id="nb-timing-modal" class="edit-score-popup" onclick="closeNbTimingModal(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                        <h3 id="nb-timing-modal-title" style="margin-top:0;margin-bottom:20px;font-size:16px"></h3>
+                        <div class="timer-setting-modal-heading"><h3 id="nb-timing-modal-title"></h3><button type="button" aria-label="关闭" onclick="closeNbTimingModal()">×</button></div>
                         <div id="nb-timing-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
-                        <div class="edit-popup-actions" style="margin-top:15px"><button class="edit-btn-cancel" style="width:100%" onclick="closeNbTimingModal()">关闭</button></div>
                     </div>
                 </div>
                 <div id="font-select-modal" class="edit-score-popup" onclick="closeFontModal(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时器字体</h3>
+                        <div class="timer-setting-modal-heading"><h3>选择计时器字体</h3><button type="button" aria-label="关闭" onclick="closeFontModal()">×</button></div>
                         <div id="font-options-list" style="display:flex; flex-direction:column; gap:10px; width:100%;">
                             <!-- JS 动态注入字体选项 -->
-                        </div>
-                        <div class="edit-popup-actions" style="margin-top: 15px;">
-                            <button class="edit-btn-cancel" style="width: 100%;" onclick="closeFontModal()">关闭</button>
                         </div>
                     </div>
                 </div>
@@ -1482,7 +1595,7 @@
             <!-- 玩家 A (上半屏) -->
             <div class="challenge-half top-half" id="challenge-top-area">
                 <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
-                <div class="challenge-timer" id="challenge-timer-top">0.00</div>
+                <div class="challenge-timer-wrap"><div class="challenge-timer" id="challenge-timer-top">0.00</div><span class="challenge-handicap-suffix" id="challenge-handicap-top" hidden></span></div>
                 <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-top-after"></div>
             </div>
 
@@ -1505,6 +1618,7 @@
                     <div class="timer-more-item" onclick="openChalSettingsModal('clear')">清空比分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('winScore')">设置胜利得分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('adjust')">手动调整比分</div>
+                    <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('handicap')">公平让秒</div>
                     <!-- 👇 新增：调整字体大小入口 👇 -->
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('font')">调整字体大小</div>
                 </div>
@@ -1513,7 +1627,7 @@
             <!-- 玩家 B (下半屏) -->
             <div class="challenge-half bottom-half" id="challenge-bottom-area">
                 <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
-                <div class="challenge-timer" id="challenge-timer-bottom">0.00</div>
+                <div class="challenge-timer-wrap"><div class="challenge-timer" id="challenge-timer-bottom">0.00</div><span class="challenge-handicap-suffix" id="challenge-handicap-bottom" hidden></span></div>
                 <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-bottom-after"></div>
             </div>
 
@@ -1523,7 +1637,7 @@
                     <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择挑战项目</h3>
                     <div id="chal-event-grid" class="chal-event-grid"></div>
                     <div class="edit-popup-actions" style="margin-top: 15px;">
-                        <!-- 核心修改：将原本的 close 换成了专门的 confirm 确认函数 -->
+                        <button class="edit-btn-cancel" onclick="closeChalEventPopup()">取消</button>
                         <button class="edit-btn-confirm" onclick="confirmChalEvent()">确定</button>
                     </div>
                 </div>
@@ -1772,8 +1886,12 @@
         </div>
     </div>
 
-    <script src="database.js"></script>
-    <script src="main.js?v=1.17-cube-menu-20261003"></script>
+    <script src="database.js?v=1.18-fto-weekly-20261004"></script>
+    <script src="main.js?v=1.41-dark-switches-20261006"></script>
+    <script src="forum.js?v=1.41-dark-switches-20261006"></script>
+    <script src="account.js?v=1.41-dark-switches-20261006"></script>
+    <script src="theme.js?v=1.41-dark-switches-20261006"></script>
+    <script src="account-profile.js?v=1.41-dark-switches-20261006"></script>
     <script src="timer-smart.js?v=1.17-cube-palette-20261003"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>

@@ -31,6 +31,7 @@ const eventDict = [
     { id: '333oh', name: '单手' }, { id: 'clock', name: '魔表' },
     { id: 'minx', name: '五魔方' }, { id: 'pyram', name: '金字塔' },
     { id: 'skewb', name: '斜转' }, { id: 'sq1', name: 'SQ1' },
+    { id: 'fto', name: 'FTO' },
     { id: '444bf', name: '四盲' }, { id: '555bf', name: '五盲' },
     { id: '333mbf', name: '多盲' },
     { id: '333ft', name: '脚拧' },
