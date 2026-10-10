@@ -2277,6 +2277,7 @@ function scheduleInspectionVoice() {
 }
 
 function beginInspection() {
+    if (!timerScrambleReady) return;
     timerState = 'OBSERVING';
     inspectionStartTime = performance.now();
     inspectionPenalty = '';
@@ -2742,7 +2743,7 @@ function stopTimer() {
             rawMs: elapsed,
             penalty: activeSolvePenalty,
             timestamp: getNowFormatted(),
-            scramble: document.getElementById('scramble-text').innerText
+            scramble: getTimerAttemptScramble()
         });
         recalculateSessionStats();
         saveTimerData();
@@ -2805,7 +2806,7 @@ function confirmPostSolve() {
         rawMs: pendingSolveMs,
         penalty: pendingSolvePenalty,
         timestamp: getNowFormatted(),
-        scramble: document.getElementById('scramble-text').innerText
+        scramble: getTimerAttemptScramble()
     });
 
     recalculateSessionStats();
@@ -2876,7 +2877,9 @@ function openEditPopup(index) {
     // 核心新增：渲染卡片内部的打乱图并应用缩放补偿
     const editDisplayEl = document.getElementById('edit-scramble-display');
     if (editDisplayEl) {
-        let cleanScramble = r.scramble.replace(/<br>/g, ' ');
+        const unsupported=timerOtherEvents.some(e=>e.id===currentTimerEvent);
+        editDisplayEl.hidden=unsupported;
+        let cleanScramble = unsupported?'':r.scramble.replace(/<br>/g, ' ');
         const puzzleEvent = currentTimerMode === 'smart' ? timerSmartEvent : currentTimerEvent;
         editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
         editDisplayEl.setAttribute('visualization', puzzleEvent === 'fto' ? 'auto' : '2D');
@@ -3135,6 +3138,24 @@ function switchTimerTab(tabName) {
 }
 
 // ================= 计时器项目选择悬浮窗逻辑 =================
+const timerOtherEvents=[
+ ...[8,9,10,11,12,13].map(n=>({id:String(n).repeat(3),name:['八','九','十','十一','十二','十三'][n-8]+'阶',group:'正阶',icon:n+'×'+n})),
+ {id:'mirror',name:'镜面魔方',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮魔方',group:'异形',icon:'Gear'},
+ ...[4,5,6,7].map(n=>({id:'relay2-'+n,name:'2-'+n+'阶',group:'连拧',icon:'Relay'})),
+ {id:'guildford',name:'Guildford Challenge',group:'连拧',icon:'',fullName:true},{id:'mini-guildford',name:'Mini Guildford Challenge',group:'连拧',icon:'',fullName:true}];
+let timerRelayScrambles=[],timerRelayIndex=0;
+function getTimerRelayEvents(id){
+ if(/^relay2-[4-7]$/.test(id))return Array.from({length:Number(id.at(-1))-1},(_,i)=>String(i+2).repeat(3));
+ const speed=['222','333','444','555','666','777','333oh','clock','minx','pyram','skewb','sq1'];
+ return id==='guildford'?speed:id==='mini-guildford'?speed.filter(e=>!['666','777'].includes(e)):null;
+}
+function renderOtherTimerEventGrid(){
+ const grid=document.getElementById('timer-event-grid');grid.innerHTML='';
+ for(const group of ['正阶','异形','连拧']){const title=document.createElement('div');title.className='timer-smart-group-title';title.textContent=group;grid.appendChild(title);
+ for(const item of timerOtherEvents.filter(e=>e.group===group)){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(timerTempEvent===item.id?' active':'');const icon=document.createElement('span');icon.className=item.iconClass?'cubing-icon '+item.iconClass:'timer-other-icon';icon.textContent=item.icon;const label=document.createElement('span');label.textContent=item.name;if(item.fullName){button.classList.add('timer-other-fullname');button.append(label);}else button.append(icon,label);button.onclick=()=>{timerTempEvent=item.id;renderTimerEventGrid();};grid.appendChild(button);}}
+}
+function switchTimerRelay(direction,event){event?.stopPropagation();event?.preventDefault();if(timerState!=='IDLE'||!timerScrambleReady||!timerRelayScrambles.length)return;timerRelayIndex=(timerRelayIndex+direction+timerRelayScrambles.length)%timerRelayScrambles.length;const item=timerRelayScrambles[timerRelayIndex];renderTimerScramble(item.scramble,item.event);}
+function getTimerAttemptScramble(){return getTimerRelayEvents(currentTimerEvent)?timerRelayScrambles.map(item=>item.event+': '+item.scramble.replace(/<br>/g,' ')).join('\n'):document.getElementById('scramble-text').innerText;}
 let timerTempEvent = '333';
 
 function initTimer() {
@@ -3166,6 +3187,8 @@ function openTimerEventPopup() {
 function renderTimerEventGrid() {
     renderTimerModeChoice();
     if (timerTempMode === 'smart') { renderSmartTimerEventGrid(); return; }
+ if(timerTempMode==='other'){if(!timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='888';renderOtherTimerEventGrid();return;}
+ if(timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='333';
     const grid = document.getElementById('timer-event-grid');
     grid.innerHTML = '';
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
@@ -3196,11 +3219,11 @@ function confirmTimerEvent() {
         closeTimerEventPopup();
         return;
     }
-    currentTimerMode = 'wca';
-    if (timerTempEvent !== currentTimerEvent) {
+    const previousMode=currentTimerMode;currentTimerMode=timerTempMode;
+    if (timerTempEvent !== currentTimerEvent||previousMode!==currentTimerMode) {
         currentTimerEvent = timerTempEvent;
 
-        let evObj = eventDict.find(e => e.id === currentTimerEvent);
+        let evObj = eventDict.find(e => e.id === currentTimerEvent)||timerOtherEvents.find(e=>e.id===currentTimerEvent);
         let evName = evObj ? evObj.name : '未知';
 
         // 更新左侧选择器与右侧大标题
@@ -3244,6 +3267,7 @@ function formatTimerOutput(ms) {
 }
 
 function startTimer() {
+    if (!timerScrambleReady) { timerState = 'IDLE'; return; }
     if (timerState === 'READY_INSPECTION') activeSolvePenalty = finishInspection();
     else activeSolvePenalty = '';
     timerState = 'RUNNING';
@@ -3345,124 +3369,17 @@ function getFtoScramble() {
     return result.join(' ');
 }
 
-// 提取通用的打乱引擎
-function getScrambleByEvent(ev) {
-    let scramble = "";
-
-    if (ev === '222') {
-        scramble = getRandomMoves(["R", "U", "F"], 11);
-    } else if (['333', '333oh', '333fm', '333ft'].includes(ev)) {
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20);
-    } else if (['333bf', '333mbf'].includes(ev)) {
-        // 三盲/多盲：20步 + 0-2次随机握持方向宽层转动 (Rw, Uw, Fw)
-        let ori = getRandomMoves(["Rw", "Uw", "Fw"], Math.floor(Math.random() * 3));
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B"], 20) + (ori ? " " + ori : "");
-    } else if (ev === '444') {
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 40); // 官方四阶标准为40步
-    } else if (ev === '444bf') {
-        // 四盲：40步 + 0-2次整体转动 (x, y, z)
-        let ori = getRandomMoves(["x", "y", "z"], Math.floor(Math.random() * 3));
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Uw", "Fw"], 40) + (ori ? " " + ori : "");
-    } else if (ev === '555') {
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], 60);
-    } else if (ev === '555bf') {
-        // 五盲：60步 + 0-2次三层转动 (3Rw, 3Uw, 3Fw 改变中心朝向)
-        let ori = getRandomMoves(["3Rw", "3Uw", "3Fw"], Math.floor(Math.random() * 3));
-        scramble = getRandomMoves(["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"], 60) + (ori ? " " + ori : "");
-    } else if (['666', '777'].includes(ev)) {
-        let moves67 = ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw", "3Rw", "3Lw", "3Uw", "3Dw", "3Fw", "3Bw"];
-        scramble = getRandomMoves(moves67, ev === '666' ? 80 : 100);
-    } else if (ev === 'pyram') {
-        // 金字塔：修饰符限制为 [无, ']，彻底消灭 "2"
-        scramble = getRandomMoves(["U", "L", "R", "B"], 11, ["", "'"]);
-        let tips = ["u", "l", "r", "b"];
-        tips.forEach(t => { if(Math.random() > 0.5) scramble += " " + t + (Math.random() > 0.5 ? "'" : ""); });
-    } else if (ev === 'skewb') {
-        // 斜转：修饰符限制为 [无, ']，彻底消灭 "2"
-        scramble = getRandomMoves(["R", "L", "U", "B"], 11, ["", "'"]);
-    } else if (ev === 'minx') {
-        let res = [];
-        for (let i=0; i<7; i++) {
-            for (let j=0; j<10; j++) res.push((j%2===0 ? "R" : "D") + (Math.random() > 0.5 ? "++" : "--"));
-            res.push("U" + (Math.random() > 0.5 ? "'" : "") + "<br>");
-        }
-        scramble = res.join(" ");
-    } else if (ev === 'sq1') {
-        scramble = getSquare1Scramble();
-    } else if (ev === 'fto') {
-        scramble = getFtoScramble();
-    } else if (ev === 'clock') {
-        // 核心修复魔表：严格区分正负数语法，完美适配官方解析器
-        let clockMoves1 = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
-        let clockMoves2 = ["U", "R", "D", "L", "ALL"];
-        let res = [];
-
-        const getClockVal = () => {
-            let v = Math.floor(Math.random() * 12) - 5; // 生成 -5 到 +6
-            if (v < 0) return Math.abs(v) + "-";
-            return v + "+";
-        };
-
-        clockMoves1.forEach(p => res.push(p + getClockVal()));
-        res.push("y2");
-        clockMoves2.forEach(p => res.push(p + getClockVal()));
-
-        // 已经移除了根据 WCA 早期规则在末尾随机按立柱的代码，完美适配新规
-
-        scramble = res.join(" ");
-    }
-    return scramble;
-}
-
-// 升级版：智能同轴抵消防御引擎 (严格匹配 WCA 难度标准)
-function getRandomMoves(moves, length, mods = ["", "'", "2"]) {
-    if (length === 0) return "";
-    let scramble = [];
-    let lastFace = "";
-    let secondLastFace = "";
-
-    // 核心规则：定义平行对立面
-    const opposites = { 'R': 'L', 'L': 'R', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F' };
-
-    for (let i = 0; i < length; i++) {
-        let m, newFace;
-        let isValid = false;
-
-        do {
-            m = moves[Math.floor(Math.random() * moves.length)];
-
-            // 提取核心转动面 (智能剥离高阶数字和 w 修饰符，例如 '3Rw' -> 'R', 'Fw' -> 'F')
-            let match = m.match(/[RLUDFB]/);
-            newFace = match ? match[0] : m;
-
-            // 拦截规则 1：不能和上一步转动同一个基础面 (例如防止 R 和 Rw 连在一起)
-            if (newFace === lastFace) {
-                isValid = false;
-            }
-            // 拦截规则 2：杜绝同轴抵消夹心饼干 (例如严禁 F B F，或 R L Rw)
-            else if (newFace === secondLastFace && opposites[newFace] === lastFace) {
-                isValid = false;
-            }
-            else {
-                isValid = true;
-            }
-        } while (!isValid);
-
-        // 更新历史记录状态
-        secondLastFace = lastFace;
-        lastFace = newFace;
-
-        scramble.push(m + mods[Math.floor(Math.random() * mods.length)]);
-    }
-    return scramble.join(" ");
-}
+// All practice entry points share Cube Space's own local generators.
+let timerScrambleReady = false, challengeScrambleReady = false, monthlyScrambleReady = false;
+let timerScrambleRequest = 0, challengeScrambleRequest = 0, monthlyScrambleRequest = 0;
+function getScrambleByEvent(ev) { return nbScrambleEngine.getScramble(ev); }
 
 // =========================================
 // 官方打乱图组件事件映射与动态缩放补偿字典
 // =========================================
 function getCubingJsPuzzle(eventId) {
     const map = {
-        '222': '2x2x2', '333': '3x3x3', '333oh': '3x3x3', '333bf': '3x3x3', '333fm': '3x3x3', '333mbf': '3x3x3', '333ft': '3x3x3',
+        '222': '2x2x2', '333': '3x3x3', '333oh': '3x3x3', '333bf': '3x3x3', '333fm': '3x3x3', '333mbf': '3x3x3', '333ft': '3x3x3','mirror':'3x3x3',
         '444': '4x4x4', '444bf': '4x4x4',
         '555': '5x5x5', '555bf': '5x5x5',
         '666': '6x6x6', '777': '7x7x7',
@@ -3490,25 +3407,39 @@ function getScrambleZoom(eventId) {
     return zoomMap[eventId] || 1.0;
 }
 
-function generateScramble() {
-    const scramble = getScrambleByEvent(currentTimerEvent);
+async function generateScramble() {
+    closeNbDirectionalCards();
+    if (timerState !== 'IDLE') return;
+    const request = ++timerScrambleRequest, event = currentTimerEvent;
+    timerScrambleReady = false;
+    const text = document.getElementById('scramble-text');
+    let scramble,batch;const relay=getTimerRelayEvents(event);
+    try{batch=relay?await Promise.all(relay.map(async event=>({event,scramble:await getScrambleByEvent(event)}))):[];scramble=relay?batch[0].scramble:await getScrambleByEvent(event);}catch(error){console.warn('打乱生成失败，保留上一条公式',error);return;}
+    if(request!==timerScrambleRequest||event!==currentTimerEvent)return;
+    timerRelayScrambles=batch;timerRelayIndex=0;timerScrambleReady=true;
+    renderTimerScramble(scramble,relay?relay[0]:event);
+}
+function renderTimerScramble(scramble,displayEvent){
+    const relay=getTimerRelayEvents(currentTimerEvent);const navigation=document.getElementById('timer-relay-navigation');document.querySelector('#timer-tab-main .scramble-container').appendChild(navigation);navigation.hidden=!relay;
+    if(relay)document.getElementById('timer-relay-current').textContent='当前：'+(eventDict.find(e=>e.id===displayEvent)?.name||displayEvent);
     document.getElementById('scramble-text').innerHTML = scramble;
     document.getElementById('timer-page').classList.toggle('long-scramble',
         ['555', '666', '777', 'minx'].includes(currentTimerEvent) || scramble.replace(/<[^>]*>/g, '').length > 260);
 
     // 同步更新右下角打乱图
     const displayEl = document.getElementById('timer-scramble-display');
-    if (displayEl) {
+    const unsupported=timerOtherEvents.some(e=>e.id===currentTimerEvent)&&!getTimerRelayEvents(currentTimerEvent);const panel=document.getElementById('timer-scramble-draw-panel');if(panel)panel.hidden=unsupported;
+    if (displayEl&&!unsupported) {
         // 去除换行符，保证组件能正确识别
         let cleanScramble = scramble.replace(/<br>/g, ' ');
 
-        displayEl.setAttribute('puzzle', getCubingJsPuzzle(currentTimerEvent));
-        displayEl.setAttribute('visualization', currentTimerEvent === 'fto' ? 'auto' : '2D');
+        displayEl.setAttribute('puzzle', getCubingJsPuzzle(displayEvent));
+        displayEl.setAttribute('visualization', displayEvent === 'fto' ? 'auto' : '2D');
         displayEl.setAttribute('alg', cleanScramble);
 
         // 核心修复：根据当前项目，动态注入缩放比例，并附带 0.3 秒丝滑过渡动画
         displayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
-        displayEl.style.transform = `scale(${getScrambleZoom(currentTimerEvent)})`;
+        displayEl.style.transform = `scale(${getScrambleZoom(displayEvent)})`;
 
         // 强制组件瞬间跳转到打乱后的最终状态
         setTimeout(() => {
@@ -3522,6 +3453,7 @@ document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (!timerScrambleReady && timerState === 'IDLE' && e.code !== 'ArrowRight') return;
 
     // 👇 核心升级：如果确认卡片在屏幕上，敲击【任意键】直接记录成绩并关闭卡片！
     const postModal = document.getElementById('post-solve-modal');
@@ -3530,6 +3462,10 @@ document.addEventListener('keydown', (e) => {
         confirmPostSolve(); // 直接调用确定保存成绩
         return;
     }
+
+    const directionalCardOpen = ['nb-manual-modal','nb-delete-last-modal','nb-edit-last-modal'].some(id=>document.getElementById(id)?.style.display==='flex');
+    if (directionalCardOpen && e.code === 'Escape') { e.preventDefault(); closeNbDirectionalCards(); return; }
+    if (directionalCardOpen && e.code === 'Space') { e.preventDefault(); return; }
 
     if (uiSettings.inspection && timerState === 'IDLE' && e.code === 'Space' && !e.repeat && !e.target.closest('input, textarea, select, button, [contenteditable="true"]')) {
         e.preventDefault();
@@ -3553,6 +3489,7 @@ document.addEventListener('keydown', (e) => {
     if (timerState === 'IDLE') {
         if (e.code === 'ArrowRight') {
             e.preventDefault();
+            if(e.repeat) return;
             generateScramble();
             return;
         }
@@ -3596,6 +3533,7 @@ document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (!timerScrambleReady && timerState === 'IDLE') return;
     if (uiSettings.inspection && timerState === 'IDLE' && pendingInspectionKey === 'Space' && e.code === 'Space') {
         pendingInspectionKey = null;
         beginInspection();
@@ -3638,6 +3576,8 @@ document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (!timerScrambleReady && timerState === 'IDLE') return;
+    if(e.target.closest?.('#timer-relay-navigation'))return;
     if (isScrollableTimerScrambleTouch(e.target)) return;
 
     // 👇 绝对防御：如果确认卡片在屏幕上，强行没收所有触摸指令！
@@ -3689,6 +3629,7 @@ document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (!timerScrambleReady && timerState === 'IDLE') return;
     if (isScrollableTimerScrambleTouch(e.target)) return;
     const isTimerArea = e.target.closest('#timer-tab-main');
 
@@ -3725,6 +3666,7 @@ document.addEventListener('touchend', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
+    if (!timerScrambleReady && timerState === 'IDLE') return;
     if (isScrollableTimerScrambleTouch(e.target)) return;
     const isTimerArea = e.target.closest('#timer-tab-main');
 
@@ -3810,6 +3752,7 @@ let monthlySwipeAction = null;
 document.addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
     const penaltyModal = document.getElementById('monthly-penalty-modal');
     if (penaltyModal && penaltyModal.style.display === 'flex') return;
     const isTimerArea = e.target.closest('#monthly-timer-main-area');
@@ -3842,6 +3785,7 @@ document.addEventListener('touchstart', (e) => {
 document.addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
     const isTimerArea = e.target.closest('#monthly-timer-main-area');
 
     if (isTimerArea && (monthlyTimerState === 'WAITING' || monthlyTimerState === 'READY')) {
@@ -3859,6 +3803,7 @@ document.addEventListener('touchmove', (e) => {
 document.addEventListener('touchend', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
     const penaltyModal = document.getElementById('monthly-penalty-modal');
     if (penaltyModal && penaltyModal.style.display === 'flex') return;
     const isTimerArea = e.target.closest('#monthly-timer-main-area');
@@ -4006,8 +3951,15 @@ function exitChallenge() {
     goBack();
 }
 
-function generateChallengeScramble() {
-    let scramble = getScrambleByEvent(chalCurrentEvent);
+async function generateChallengeScramble() {
+    if (chalState === 'RUNNING') return;
+    const request = ++challengeScrambleRequest, event = chalCurrentEvent;
+    challengeScrambleReady = false;
+    let scramble;
+    try { scramble = await getScrambleByEvent(event); }
+    catch (error) { console.warn('打乱生成失败，保留上一条公式',error); return; }
+    if (request !== challengeScrambleRequest || event !== chalCurrentEvent) return;
+    challengeScrambleReady = true;
     challengeScrambleIsMinx = chalCurrentEvent === 'minx';
     challengeScrambleTokens = challengeScrambleIsMinx
         ? scramble.split(/<br\s*\/?\s*>/i).map(group => group.trim()).filter(Boolean)
@@ -4327,6 +4279,7 @@ function closeChalEventPopup(e) {
 
 // ============== 计时核心逻辑 ==============
 function handleChalPress(player) {
+    if (!challengeScrambleReady) return;
     // 核心新增：如果“更多”菜单在开着，强制拦截触摸/点击，必须关了才能按计时器
     const chalMore = document.getElementById('chal-more-dropdown');
     if (chalMore && chalMore.style.display === 'block') return;
@@ -4401,6 +4354,7 @@ function handleChalRelease(player) {
 }
 
 function startChallenge() {
+    if (!challengeScrambleReady) { chalState = 'IDLE'; return; }
     chalState = 'RUNNING';
     chalTopState = 'RUNNING';
     chalBottomState = 'RUNNING';
@@ -4582,7 +4536,7 @@ function applyUiSettings() {
     const modeLabel = document.getElementById('nb-display-mode-label');
     if (modeLabel) modeLabel.innerText = modeNames[uiSettings.nbDisplayMode] || '实时';
     const precisionLabel = document.getElementById('nb-precision-label');
-    if (precisionLabel) precisionLabel.innerText = uiSettings.nbPrecision === 3 ? '0.001秒' : '0.01秒';
+    if (precisionLabel) precisionLabel.innerText = uiSettings.nbPrecision === 3 ? '0.001 秒' : '0.01 秒';
 
     // 👇 新增：每次应用 UI 设置时，同步更新 Challenge 的缩放参数 👇
     let scScale = (uiSettings.chalScrambleSize || 100) / 100;
@@ -4691,15 +4645,15 @@ function setNbTimingOption(option, value) {
 }
 
 function openNbTimingModal(kind) {
-    const options = kind === 'display' ? [
+    const options = kind === 'category' ? [['wca','WCA'],['smart','智能魔方'],['other','其他']] : kind === 'display' ? [
         ['realtime', '实时'], ['noDecimals', '不显示小数'], ['onlyInspection', '仅观察'], ['hidden', '隐藏']
-    ] : [[2, '0.01秒'], [3, '0.001秒']];
-    document.getElementById('nb-timing-modal-title').innerText = kind === 'display' ? '计时器显示方式' : '计时器精确度';
+    ] : [[2, '0.01 秒'], [3, '0.001 秒']];
+    document.getElementById('nb-timing-modal-title').innerText = kind === 'category' ? '计时项目分类' : kind === 'display' ? '计时器显示方式' : '计时器精确度';
     const list = document.getElementById('nb-timing-options');
     list.replaceChildren();
     for (const [value, label] of options) {
         const button = document.createElement('div');
-        button.className = `chal-event-item ${(kind === 'display' ? uiSettings.nbDisplayMode : uiSettings.nbPrecision) === value ? 'active' : ''}`;
+        button.className = `chal-event-item ${(kind === 'category' ? timerTempMode : kind === 'display' ? uiSettings.nbDisplayMode : uiSettings.nbPrecision) === value ? 'active' : ''}`;
         button.style.cssText = 'padding:14px 15px;text-align:center;cursor:pointer';
         button.innerText = label;
         button.onclick = () => {
@@ -4707,7 +4661,7 @@ function openNbTimingModal(kind) {
                 window.alert('请先开启「使用 WCA 观察」');
                 return;
             }
-            setNbTimingOption(kind, value);
+            if(kind==='category')setTimerTempMode(value);else setNbTimingOption(kind, value);
             closeNbTimingModal();
         };
         list.appendChild(button);
@@ -5073,13 +5027,15 @@ function markMonthlyParticipated(eventId, attemptsArr) {
     localStorage.setItem('monthlyParticipation', JSON.stringify(data));
 }
 
-function ensureMonthlyScrambles(eventId) {
+async function ensureMonthlyScrambles(eventId) {
     const key = 'monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + getCurrentWeekKey();
     let cached = localStorage.getItem(key);
     const generated = cached ? JSON.parse(cached) : {};
     if (eventId && !generated[eventId]) {
-        generated[eventId] = Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId));
-        localStorage.setItem(key, JSON.stringify(generated));
+        generated[eventId] = await Promise.all(Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId)));
+        const latest = JSON.parse(localStorage.getItem(key) || '{}');
+        if (latest[eventId]) generated[eventId] = latest[eventId];
+        else { latest[eventId] = generated[eventId]; localStorage.setItem(key, JSON.stringify(latest)); }
     }
     return generated;
 }
@@ -5650,14 +5606,18 @@ function renderMonthlyAttemptsList() {
     }
 }
 
-function renderMonthlyScramble(attemptIndex) {
+async function renderMonthlyScramble(attemptIndex) {
+    const request = ++monthlyScrambleRequest, event = currentMonthlyEventTarget;
+    monthlyScrambleReady = false;
     try {
-        let allScrambles = ensureMonthlyScrambles(currentMonthlyEventTarget);
+        let allScrambles = await ensureMonthlyScrambles(event);
+        if (request !== monthlyScrambleRequest || event !== currentMonthlyEventTarget) return;
         let scrambles = allScrambles[currentMonthlyEventTarget];
 
         if (!scrambles || attemptIndex >= scrambles.length) return;
 
         const scramble = scrambles[attemptIndex];
+        monthlyScrambleReady = true;
         let textEl = document.getElementById('monthly-scramble-text');
         if(textEl) textEl.innerHTML = scramble;
         const monthlyPage = document.getElementById('monthly-timer-page');
@@ -5684,12 +5644,13 @@ function renderMonthlyScramble(attemptIndex) {
             }
         }
     } catch (err) {
-        console.warn("打乱引擎波动，已被系统拦截", err);
+        console.warn("打乱引擎生成失败", err);
     }
 }
 
 // ---------------- 计时与判定逻辑 ----------------
 function startMonthlyTimer() {
+    if (!monthlyScrambleReady) { monthlyTimerState = 'IDLE'; return; }
     monthlyTimerState = 'RUNNING';
     const display = document.getElementById('monthly-timer-display');
     display.classList.remove('ready');
@@ -5774,6 +5735,7 @@ let currentManualPenalty = '';
 let invalidToastTimer = null;
 
 function openMonthlyManualInput() {
+    if (!monthlyScrambleReady) return;
     document.getElementById('monthly-manual-input').value = '';
     setManualPenalty('');
     document.getElementById('monthly-manual-modal').style.display = 'flex';
@@ -5885,6 +5847,7 @@ function confirmMonthlyManual() {
 document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
     if (monthlyHasFinished) return;
 
     const penaltyModal = document.getElementById('monthly-penalty-modal');
@@ -5915,6 +5878,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
+    if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
     if (monthlyHasFinished) return;
 
     if (e.code === 'Space') {
@@ -5932,7 +5896,16 @@ document.addEventListener('keyup', (e) => {
 // ================= NB Timer 手动成绩输入引擎 =================
 let currentNbManualPenalty = '';
 
+function closeNbDirectionalCards() {
+    ['nb-manual-modal','nb-delete-last-modal','nb-edit-last-modal'].forEach(id=>{
+        const card=document.getElementById(id);
+        if(card) card.style.display='none';
+    });
+}
+
 function openNbManualInput() {
+    closeNbDirectionalCards();
+    if (!timerScrambleReady) return;
     document.getElementById('nb-manual-input').value = '';
     setNbManualPenalty('');
     document.getElementById('nb-manual-modal').style.display = 'flex';
@@ -5981,7 +5954,7 @@ function confirmNbManual() {
         rawMs: rawMs,
         penalty: currentNbManualPenalty,
         timestamp: getNowFormatted(),
-        scramble: currentTimerMode === 'smart' ? '' : document.getElementById('scramble-text').innerText
+        scramble: currentTimerMode === 'smart' ? '' : getTimerAttemptScramble()
     });
 
     closeNbManualInput();
@@ -5994,6 +5967,7 @@ function confirmNbManual() {
 let currentNbEditLastPenalty = '';
 
 function openNbDeleteLast() {
+    closeNbDirectionalCards();
     const records = timerHistoryData[getTimerHistoryKey()];
     if (!records || records.length === 0) return; // 如果没有成绩，不响应
 
@@ -6019,6 +5993,7 @@ function confirmNbDeleteLast() {
 }
 
 function openNbEditLast() {
+    closeNbDirectionalCards();
     const records = timerHistoryData[getTimerHistoryKey()];
     if (!records || records.length === 0) return;
 

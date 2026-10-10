@@ -6,8 +6,9 @@ let timerTempSmartEvent = '333';
 let timerBluetoothDevice = null;
 let timerBluetoothCandidates = [];
 
+function cycleTimerCategory(direction){const modes=['wca','smart','other'];setTimerTempMode(modes[(modes.indexOf(timerTempMode)+direction+modes.length)%modes.length]);}
 function setTimerTempMode(mode) {
-    timerTempMode = mode === 'smart' ? 'smart' : 'wca';
+    timerTempMode=['wca','smart','other'].includes(mode)?mode:'wca';
     renderTimerEventGrid();
 }
 
@@ -31,13 +32,7 @@ function renderSmartTimerEventGrid() {
     }
 }
 
-function renderTimerModeChoice() {
-    for (const mode of ['wca', 'smart']) {
-        const button = document.getElementById(`timer-mode-${mode}`);
-        button.classList.toggle('active', timerTempMode === mode);
-        button.setAttribute('aria-pressed', String(timerTempMode === mode));
-    }
-}
+function renderTimerModeChoice(){const select=document.getElementById('timer-category-select');if(select){select.dataset.value=timerTempMode;document.getElementById('timer-category-label').textContent={wca:'WCA',smart:'智能魔方',other:'其他'}[timerTempMode];}}
 
 function renderTimerVirtualCube() {
     const order = timerSmartEvent === '222' ? 2 : 3;
@@ -65,12 +60,15 @@ function applyTimerMode() {
     main.classList.toggle('smart-cube-mode', smart);
     document.getElementById('timer-page').classList.toggle('smart-cube-page', smart);
     const eventId = smart ? timerSmartEvent : currentTimerEvent;
-    const item = eventDict.find(event => event.id === eventId);
+    const item = eventDict.find(event => event.id === eventId)||timerOtherEvents.find(e=>e.id===eventId);
     document.getElementById('timer-event-watermark').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-event-icon').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-event-name').textContent = item?.name || '三阶';
-    document.getElementById('timer-event-title').textContent = `${smart ? '魔域智能' : 'WCA'} - ${item?.name || '三阶'}`;
+    document.getElementById('timer-event-title').textContent = `${smart ? '魔域智能' : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
+    document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
+    const other=timerOtherEvents.find(e=>e.id===eventId);
+    for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';}
     if (smart) {
         renderTimerVirtualCube();
         updateTimerBluetoothStatus(Boolean(timerBluetoothDevice?.gatt?.connected));

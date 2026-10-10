@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.37-mobile-cards-20261009">
+    <link rel="stylesheet" href="style.css?v=1.40.0-blue">
 </head>
 <body>
 
@@ -121,12 +121,11 @@
                 </div>
                 <div class="home-intro-side">
                     <div class="home-tile-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-                    <span class="home-mark-caption">转动 · 连接 · 突破</span>
                 </div>
                 <div class="home-shortcuts" aria-label="常用入口">
                     <button type="button" onclick="navigateTo('timer-page'); initTimer();"><span>01</span><strong>开始计时</strong><small>NB Timer</small><b aria-hidden="true">↗</b></button>
                     <button type="button" onclick="initMonthly()"><span>02</span><strong>参加月赛</strong><small>每月挑战</small><b aria-hidden="true">↗</b></button>
-                    <button type="button" onclick="navigateTo('records-page'); generateRecords();"><span>03</span><strong>查看纪录</strong><small>宁波成绩榜</small><b aria-hidden="true">↗</b></button>
+                    <button type="button" onclick="navigateTo('records-page'); generateRecords();"><span>03</span><strong>查看纪录</strong><small>宁波纪录</small><b aria-hidden="true">↗</b></button>
                 </div>
             </section>
             <div class="home-board">
@@ -438,7 +437,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.38.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.40.0</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -928,10 +927,7 @@
                         <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时项目</h3>
                         <div id="timer-event-grid" class="chal-event-grid"></div>
                         <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
-                            <div class="timer-mode-choice" role="group" aria-label="计时项目类型">
-                                <button type="button" id="timer-mode-wca" onclick="setTimerTempMode('wca')">WCA</button>
-                                <button type="button" id="timer-mode-smart" onclick="setTimerTempMode('smart')">智能魔方</button>
-                            </div>
+                            <div id="timer-category-select" class="timer-category-select" role="group" aria-label="计时项目分类"><button type="button" aria-label="上一个分类" onclick="cycleTimerCategory(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="timer-category-label">WCA</span><button type="button" aria-label="下一个分类" onclick="cycleTimerCategory(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div>
                             <button class="edit-btn-confirm" onclick="confirmTimerEvent()">确定</button>
                         </div>
                     </div>
@@ -1074,7 +1070,7 @@
                     <div class="ios-setting-group custom-ui-group"><span>使用 WCA 观察</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-no" onclick="setNbTimingOption('inspection', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-yes" onclick="setNbTimingOption('inspection', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>观察语音提示</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-voice-no" onclick="setNbTimingOption('inspectionVoice', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-voice-yes" onclick="setNbTimingOption('inspectionVoice', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
-                    <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01秒</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01 秒</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
 
                     <!-- 核心新增：界面设置模块 -->
                     <hr class="settings-divider">
@@ -1248,7 +1244,7 @@
                     </div>
                 </div>
 
-                <span id="timer-event-watermark" class="cubing-icon event-333" aria-hidden="true"></span>
+                <div id="timer-relay-navigation" hidden><button type="button" aria-label="上一个连拧项目" onclick="switchTimerRelay(-1,event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="timer-relay-current"></span><button type="button" aria-label="下一个连拧项目" onclick="switchTimerRelay(1,event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div><span id="timer-event-watermark" class="cubing-icon event-333" aria-hidden="true"></span>
                 <div class="timer-smart-stage">
                     <div class="timer-smart-visual">
                         <div class="timer-virtual-cube" id="timer-virtual-cube" role="img" tabindex="0" aria-label="智能魔方虚拟模型，可拖动旋转"></div>
@@ -1918,12 +1914,13 @@
     </div>
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
-    <script src="main.js?v=1.37-list-30-20261009"></script>
+    <script src="scramble-engine.js?v=1.40.0-integrated"></script>
+    <script src="main.js?v=1.40.0"></script>
     <script src="forum.js?v=1.41-dark-switches-20261006"></script>
     <script src="account.js?v=1.41-dark-switches-20261006"></script>
     <script src="theme.js?v=1.41-dark-switches-20261006"></script>
     <script src="account-profile.js?v=1.41-dark-switches-20261006"></script>
-    <script src="timer-smart.js?v=1.17-cube-palette-20261003"></script>
+    <script src="timer-smart.js?v=1.40.0"></script>
     <script src="cube-space-player.js?v=1.17-detail35"></script>
 </body>
 </html>
