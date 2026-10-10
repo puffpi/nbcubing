@@ -29,7 +29,7 @@ async function refreshAccount() {
     const user=session.data.session?.user;
     let profile=null,records=[];
     if(user && !user.is_anonymous) {
-        const result=await client.from('account_profiles').select('user_id,wca_id,nickname').eq('user_id',user.id).maybeSingle();if(result.error)throw result.error;
+        const result=await client.from('account_profiles').select('user_id,wca_id,nickname,email').eq('user_id',user.id).maybeSingle();if(result.error)throw result.error;
         profile=result.data;
         if(profile){const result=await client.from('account_monthly_entries').select('*').eq('month_key',getCurrentMonthKey());if(result.error)throw result.error;records=result.data || [];}
     }
@@ -47,6 +47,7 @@ async function refreshAccount() {
     const admin=await client.rpc('is_forum_admin');forumAdmin=admin.data===true;
     if(profile)accountEl('account-profile-title').textContent=accountWelcome();
     const wca=accountEl('setting-wcaid');if(wca)wca.textContent=profile?.wca_id || '未登录';
+    const email=accountEl('setting-email');if(email)email.textContent=profile ? (profile.email || '未填写') : '未登录';
     if(typeof loadAccountDashboard==='function' && accountEl('account-page').classList.contains('active')) loadAccountDashboard();
     return profile;
 }
@@ -63,7 +64,7 @@ async function accountRequest(action,fields) {
     return result;
 }
 async function openAccountPage() {
-    accountEl('account-page').classList.add('account-resolving');navigateTo('account-page',true);if(accountProfile&&typeof loadAccountDashboard==='function')loadAccountDashboard();accountEl('account-status').textContent='正在检查登录状态…';
+    accountEl('account-page').classList.add('account-resolving');navigateTo('account-page',true);accountEl('account-status').textContent='正在检查登录状态…';
     try{await refreshAccount();accountEl('account-status').textContent='';}catch(error){accountEl('account-page').classList.remove('account-resolving');accountEl('account-status').textContent=accountError(error);}
 }
 async function submitAccountForm(event) {
@@ -120,10 +121,11 @@ initMonthly=async function(){
     catch(error){alert(accountError(error));}
 };
 function openMonthlyAccountModal(after=initMonthly,allowGuest=false){
-    const form=forumNode('form'),nickname=forumFormField(form,'昵称（选填）','input',24,false);nickname.value=uiSettings.username || '';
+    const form=forumNode('form');form.append(forumNode('p','','登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存。'));
+    const nickname=forumFormField(form,'用户名（仅注册时选填）','input',24,false);nickname.placeholder='留空则自动生成并保存';
     const wca=forumFormField(form,'账号（8–32 位字母、数字、下划线或短横线）','input',32);wca.value=uiSettings.wcaId || '';wca.autocomplete='username';
     const password=forumFormField(form,'密码','input',128);password.type='password';password.autocomplete='current-password';password.placeholder='注册密码至少 8 位';
-    const email=forumFormField(form,'邮箱（注册时填写，用于找回密码）','input',254,false);email.type='email';
+    const email=forumFormField(form,'邮箱（仅注册时必填，用于找回密码）','input',254,false);email.type='email';email.placeholder='登录时无需填写';
     const status=forumNode('p','forum-form-status');form.append(status);
     const actions=forumNode('div','forum-modal-actions'),register=forumNode('button','btn','注册'),login=forumNode('button','btn btn-primary','登录');register.type=login.type='submit';register.value='register';login.value='login';actions.append(register,login);form.append(actions);
     const forgot=forumNode('button','account-text-link','忘记密码？');forgot.type='button';forgot.onclick=()=>{closeForumModal();openAccountRecovery();};form.append(forgot);

@@ -30,7 +30,7 @@ async function loadAccountDashboard(force=false){
    if(!loaded){const historyPromise=rosterIds.includes(id)?ensureHistoryData().then(()=>allHistoryData[id]||null):fetchRemotePersonHistory(id);const results=await Promise.allSettled([historyPromise,ensureChineseCompetitions()]);if(results[0].status==='rejected')throw results[0].reason;loaded=results[0].value;remotePersonHistory.set(id,loaded);}
    if(current()){accountDashboardHistory=loaded || {};renderAccountDashboard();}
   }catch(error){if(current()){const notice=root.querySelector('.ad-history-status');if(notice){notice.replaceChildren(adNode('span','','历史成绩暂时未能加载。'),adButton('重新加载',()=>loadAccountDashboard(true),'ad-link'));}}}
- }catch(error){if(current()){root.replaceChildren(adNode('p','ad-loading','选手档案暂时无法连接，请稍后重试。'),adButton('重试',()=>loadAccountDashboard(true),'btn btn-outline'));accountDashboardId='';}}
+ }catch(error){if(current()){document.getElementById('account-page').classList.remove('account-resolving');root.replaceChildren(adNode('p','ad-loading','选手档案暂时无法连接，请稍后重试。'),adButton('重试',()=>loadAccountDashboard(true),'btn btn-outline'));accountDashboardId='';}}
 }
 function adIcon(event){return adNode('span',`cubing-icon event-${event}`);}
 function renderAccountDashboard(){

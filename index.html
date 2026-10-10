@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.41-dark-switches-20261006">
+    <link rel="stylesheet" href="style.css?v=1.37-mobile-cards-20261009">
 </head>
 <body>
 
@@ -109,25 +109,41 @@
         </div>
     </header>
 
-    <!-- 全新设计的简约版首页 -->
-    <div id="home-page" class="page-container" style="padding: 0; max-width: 100%; min-height: calc(100vh - 64px); overflow-y: auto; overflow-x: hidden; background: #f8fafc;">
+    <!-- 宁波魔方首页 -->
+    <div id="home-page" class="page-container" style="padding: 0; max-width: 100%; min-height: calc(100vh - 64px); overflow-y: auto; overflow-x: hidden;">
 
         <div class="home-content-wrapper">
-            <section class="home-section">
+            <section class="home-intro" aria-labelledby="home-heading">
+                <div class="home-intro-copy">
+                    <p class="home-eyebrow">NINGBO CUBING <span>宁波 · 魔方</span></p>
+                    <h1 id="home-heading">每一次突破，<br>都在这里。</h1>
+                    <p class="home-intro-description">关注宁波选手，记录赛场新成绩。<br>从日常练习，到下一次登场。</p>
+                </div>
+                <div class="home-intro-side">
+                    <div class="home-tile-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <span class="home-mark-caption">转动 · 连接 · 突破</span>
+                </div>
+                <div class="home-shortcuts" aria-label="常用入口">
+                    <button type="button" onclick="navigateTo('timer-page'); initTimer();"><span>01</span><strong>开始计时</strong><small>NB Timer</small><b aria-hidden="true">↗</b></button>
+                    <button type="button" onclick="initMonthly()"><span>02</span><strong>参加月赛</strong><small>每月挑战</small><b aria-hidden="true">↗</b></button>
+                    <button type="button" onclick="navigateTo('records-page'); generateRecords();"><span>03</span><strong>查看纪录</strong><small>宁波成绩榜</small><b aria-hidden="true">↗</b></button>
+                </div>
+            </section>
+            <div class="home-board">
+            <section class="home-section home-events">
                 <div class="section-header">
-                    <h3 class="section-title">近期赛事</h3>
-                    <span class="more-link" onclick="openCompsPage()">更多赛事 ></span>
+                    <h3 class="section-title">赛事日程</h3>
+                    <button class="more-link" type="button" onclick="openCompsPage()">全部赛事 ↗</button>
                 </div>
                 <div id="recent-comps-grid" class="comps-grid">
                     <div style="color: var(--text-muted); font-size: 14px;">正在加载近期赛事…</div>
                 </div>
             </section>
 
-            <div class="home-split-layout">
                 <section class="home-section news-section">
                     <div class="section-header">
                         <h3 class="section-title">新闻资讯</h3>
-                        <span class="more-link" onclick="openNewsPage()">更多资讯 ></span>
+                        <button class="more-link" type="button" onclick="openNewsPage()">全部动态 ↗</button>
                     </div>
                     <div id="news-list" class="news-list">正在加载资讯…</div>
                 </section>
@@ -135,14 +151,14 @@
                 <section class="home-section records-section">
                     <div class="section-header">
                         <h3 class="section-title">宁波纪录</h3>
-                        <span class="more-link" onclick="navigateTo('records-page'); generateRecords();">更多纪录 ></span>
+                        <button class="more-link" type="button" onclick="navigateTo('records-page'); generateRecords();">全部项目 ↗</button>
                     </div>
-                    <div id="mini-records-list" class="mini-records-list card" style="padding: 10px 20px; border-radius: 12px; margin-bottom: 0;">
+                    <div id="mini-records-list" class="mini-records-list card">
                     </div>
                 </section>
             </div>
 
-            <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin-top: 20px;">作者：b站@泡芙老师k3</p>
+            <footer class="home-footer"><span>NINGBO CUBING</span><span>作者：b站@泡芙老师k3</span></footer>
         </div>
     </div>
 
@@ -157,7 +173,16 @@
             <a class="btn btn-outline btn-cubing" href="https://cubing.com/" target="_blank" rel="noopener noreferrer">🔗 粗饼</a>
         </div>
         <div class="list-page-container">
-            <div id="all-comps-grid" class="comps-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));"></div>
+            <div class="competition-search">
+                <label>年份<select id="comps-year" onchange="filterCompetitionList()"><option value="">全部年份</option></select></label>
+                <label>城市<input id="comps-city" type="search" placeholder="输入城市" oninput="filterCompetitionList()"></label>
+                <label>比赛名称<input id="comps-name" type="search" placeholder="输入比赛名称" oninput="filterCompetitionList()"></label>
+                <button type="button" class="btn btn-outline" onclick="resetCompetitionFilters()">重置</button>
+            </div>
+            <div id="comps-event-filters" class="competition-event-picker" aria-label="筛选比赛项目"></div>
+            <p class="competition-filter-hint">可多选项目，仅显示包含全部已选项目的比赛。</p>
+            <p id="comps-list-status" role="status"></p>
+            <div class="competition-table-scroll"><table class="competition-list-table"><thead><tr><th>日期</th><th>比赛</th><th>状态</th><th>省份</th><th>城市</th><th>地点</th></tr></thead><tbody id="all-comps-grid"></tbody></table></div>
             <div class="pagination-controls">
                 <button class="page-btn" id="comps-prev-btn" onclick="changeCompsPage(-1)">上一页</button>
                 <span class="page-info" id="comps-page-info">第 1 页</span>
@@ -365,6 +390,10 @@
                 <!-- 强制大写，样式与用户名严格对齐 -->
                 <span id="setting-wcaid" style="font-weight:600"></span>
             </div>
+            <div class="ios-setting-group custom-ui-group">
+                <span>邮箱</span>
+                <span id="setting-email" style="font-weight:600; min-width:0; max-width:75%; overflow-wrap:anywhere; text-align:right;">未登录</span>
+            </div>
 
             <hr class="settings-divider">
             <div class="sidebar-settings-title">个性化</div>
@@ -409,7 +438,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.37.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.38.0</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -438,13 +467,15 @@
 
     <div id="account-page" class="page-container">
         <div class="page-header"><h2>账号登录</h2></div>
+        <p id="account-loading" role="status" aria-live="polite">载入中...</p>
         <section class="card account-card">
             <div id="account-signed-in" hidden><h3 id="account-profile-title"></h3><p>论坛与月赛数据已绑定此账号。</p><div class="account-actions"><button class="btn" onclick="goHome()">返回首页</button><button class="btn btn-outline" onclick="accountSignOut()">退出登录</button></div></div>
             <form id="account-login-form" onsubmit="submitAccountForm(event)">
-                <label>昵称（选填）<input name="nickname" maxlength="24" autocomplete="nickname" placeholder="不填写则自动生成用户名"></label>
+                <p>登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存；下次登录会恢复已保存的用户名。</p>
+                <label>用户名（仅注册时选填）<input name="nickname" maxlength="24" autocomplete="nickname" placeholder="留空则自动生成并保存"></label>
                 <label>账号（至少 8 位，可使用 WCA ID）<input name="wcaId" minlength="8" maxlength="32" required autocomplete="username" placeholder="8–32 位字母、数字、下划线或短横线"></label>
                 <label>密码<input name="password" type="password" required maxlength="128" autocomplete="current-password" placeholder="至少 8 位"></label>
-                <label>邮箱（注册时填写，用于找回密码）<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="登录时可不填"></label>
+                <label>邮箱（仅注册时必填，用于找回密码）<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="登录时无需填写"></label>
                 <div class="account-actions"><button type="submit" name="action" value="register" class="btn btn-outline">注册</button><button type="submit" name="action" value="login" class="btn">登录</button></div>
                 <button type="button" class="account-text-link" onclick="openAccountRecovery()">忘记密码？</button>
             </form><p id="account-status" role="status"></p>
@@ -1887,7 +1918,7 @@
     </div>
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
-    <script src="main.js?v=1.41-dark-switches-20261006"></script>
+    <script src="main.js?v=1.37-list-30-20261009"></script>
     <script src="forum.js?v=1.41-dark-switches-20261006"></script>
     <script src="account.js?v=1.41-dark-switches-20261006"></script>
     <script src="theme.js?v=1.41-dark-switches-20261006"></script>

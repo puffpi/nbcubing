@@ -144,7 +144,7 @@ let chineseCompetitionsPromise = null;
 
 function ensureChineseCompetitions() {
     if (chineseCompetitionsPromise) return chineseCompetitionsPromise;
-    chineseCompetitionsPromise = fetch('competitions_zh.json?v=2').then(async response => {
+    chineseCompetitionsPromise = fetch('competitions_zh.json?v=3').then(async response => {
         if (!response.ok) throw new Error(`赛事缓存请求失败：HTTP ${response.status}`);
         const competitions = await response.json();
         chineseCompsById = new Map(competitions.map(comp => [comp.id, comp]));
@@ -6136,7 +6136,7 @@ if (typeof window.hasHomeEngineInit === 'undefined') {
 
     window.allCompsData = [];
     window.currentCompsPage = 1;
-    window.COMPS_PER_PAGE = 10;
+    window.COMPS_PER_PAGE = 30;
 
     window.allNewsData = [];
     window.currentNewsPage = 1;
@@ -6197,7 +6197,8 @@ async function fetchCompetitions() {
         let competitions = [...chineseCompsById.values()].map(item => ({
             id: item.id, name: item.name, start_date: item.startDate,
             end_date: item.endDate || item.startDate, city: getChineseCompetitionLocation(item),
-            alias: item.alias
+            alias: item.alias, province: item.province, cityName: item.city,
+            venue: item.venue, venueAddress: item.venueAddress, eventIds: item.eventIds
         }));
         if (!competitions.length) {
             const year = new Date().getFullYear();
@@ -6241,30 +6242,17 @@ async function fetchCompetitions() {
     }
 }
 
+function competitionStatus(comp) {
+    const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
+    if((comp.end_date||comp.start_date)<today)return {text:'已结束',className:'status-ended'};
+    if(comp.start_date>today)return {text:'未开始',className:'status-upcoming'};
+    return {text:'进行中',className:'status-active'};
+}
 function createCompCard(comp, isListPage = false) {
     const compName = comp.nameZh || getChineseCompetitionName(comp.name, comp.id);
     const city = comp.city || '中国';
 
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const todayStr = `${y}-${m}-${day}`;
-
-    let statusText = '';
-    let statusClass = '';
-
-    if (comp.end_date < todayStr) {
-        statusText = '已结束';
-        statusClass = 'status-ended';
-        if (isListPage) statusText = '';
-    } else if (comp.start_date > todayStr) {
-        statusText = '未开始';
-        statusClass = 'status-upcoming';
-    } else {
-        statusText = '进行中';
-        statusClass = 'status-active';
-    }
+    const {text:statusText,className:statusClass}=competitionStatus(comp);
 
     const card = document.createElement('div');
     card.className = 'comp-card';
@@ -6289,6 +6277,10 @@ function createCompCard(comp, isListPage = false) {
         </div>
         ${tagHtml}
     `;
+    if (!isListPage) {
+        const meta=card.querySelector('.comp-meta-col'),date=meta.lastElementChild,tag=card.querySelector('.comp-status-tag');
+        const line=document.createElement('div');line.className='comp-date-status';line.append(date);if(tag)line.append(tag);meta.append(line);
+    }
     return card;
 }
 
@@ -6845,27 +6837,83 @@ function renderPaginationHTML(currentPage, totalItems, itemsPerPage, clickHandle
 function openCompsPage() {
     navigateTo('comps-page', true);
     window.currentCompsPage = 1;
+    initCompetitionListFilters();
     renderCompsPage();
 }
 
 function goToCompsPage(page) {
-    const totalPages = Math.ceil(window.allCompsData.length / window.COMPS_PER_PAGE);
+    const totalPages = Math.ceil(filteredCompetitionList().length / window.COMPS_PER_PAGE);
     if (page < 1 || page > totalPages) return;
     window.currentCompsPage = page;
     renderCompsPage();
 }
 
-function renderCompsPage() {
-    const grid = document.getElementById('all-comps-grid');
-    grid.innerHTML = '';
-    const start = (window.currentCompsPage - 1) * window.COMPS_PER_PAGE;
-    const end = start + window.COMPS_PER_PAGE;
-    const pageData = window.allCompsData.slice(start, end);
-
-    pageData.forEach(comp => grid.appendChild(createCompCard(comp, true)));
-
-    const controlsWrap = document.querySelector('#comps-page .pagination-controls');
-    controlsWrap.innerHTML = renderPaginationHTML(window.currentCompsPage, window.allCompsData.length, window.COMPS_PER_PAGE, 'goToCompsPage');
+const competitionListEvents = new Set(), competitionMetadataRequests = new Map();
+let competitionListSequence = 0;
+function initCompetitionListFilters() {
+    const year = document.getElementById('comps-year');
+    if (year.options.length === 1) {
+        [...new Set(window.allCompsData.map(comp=>comp.start_date.slice(0,4)))].sort().reverse().forEach(value=>year.add(new Option(value,value)));
+    }
+    const picker = document.getElementById('comps-event-filters');
+    if (picker.childElementCount) return;
+    const official = eventDict.filter(event=>!['magic','mmagic','333ft','mbf'].includes(event.id)).map(event=>event.id);
+    for (const id of official) {
+        const button = document.createElement('button');button.type='button';button.className='records-event-tab';button.dataset.event=id;
+        const label=eventDict.find(event=>event.id===id)?.name || id;
+        button.title=label;button.setAttribute('aria-label',label);button.setAttribute('aria-pressed','false');
+        const icon=document.createElement('span');icon.className=`cubing-icon event-${id}`;icon.setAttribute('aria-hidden','true');button.append(icon);
+        button.onclick=()=>{competitionListEvents.has(id)?competitionListEvents.delete(id):competitionListEvents.add(id);button.setAttribute('aria-pressed',String(competitionListEvents.has(id)));button.classList.toggle('active',competitionListEvents.has(id));filterCompetitionList();};
+        picker.append(button);
+    }
+}
+function filterCompetitionList(){window.currentCompsPage=1;renderCompsPage();}
+function resetCompetitionFilters(){
+    for(const id of ['comps-year','comps-city','comps-name'])document.getElementById(id).value='';
+    competitionListEvents.clear();document.querySelectorAll('#comps-event-filters button').forEach(button=>{button.setAttribute('aria-pressed','false');button.classList.remove('active');});filterCompetitionList();
+}
+function filteredCompetitionList(includeUnknown=false){
+    const year=document.getElementById('comps-year').value,city=document.getElementById('comps-city').value.trim().toLowerCase(),name=document.getElementById('comps-name').value.trim().toLowerCase();
+    return window.allCompsData.filter(comp=>(!year||comp.start_date.startsWith(year))&&(!city||(comp.cityName||comp.city||'').toLowerCase().includes(city))&&(!name||`${comp.nameZh||getChineseCompetitionName(comp.name,comp.id)} ${comp.name} ${comp.id}`.toLowerCase().includes(name))&&
+        (!competitionListEvents.size||(includeUnknown&&!Array.isArray(comp.eventIds))||[...competitionListEvents].every(id=>comp.eventIds?.includes(id))));
+}
+async function loadCompetitionListMetadata(comp){
+    if(Array.isArray(comp.eventIds))return;
+    if(!competitionMetadataRequests.has(comp.id))competitionMetadataRequests.set(comp.id,(async()=>{
+        const key='competitionList:'+comp.id;
+        try{const cached=JSON.parse(localStorage.getItem(key)||'null');if(cached&&Date.now()-cached.at<86400000&&Array.isArray(cached.eventIds)){Object.assign(comp,cached);return;}}catch{}
+        const response=await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${encodeURIComponent(comp.id)}`,{signal:AbortSignal.timeout(15000)});
+        if(!response.ok)throw new Error('赛事资料读取失败');
+        const detail=await response.json();if(!Array.isArray(detail.event_ids))throw new Error('赛事项目资料暂不可用');
+        Object.assign(comp,{eventIds:detail.event_ids,venue:(detail.venue||'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1'),venueAddress:detail.venue_address||''});
+        try{localStorage.setItem(key,JSON.stringify({at:Date.now(),eventIds:comp.eventIds,venue:comp.venue,venueAddress:comp.venueAddress}));}catch{}
+    })().finally(()=>competitionMetadataRequests.delete(comp.id)));
+    return competitionMetadataRequests.get(comp.id);
+}
+function paintCompetitionList(){
+    const grid=document.getElementById('all-comps-grid'),data=filteredCompetitionList();grid.replaceChildren();
+    window.currentCompsPage=Math.min(window.currentCompsPage,Math.max(1,Math.ceil(data.length/window.COMPS_PER_PAGE)));
+    const start=(window.currentCompsPage-1)*window.COMPS_PER_PAGE;
+    for(const comp of data.slice(start,start+window.COMPS_PER_PAGE)){
+        const row=document.createElement('tr');
+        const values=[comp.end_date&&comp.end_date!==comp.start_date?`${comp.start_date} 至 ${comp.end_date}`:comp.start_date,comp.nameZh||getChineseCompetitionName(comp.name,comp.id),comp.province||'—',comp.cityName||comp.city||'—',[comp.venue,comp.venueAddress].filter(Boolean).join(' · ')||(Array.isArray(comp.eventIds)?'地点待公布':'地点暂未读取')];
+        values.forEach((value,index)=>{const cell=document.createElement('td');if(index===1){const link=document.createElement('button');link.type='button';link.className='competition-name-link';link.textContent=value;link.onclick=()=>openCompetitionDetail(comp);cell.append(link);}else cell.textContent=value;row.append(cell);if(index===1){const statusCell=document.createElement('td'),badge=document.createElement('span'),status=competitionStatus(comp);badge.className=`comp-status-tag ${status.className}`;badge.textContent=status.text;statusCell.append(badge);row.append(statusCell);}});grid.append(row);
+    }
+    if(!data.length){const row=grid.insertRow(),cell=row.insertCell();cell.colSpan=6;cell.textContent='没有符合条件的比赛。';cell.className='competition-empty';}
+    document.querySelector('#comps-page .pagination-controls').innerHTML=renderPaginationHTML(window.currentCompsPage,data.length,window.COMPS_PER_PAGE,'goToCompsPage');
+    return data;
+}
+async function renderCompsPage(){
+    const sequence=++competitionListSequence,status=document.getElementById('comps-list-status');
+    const data=paintCompetitionList(),start=(window.currentCompsPage-1)*window.COMPS_PER_PAGE;
+    const pending=(competitionListEvents.size?filteredCompetitionList(true):data.slice(start,start+window.COMPS_PER_PAGE)).filter(comp=>!Array.isArray(comp.eventIds));
+    status.textContent=pending.length?'正在读取赛事地点和项目…':`共 ${data.length} 场比赛`;
+    if(!pending.length)return;
+    let next=0,failed=0;
+    await Promise.all(Array.from({length:Math.min(4,pending.length)},async()=>{while(next<pending.length){const comp=pending[next++];try{await loadCompetitionListMetadata(comp);}catch{failed++;}}}));
+    if(sequence!==competitionListSequence)return;
+    const loaded=paintCompetitionList();status.textContent=`共 ${loaded.length} 场比赛${failed?`；${failed} 场赛事资料暂时无法读取${competitionListEvents.size?'，未纳入项目筛选':''}。`:''}`;
+    if(failed){const retry=document.createElement('button');retry.type='button';retry.className='account-text-link';retry.textContent='重试';retry.onclick=()=>renderCompsPage();status.append(retry);}
 }
 
 function openNewsPage() {
@@ -6954,7 +7002,7 @@ function buildNewsTimeline() {
 
     const list = document.getElementById('news-list');
     list.innerHTML = '';
-    const topNews = window.allNewsData.slice(0, 15);
+    const topNews = window.allNewsData.slice(0, 12);
     topNews.forEach(news => list.appendChild(createNewsCard(news, false)));
 }
 
@@ -6973,7 +7021,7 @@ function createNewsCard(news, isFullPage) {
     let descHtml = `在 <strong>${getChineseCompetitionName(news.comp)}</strong> 上，他凭借优异的发挥突破了极限。`;
 
     let item = document.createElement('div');
-    item.className = isFullPage ? 'news-card-item' : 'news-item';
+    item.className = isFullPage ? 'news-card-item' : 'news-item' + (news.isNR ? ' news-record' : '');
     item.innerHTML = `
         ${titleHtml}
         <div class="news-desc">${descHtml}</div>

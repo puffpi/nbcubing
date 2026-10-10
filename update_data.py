@@ -33,6 +33,16 @@ COMPETITIONS_API = "https://api.cubing.com/competitions"
 def update_competitions_zh():
     """Build a compact, automatically refreshed Chinese competition cache."""
     rows = []
+    local_details = {}
+    export_path = os.path.join('WCA_export', 'WCA_export_competitions.tsv')
+    if os.path.exists(export_path):
+        with open(export_path, encoding='utf-8-sig', newline='') as source:
+            local_details = {item['id']: item for item in csv.DictReader(source, delimiter='\t')}
+    # Retain remotely resolved details until the next WCA export includes them.
+    previous = {}
+    if os.path.exists(OUTPUT_COMPETITIONS_ZH):
+        with open(OUTPUT_COMPETITIONS_ZH, encoding='utf-8') as source:
+            previous = {item['id']: item for item in json.load(source)}
     skip = 0
     while True:
         query = urllib.parse.urlencode({"type": "WCA", "skip": skip, "take": 100})
@@ -64,6 +74,16 @@ def update_competitions_zh():
                 "startDate": item.get("startDate") or "",
                 "endDate": item.get("endDate") or item.get("startDate") or "",
             })
+            row = rows[-1]
+            detail = local_details.get(row['id'])
+            if detail:
+                row['venue'] = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', detail.get('venue', ''))
+                row['venueAddress'] = detail.get('venue_address', '').replace('NULL', '')
+                row['eventIds'] = detail.get('event_specs', '').split()
+            else:
+                for key in ('venue', 'venueAddress', 'eventIds'):
+                    if key in previous.get(row['id'], {}):
+                        row[key] = previous[row['id']][key]
         skip += len(batch)
         if not batch or skip >= payload.get("total", 0):
             break
