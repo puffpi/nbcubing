@@ -2673,6 +2673,7 @@ function recalculateSessionStats() {
 
     for (let i = 0; i < sessionArr.length; i++) {
         let r = sessionArr[i];
+        if(getTimerHistoryKey().startsWith('smart-')&&r.smartAborted)r.penalty='DNF';
         if (r.penalty === '+2') {
             r.effectiveMs = r.rawMs + 2000;
             r.displayTime = formatNbTimerOutput(r.effectiveMs) + '+';
@@ -2867,7 +2868,11 @@ function openEditPopup(index) {
     editScoreIndex = index;
     const records = timerHistoryData[getTimerHistoryKey()];
     const r = records[index];
-    currentEditPenalty = r.penalty;
+    const locked=getTimerHistoryKey().startsWith('smart-')&&Boolean(r.smartAborted);if(locked)r.penalty='DNF';currentEditPenalty = r.penalty;
+    const penaltyChoice=document.querySelector('.edit-penalty-choice');penaltyChoice.classList.toggle('smart-penalty-locked',locked);penaltyChoice.setAttribute('aria-disabled',String(locked));penaltyChoice.title=locked?'终止还原的 DNF 成绩无法改判':'';
+    for(const option of penaltyChoice.querySelectorAll('.ios-segment-btn'))option.setAttribute('aria-disabled',String(locked));
+    penaltyChoice.querySelector('.smart-penalty-chain')?.remove();
+    const smartAnalysisEntry=document.getElementById('edit-smart-analysis');if(smartAnalysisEntry){smartAnalysisEntry.hidden=!getTimerHistoryKey().startsWith('smart-');if(typeof configureTimerSmartAnalysisEntry==='function')configureTimerSmartAnalysisEntry(smartAnalysisEntry,timerHistoryData[getTimerHistoryKey()]?.[editScoreIndex]);}
 
     document.getElementById('edit-index').innerText = `#${records.length - index}`;
     document.getElementById('edit-time').innerText = r.displayTime;
@@ -3066,6 +3071,7 @@ function closeEditPopup() {
 }
 
 function setEditPenalty(pen, updateDisplay = true) {
+    if(getTimerHistoryKey().startsWith('smart-')&&timerHistoryData[getTimerHistoryKey()]?.[editScoreIndex]?.smartAborted)pen='DNF';
     currentEditPenalty = pen;
     ['none', 'plus2', 'dnf'].forEach(id => document.getElementById(`edit-pen-${id}`).classList.remove('active'));
 
@@ -3084,7 +3090,7 @@ function setEditPenalty(pen, updateDisplay = true) {
 }
 
 function confirmEditScore() {
-    timerHistoryData[getTimerHistoryKey()][editScoreIndex].penalty = currentEditPenalty;
+    const record=timerHistoryData[getTimerHistoryKey()][editScoreIndex];record.penalty=getTimerHistoryKey().startsWith('smart-')&&record.smartAborted?'DNF':currentEditPenalty;
     closeEditPopup();
     recalculateSessionStats();
     saveTimerData(); // 核心新增：改判后存档
@@ -8705,3 +8711,37 @@ function toggleCsTv(isOn) {
         hideInteractCards(true);
     }
 }
+
+// Local practice totals for the selected NB Timer event.
+const timerDailyStats={period:'day',date:null,key:null};
+function timerDailyStart(date,period){return new Date(date.getFullYear(),period==='year'?0:date.getMonth(),period==='day'?date.getDate():1);}
+function timerDailyBounds(date,period){const start=timerDailyStart(date,period),end=new Date(start);if(period==='day')end.setDate(end.getDate()+1);else if(period==='month')end.setMonth(end.getMonth()+1);else end.setFullYear(end.getFullYear()+1);return {start,end};}
+function timerDailyTimestamp(value){if(typeof value!=='string')return null;const match=value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);const date=match?new Date(+match[1],+match[2]-1,+match[3],+(match[4]||0),+(match[5]||0),+(match[6]||0)):new Date(value);return Number.isFinite(date.getTime())?date:null;}
+function calculateTimerDailyStats(records,date,period){
+    const {start,end}=timerDailyBounds(date,period),size=period==='day'?24:period==='month'?new Date(start.getFullYear(),start.getMonth()+1,0).getDate():12,bins=Array(size).fill(0),times=[];let total=0;
+    for(const record of records){const timestamp=timerDailyTimestamp(record.timestamp);if(!timestamp||timestamp<start||timestamp>=end)continue;total++;bins[period==='day'?timestamp.getHours():period==='month'?timestamp.getDate()-1:timestamp.getMonth()]++;
+        if(record.penalty==='DNF'||record.smartAborted)continue;const time=Number(record.rawMs)+(record.penalty==='+2'?2000:0);if(Number.isFinite(time)&&time>=0)times.push(time);
+    }
+    return {start,end,bins,total,valid:times.length,mean:times.length?times.reduce((sum,time)=>sum+time,0)/times.length:null,best:times.length?Math.min(...times):null,worst:times.length?Math.max(...times):null};
+}
+function openTimerDailyStats(){document.getElementById('timer-more-dropdown').style.display='none';Object.assign(timerDailyStats,{period:'day',date:timerDailyStart(new Date(),'day'),key:getTimerHistoryKey()});document.getElementById('timer-daily-overlay').hidden=false;renderTimerDailyStats();}
+function closeTimerDailyStats(){document.getElementById('timer-daily-overlay').hidden=true;}
+function setTimerDailyPeriod(period){if(!['day','month','year'].includes(period))return;timerDailyStats.period=period;timerDailyStats.date=timerDailyStart(new Date(),period);renderTimerDailyStats();}
+function moveTimerDailyPeriod(direction){const state=timerDailyStats,date=new Date(state.date);if(state.period==='day')date.setDate(date.getDate()+direction);else if(state.period==='month')date.setMonth(date.getMonth()+direction);else date.setFullYear(date.getFullYear()+direction);const floor=new Date(1974,0,1),ceiling=timerDailyStart(new Date(),state.period);if(date<floor||date>ceiling)return;state.date=date;renderTimerDailyStats();}
+function renderTimerDailyStats(){
+    const state=timerDailyStats,floor=new Date(1974,0,1),now=timerDailyStart(new Date(),state.period);state.date=timerDailyStart(state.date||now,state.period);if(state.date<floor)state.date=floor;if(state.date>now)state.date=now;
+    const stats=calculateTimerDailyStats(timerHistoryData[state.key]||[],state.date,state.period),format=date=>date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');const last=new Date(stats.end);last.setDate(last.getDate()-1);
+    document.getElementById('timer-daily-range').textContent=state.period==='day'?format(stats.start):format(stats.start)+' - '+format(last);
+    document.getElementById('timer-daily-prev').disabled=stats.start<=floor;document.getElementById('timer-daily-next').disabled=stats.start>=now;
+    for(const button of document.querySelectorAll('.timer-daily-tabs button')){const active=button.dataset.period===state.period;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}
+    document.getElementById('timer-daily-count').textContent=stats.valid+'/'+stats.total;document.getElementById('timer-daily-mean').textContent=stats.mean===null?'N/A':formatNbTimerOutput(stats.mean);document.getElementById('timer-daily-best').textContent=stats.best===null?'-':formatNbTimerOutput(stats.best);document.getElementById('timer-daily-worst').textContent=stats.worst===null?'-':formatNbTimerOutput(stats.worst);
+    const ns='http://www.w3.org/2000/svg',canvasWidth=Math.max(280,document.getElementById('timer-daily-chart').clientWidth),svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 '+canvasWidth+' 248');svg.setAttribute('role','img');svg.setAttribute('aria-label','各时间段复原次数，总计 '+stats.total+' 次');let selected=null;const clearCount=()=>{svg.querySelectorAll('.daily-count-tip').forEach(node=>node.remove());svg.querySelectorAll('.daily-bar.active').forEach(node=>node.classList.remove('active'));selected=null;};svg.addEventListener('click',clearCount);
+    function element(tag,attributes,text){const node=document.createElementNS(ns,tag);for(const [name,value]of Object.entries(attributes))node.setAttribute(name,value);if(text!==undefined)node.textContent=text;svg.append(node);return node;}
+    const x=38,y=18,width=canvasWidth-54,height=190,maximum=Math.max(1,...stats.bins),step=Math.max(1,Math.ceil((maximum/0.88)/4)),top=step*4,unit=width/stats.bins.length;
+    for(let tick=0;tick<=4;tick++){const py=y+height-tick/4*height;element('line',{x1:x,y1:py,x2:x+width,y2:py,class:'daily-grid'});element('text',{x:x-9,y:py+4,'text-anchor':'end',class:'daily-axis'},String(tick*step));}
+    stats.bins.forEach((count,index)=>{if(!count)return;const barHeight=count/top*height;const rect=element('rect',{x:x+index*unit+unit*.16,y:y+height-barHeight,width:unit*.68,height:barHeight,rx:Math.min(4,unit*.1),class:'daily-bar','data-count':count});const title=document.createElementNS(ns,'title');const slot=state.period==='day'?index+' - '+(index+1)+' 时':state.period==='month'?(index+1)+' 日':(index+1)+' 月';title.textContent=slot+'：'+count+' 次';rect.append(title);rect.setAttribute('role','button');rect.setAttribute('tabindex','0');rect.setAttribute('aria-label',title.textContent);const select=event=>{event.stopPropagation();const wasSelected=selected===index;clearCount();if(wasSelected)return;selected=index;rect.classList.add('active');element('text',{x:x+index*unit+unit*.5,y:y+height-barHeight-7,'text-anchor':'middle',class:'daily-count-tip'},String(count));};rect.addEventListener('click',select);rect.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select(event);}});});
+    const ticks=state.period==='day'?Array.from({length:25},(_,i)=>i):Array.from({length:stats.bins.length},(_,i)=>i+1);for(const tick of ticks){const px=state.period==='day'?x+tick*unit:x+(tick-.5)*unit;element('line',{x1:px,y1:y+height,x2:px,y2:y+height+4,class:'daily-grid'});const show=state.period==='day'?tick%4===0:state.period==='month'?tick===1||tick===stats.bins.length||tick%5===0:canvasWidth>=420||tick===12||tick%2===1;if(show)element('text',{x:px,y:y+height+23,'text-anchor':'middle',class:'daily-axis'},state.period==='year'?tick+'月':String(tick));}
+    const chart=document.getElementById('timer-daily-chart');chart.replaceChildren(svg);document.getElementById('timer-daily-overlay').onclick=event=>{clearCount();if(event.target===event.currentTarget)closeTimerDailyStats();};
+}
+
+window.addEventListener('resize',()=>{if(!document.getElementById('timer-daily-overlay')?.hidden&&timerDailyStats.date)renderTimerDailyStats();});

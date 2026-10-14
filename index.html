@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.40.0-blue">
+    <link rel="stylesheet" href="style.css?v=1.44.8">
 </head>
 <body>
 
@@ -437,7 +437,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.40.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.44.8</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -767,32 +767,28 @@
     <!-- 4. 成绩分布图弹窗 -->
     <div id="timer-dist-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
         <div class="card pk-confirm-card" style="width: 480px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
-            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main); text-align: center;">成绩分布</h3>
+            <div class="timer-daily-heading timer-chart-heading"><h3>成绩分布</h3><button type="button" aria-label="关闭成绩分布" onclick="closeTimerDistModal()">×</button></div>
 
             <div id="timer-dist-chart" class="dist-chart-container">
                 <!-- JS 动态注入纵轴与横向柱状图 -->
             </div>
 
             <!-- 正常的右下角按钮 (应用在成绩分布弹窗) -->
-            <div class="edit-popup-actions" style="justify-content: flex-end; margin-top: 15px;">
-                <button class="edit-btn-cancel" style="flex: none; width: 100px;" onclick="closeTimerDistModal()">关闭</button>
-            </div>
+            
         </div>
     </div>
 
     <!-- 5. 成绩走势折线图弹窗 -->
     <div id="timer-trend-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
         <div class="card pk-confirm-card" style="width: 600px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
-            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main); text-align: center;">成绩折线图</h3>
+            <div class="timer-daily-heading timer-chart-heading"><h3>成绩折线图</h3><button type="button" aria-label="关闭成绩折线图" onclick="closeTimerTrendModal()">×</button></div>
 
             <div style="width: 100%; height: 260px; position: relative;">
                 <canvas id="timer-trend-canvas"></canvas>
             </div>
 
             <!-- 正常的右下角按钮 (应用在折线图弹窗) -->
-            <div class="edit-popup-actions" style="justify-content: flex-end; margin-top: 15px;">
-                <button class="edit-btn-cancel" style="flex: none; width: 100px;" onclick="closeTimerTrendModal()">关闭</button>
-            </div>
+            
         </div>
     </div>
 
@@ -915,6 +911,7 @@
                     <div id="timer-more-dropdown" class="timer-more-dropdown">
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDistModal()">成绩分布</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerTrendModal()">折线图</div>
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDailyStats()">日常统计</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerImportModal()">导入成绩</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerExportModal()">导出成绩</div>
                         <div class="timer-more-item" onclick="openTimerClearModal()">清空成绩</div>
@@ -960,6 +957,9 @@
                             <twisty-player id="edit-scramble-display" visualization="2D" control-panel="none" background="none" style="width: 210px; height: 155px;"></twisty-player>
                         </div>
 
+                        <div class="edit-smart-analysis-row">
+                            <button type="button" id="edit-smart-analysis" class="edit-btn-copy" onclick="openTimerSmartHistoryAnalysis()" hidden>数据分析</button>
+                        </div>
                         <!-- 惩罚状态滑块 -->
                         <div class="edit-penalty-row">
                             <div class="ios-segment-control edit-penalty-choice">
@@ -1114,6 +1114,7 @@
                             <input type="range" id="smart-cube-size-slider" min="50" max="150" value="100" oninput="updateSmartCubeSize(this.value)">
                         </div>
                     </div>
+<div class="ios-setting-group custom-ui-group"><span>蓝牙自动断开</span><div class="ui-control-right" role="button" tabindex="0" onclick="openTimerBluetoothIdleModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTimerBluetoothIdleModal();}"><span id="timer-bluetooth-idle-label">5 分钟</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
 
                     <div class="ios-setting-group custom-ui-group">
                         <span>颜色：最快单次</span>
@@ -1153,6 +1154,9 @@
                         <div class="ios-setting-group custom-ui-group"><span>向上滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">编辑惩罚</span></div>
                         <div class="ios-setting-group custom-ui-group"><span>向下滑动</span><span style="font-size: 13px; color: var(--text-main); font-weight: 600;">输入成绩</span></div>
                     </div>
+                    <hr class="settings-divider"><div class="sidebar-settings-title">手势 · 智能魔方</div>
+                    <div class="desktop-prompt" style="width:100%;text-align:left"><div class="ios-setting-group custom-ui-group"><span>长按空格键一秒并松开</span><span class="smart-gesture-description">终止还原</span></div></div>
+                    <div class="mobile-prompt" style="width:100%;text-align:left"><div class="ios-setting-group custom-ui-group"><span>长按屏幕一秒并松开</span><span class="smart-gesture-description">终止还原</span></div></div>
                 </div> <!-- 闭合 sidebar-view-settings -->
 
                 <!-- 字体选择专属弹窗 (毛玻璃) -->
@@ -1270,9 +1274,10 @@
                     <button type="button" class="timer-bluetooth-close" onclick="closeTimerBluetoothCard()" aria-label="关闭">×</button>
                     <strong id="timer-bluetooth-card-title">搜寻中...</strong>
                     <div id="timer-bluetooth-devices" class="timer-bluetooth-devices"></div>
-                    <button type="button" class="timer-bluetooth-rescan" onclick="scanTimerBluetooth()">搜寻设备</button>
+                    <div class="timer-bluetooth-actions"><button type="button" class="timer-bluetooth-rescan" onclick="scanTimerBluetooth()">搜寻设备</button><div class="timer-bluetooth-tools"><button type="button" onclick="resetTimerSmartGyro()">重置陀螺仪</button><button type="button" onclick="syncTimerSmartSolved()" title="请先将实体魔方复原">复原同步</button></div></div>
                 </div>
 
+                <div id="timer-smart-result" class="smart-result-overlay" role="dialog" aria-modal="true" aria-label="智能魔方复原成绩" hidden><div class="smart-result-card"><button type="button" class="smart-result-close" onclick="closeTimerSmartResult()" aria-label="关闭成绩卡片">×</button><h3 class="smart-result-project"><span class="cubing-icon event-333" aria-hidden="true"></span><span>魔域智能</span></h3><div id="timer-smart-result-time" class="smart-result-time">0.00</div><div class="smart-result-stats"><div><span>步数</span><strong id="timer-smart-result-steps">0</strong></div><div><span>TPS</span><strong id="timer-smart-result-tps">0.0</strong></div><div><span>停顿占比</span><strong id="timer-smart-result-pause">0.0%</strong></div></div><div class="smart-result-actions"><button type="button" class="smart-result-delete" onclick="requestTimerSmartResultDelete()">删除</button><button type="button" class="edit-btn-confirm" onclick="closeTimerSmartResult()">确定</button><button type="button" class="smart-result-analysis" onclick="openTimerSmartAnalysis()">数据分析</button></div></div></div>
                 <!-- 右下角打乱图展示面板 (毛玻璃组件) -->
                 <div class="timer-scramble-draw-panel" id="timer-scramble-draw-panel">
                     <twisty-player id="timer-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
@@ -1914,13 +1919,17 @@
     </div>
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
-    <script src="scramble-engine.js?v=1.40.0-integrated"></script>
-    <script src="main.js?v=1.40.0"></script>
+    <script src="scramble_engine.js?v=1.40.0-longer"></script>
+    <script src="main.js?v=1.44.8"></script>
     <script src="forum.js?v=1.41-dark-switches-20261006"></script>
     <script src="account.js?v=1.41-dark-switches-20261006"></script>
     <script src="theme.js?v=1.41-dark-switches-20261006"></script>
-    <script src="account-profile.js?v=1.41-dark-switches-20261006"></script>
-    <script src="timer-smart.js?v=1.40.0"></script>
-    <script src="cube-space-player.js?v=1.17-detail35"></script>
+    <script src="account_profile.js?v=1.41-dark-switches-20261006"></script>
+
+<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 Q13 8 8 12 Q13 16 15 19"/></svg></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 Q11 8 16 12 Q11 16 9 19"/></svg></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
+<div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
+<div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
+    <script src="timer_smart.js?v=1.44.8"></script>
+    <script src="cube_space_player.js?v=1.17-detail35"></script>
 </body>
 </html>
