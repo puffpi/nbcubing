@@ -27,7 +27,11 @@ function themeColor(value,property){
 }
 function buildDarkPalette(){
  const overlay=document.createElement('style');overlay.id='dark-palette';let css='';
- const walk=rules=>{for(const rule of rules){if(rule.selectorText&&rule.style){if(/data-theme|cube-appearance-swatch|cube-logo-swatch|cubing-icon/.test(rule.selectorText))continue;let declarations='';for(const property of rule.style){if(!/^(color|background.*|border.*|box-shadow)$/.test(property))continue;const value=rule.style.getPropertyValue(property),mapped=themeColor(value,property);if(mapped!==value)declarations+=`${property}:${mapped}${rule.style.getPropertyPriority(property)?' !important':''};`;}
+ const walk=rules=>{for(const rule of rules){if(rule.selectorText&&rule.style){if(/data-theme|cube-appearance-swatch|cube-logo-swatch|cubing-icon/.test(rule.selectorText))continue;let declarations='';for(const property of rule.style){if(!/^(color|background.*|border.*|box-shadow)$/.test(property))continue;const value=rule.style.getPropertyValue(property),mapped=themeColor(value,property);
+ // Keep responsive surface resets in the dark cascade, too. Otherwise the
+ // generated dark .card background overrides a later mobile transparent panel.
+ const surfaceReset=/^(background(?:-color)?|border(?:-\w+)?|box-shadow)$/.test(property)&&/^(transparent|none|0(?:px)?)$/.test(value.trim());
+ if(mapped!==value||surfaceReset)declarations+=`${property}:${mapped}${rule.style.getPropertyPriority(property)?' !important':''};`;}
  if(declarations){const selector=rule.selectorText.split(',').map(s=>s.trim()===':root'?'html[data-theme="dark"]':`html[data-theme="dark"] ${s.trim()}`).join(',');css+=`${selector}{${declarations}}`;}}
  else if(rule.cssRules&&!/^@(?:-webkit-)?keyframes/i.test(rule.cssText)){const before=css;css='';walk(rule.cssRules);const inner=css;css=before+rule.cssText.slice(0,rule.cssText.indexOf('{')+1)+inner+'}';}}};
  for(const sheet of [...document.styleSheets]){try{walk(sheet.cssRules);}catch{}}overlay.textContent=css;document.head.append(overlay);

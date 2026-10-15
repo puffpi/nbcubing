@@ -5309,7 +5309,7 @@ async function openMonthlyRanking(evId, cnName) {
     document.getElementById('monthly-ranking-title').innerText = `月赛排行榜 - ${cnName}`;
     const list = document.getElementById('monthly-ranking-list');
 
-    list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>数据同步中...</div>';
+    list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>载入中...</div>';
     navigateTo('monthly-ranking-page', true);
 
     let cloudData;
@@ -6426,9 +6426,9 @@ async function openCompetitionDetail(comp) {
     if (competitionAvailabilityTimer) clearInterval(competitionAvailabilityTimer);
     navigateTo('competition-detail-page', true);
     renderCompetitionDetail(comp, null);
-    document.getElementById('competition-detail-schedule').textContent = '载入中…';
-    document.getElementById('competition-detail-people').textContent = '载入中…';
-    document.getElementById('competition-detail-hot-people').textContent = '载入中…';
+    document.getElementById('competition-detail-schedule').textContent = '载入中...';
+    document.getElementById('competition-detail-people').textContent = '载入中...';
+    document.getElementById('competition-detail-hot-people').textContent = '载入中...';
     showCompetitionDetailTab('schedule');
     loadCompetitionWcif(comp);
     const cubingId = comp.alias || comp.id.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Za-z])(\d{4})$/, '$1-$2');

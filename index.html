@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.44.8">
+    <link rel="stylesheet" href="style.css?v=1.44.10-compact-settings">
 </head>
 <body>
 
@@ -25,9 +25,10 @@
         </div>
     </div>
 
+    <div id="monthly-page-loading" class="monthly-page-loading" role="status" aria-label="载入中..." hidden><div class="spinner" aria-hidden="true"></div><div>载入中...</div></div>
     <div id="global-loading">
         <div class="spinner"></div>
-        <div>载入中，请稍候...</div>
+        <div>载入中...</div>
     </div>
 
     <div id="pk-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
@@ -135,7 +136,7 @@
                     <button class="more-link" type="button" onclick="openCompsPage()">全部赛事 ↗</button>
                 </div>
                 <div id="recent-comps-grid" class="comps-grid">
-                    <div style="color: var(--text-muted); font-size: 14px;">正在加载近期赛事…</div>
+                    <div class="loading-text">载入中...</div>
                 </div>
             </section>
 
@@ -144,7 +145,7 @@
                         <h3 class="section-title">新闻资讯</h3>
                         <button class="more-link" type="button" onclick="openNewsPage()">全部动态 ↗</button>
                     </div>
-                    <div id="news-list" class="news-list">正在加载资讯…</div>
+                    <div id="news-list" class="news-list"><div class="loading-text">载入中...</div></div>
                 </section>
 
                 <section class="home-section records-section">
@@ -216,8 +217,8 @@
                 </div>
                 <div class="card competition-detail-section" id="competition-detail-content-section">
                     <div class="competition-detail-tabs" role="tablist" aria-label="赛事内容"><button id="competition-detail-schedule-tab" class="active" type="button" role="tab" aria-selected="true" onclick="showCompetitionDetailTab('schedule')">比赛赛程</button><button id="competition-detail-people-tab" type="button" role="tab" aria-selected="false" onclick="showCompetitionDetailTab('people')">参赛选手</button></div>
-                    <div id="competition-detail-schedule" class="competition-detail-schedule" role="tabpanel">载入中…</div>
-                    <div id="competition-detail-people" class="competition-detail-people" role="tabpanel" hidden>载入中…</div>
+                    <div id="competition-detail-schedule" class="competition-detail-schedule" role="tabpanel">载入中...</div>
+                    <div id="competition-detail-people" class="competition-detail-people" role="tabpanel" hidden>载入中...</div>
                 </div>
                 <div class="card competition-detail-section" id="competition-detail-info-section" hidden>
                     <h3>赛事说明</h3>
@@ -230,7 +231,7 @@
                     <div id="competition-detail-registration" class="competition-detail-facts"></div>
                 </div>
                 <div class="card competition-detail-section competition-detail-hot-section-card">
-                    <h3>热门选手</h3><div id="competition-detail-hot-people" class="competition-detail-hot-people">载入中…</div>
+                    <h3>热门选手</h3><div id="competition-detail-hot-people" class="competition-detail-hot-people">载入中...</div>
                 </div>
             </aside>
         </div>
@@ -437,7 +438,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.44.8</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.44.10</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -548,7 +549,8 @@
 
     <!-- 2. 参赛确认弹窗 -->
     <div id="monthly-entry-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
-        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+        <div class="card pk-confirm-card monthly-entry-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+            <div class="monthly-entry-loading" role="status" aria-label="载入中..." hidden><div class="spinner" aria-hidden="true"></div><span>载入中...</span></div>
             <h3 style="margin-top:0;">参赛确认</h3>
             <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">每月每个项目只能参加一次。成绩逐次保存，刷新或换设备可继续；确认退出则将剩余尝试记为 DNS。是否参加？</p>
             <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
@@ -1920,15 +1922,15 @@
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
-    <script src="main.js?v=1.44.8"></script>
+    <script src="main.js?v=1.44.10-unified-loading"></script>
     <script src="forum.js?v=1.41-dark-switches-20261006"></script>
-    <script src="account.js?v=1.44.9-monthly-start-20261015"></script>
-    <script src="theme.js?v=1.41-dark-switches-20261006"></script>
+    <script src="account.js?v=1.44.10-monthly-loading-20261015"></script>
+    <script src="theme.js?v=1.44.10-mobile-surfaces"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 Q13 8 8 12 Q13 16 15 19"/></svg></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 Q11 8 16 12 Q11 16 9 19"/></svg></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
-    <script src="timer_smart.js?v=1.44.8-bluetooth-help"></script>
+    <script src="timer_smart.js?v=1.44.10-bluetooth-help"></script>
     <script src="cube_space_player.js?v=1.17-detail35"></script>
 </body>
 </html>

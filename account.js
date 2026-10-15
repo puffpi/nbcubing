@@ -122,9 +122,18 @@ renderMonthlyList=async function(){
     }
 };
 
+let monthlyPageLoading=false;
+function setMonthlyEntryLoading(loading){
+    const modal=accountEl('monthly-entry-modal'),card=modal.querySelector('.pk-confirm-card');
+    card.classList.toggle('monthly-entry-busy',loading);card.setAttribute('aria-busy',String(loading));
+    card.querySelector('.monthly-entry-loading').hidden=!loading;
+    card.querySelectorAll('button').forEach(button=>button.disabled=loading);
+}
 initMonthly=async function(){
+    if(monthlyPageLoading)return;monthlyPageLoading=true;accountEl('monthly-page-loading').hidden=false;
     try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}await renderMonthlyList();navigateTo('monthly-page');ensureTwistyPlayer().catch(console.warn);}
-    catch(error){alert(accountError(error));}
+    catch(error){accountEl('monthly-page-loading').hidden=true;alert(accountError(error));}
+    finally{monthlyPageLoading=false;accountEl('monthly-page-loading').hidden=true;}
 };
 function openMonthlyAccountModal(after=initMonthly,allowGuest=false){
     const form=forumNode('form');form.append(forumNode('p','','登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存。'));
@@ -146,12 +155,13 @@ function openMonthlyAccountModal(after=initMonthly,allowGuest=false){
 }
 openMonthlyEntry=async function(evId,cnName){
     if(monthlyEntryChecking)return;monthlyEntryChecking=true;
-    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}if(getMonthlyAttempts(evId)){alert('本月该项目已参加，不能再次参加。');return;}
-        currentMonthlyEventTarget=evId;currentMonthlyEventName=cnName;accountEl('monthly-entry-modal').style.display='flex';
-    }catch(error){alert(accountError(error));}finally{monthlyEntryChecking=false;}
+    const modal=accountEl('monthly-entry-modal');modal.style.display='flex';setMonthlyEntryLoading(true);let ready=false;
+    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}if(getMonthlyAttempts(evId)){modal.style.display='none';alert('本月该项目已参加，不能再次参加。');return;}
+        currentMonthlyEventTarget=evId;currentMonthlyEventName=cnName;ready=true;
+    }catch(error){modal.style.display='none';alert(accountError(error));}finally{monthlyEntryChecking=false;setMonthlyEntryLoading(false);if(!ready)modal.style.display='none';}
 };
 confirmMonthlyEntry=async function(){
-    if(accountSaveBusy)return;accountSaveBusy=true;
+    if(accountSaveBusy || monthlyEntryChecking)return;accountSaveBusy=true;setMonthlyEntryLoading(true);
     try{
         const client=await accountClient(),scrambles=(await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
         const {data,error}=await monthlyCloudRequest(client.rpc('account_monthly_start',{p_event:currentMonthlyEventTarget,p_scrambles:scrambles}));if(error)throw error;
@@ -161,7 +171,7 @@ confirmMonthlyEntry=async function(){
         accountEl('monthly-timer-display').textContent='0.00';accountEl('monthly-timer-display').className='timer-display';
         accountEl('monthly-timer-title').textContent=`巅峰月赛 - ${currentMonthlyEventName}`;accountEl('monthly-event-watermark').className=`cubing-icon event-${currentMonthlyEventTarget}`;
         renderMonthlyAttemptsList();renderMonthlyScramble(monthlyAttempts.length);navigateTo('monthly-timer-page',true);
-    }catch(error){alert(accountError(error));}finally{accountSaveBusy=false;}
+    }catch(error){setMonthlyEntryLoading(false);alert(accountError(error));}finally{accountSaveBusy=false;setMonthlyEntryLoading(false);}
 };
 const accountOriginalRenderScramble=renderMonthlyScramble;
 renderMonthlyScramble=function(index){

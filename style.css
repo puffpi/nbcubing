@@ -423,9 +423,15 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .history-tag:hover { border-color: var(--primary-color); color: var(--primary-color); background: #f8fafc; box-shadow: 0 2px 8px rgba(71,85,105,0.15); }
 .history-vs { color: #e63946; font-style: italic; font-weight: 900; margin: 0 8px; font-size: 1.1em; }
 
-#global-loading { text-align: center; padding: 50px; font-size: 18px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
+#global-loading,.monthly-page-loading,.monthly-entry-loading { text-align:center;font-family:inherit;font-size:18px;font-weight:400;line-height:1.5;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:15px; }
+.loading-text{font-family:inherit;font-size:14px;font-weight:400;line-height:1.5;color:var(--text-muted);}
 .spinner { width: 40px; height: 40px; border: 4px solid rgba(71,85,105,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.monthly-page-loading[hidden],.monthly-entry-loading[hidden]{display:none;}
+.monthly-entry-card{position:relative;}
+.monthly-entry-loading{position:absolute;inset:0;justify-content:center;}
+.monthly-entry-busy > :not(.monthly-entry-loading){visibility:hidden;pointer-events:none;}
+.monthly-entry-card .btn{transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s,transform .2s;}
 
 /* 历史记录项目图标按钮 */
 .history-event-tab {
@@ -1200,6 +1206,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     flex: 1; min-width: 0; width: 100%; accent-color: var(--primary-color); cursor: pointer; pointer-events: auto;
 }
 #sidebar-view-settings .custom-ui-group { min-width: 0; gap: 8px; }
+#sidebar-view-settings .custom-ui-group,#settings-page .custom-ui-group{min-height:38px;margin-bottom:6px;box-sizing:border-box;}
+#sidebar-view-settings .custom-ui-group > span:first-child,#settings-page .custom-ui-group > span:first-child{line-height:19px;}
+#sidebar-view-settings :is(.desktop-prompt,.mobile-prompt) .custom-ui-group{min-height:28px;margin-bottom:4px;}
+#sidebar-view-settings :is(.desktop-prompt,.mobile-prompt) .custom-ui-group:last-child{margin-bottom:0;}
 #sidebar-view-settings .custom-ui-group > span { min-width: 0; }
 #sidebar-view-settings .ui-slider-wrapper { flex: 0 1 140px; min-width: 0; max-width: 100%; }
 
@@ -3240,7 +3250,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
    ========================================= */
 
 /* 1. 修复 Loading 动画被遮挡：全屏绝对悬浮并居中 */
-#global-loading {
+#global-loading,.monthly-page-loading {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
