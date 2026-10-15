@@ -1,6 +1,6 @@
 {
-  "versionCode": 7,
-  "versionName": "1.40.1",
-  "apkUrl": "https://github.com/puffpi/nbcubing/releases/download/app-v1.40.1/Cube-Space-1.40.1-debug.apk",
-  "notes": "同步网站最新功能和布局，修复跟随系统显示模式，更新蓝色图标，增加检测更新入口。请直接覆盖安装，不要卸载旧版，以保留练习数据。"
+  "versionCode": 10,
+  "versionName": "1.44.9",
+  "apkUrl": "https://puffpi.github.io/nbcubing/cube_space_1.44.9_debug.apk",
+  "notes": "更新安装包改为从网站直接下载，打开在线网站按钮调整为白蓝配色。请直接覆盖安装，不要卸载旧版，以保留练习数据。"
 }
