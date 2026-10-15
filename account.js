@@ -153,7 +153,7 @@ openMonthlyEntry=async function(evId,cnName){
 confirmMonthlyEntry=async function(){
     if(accountSaveBusy)return;accountSaveBusy=true;
     try{
-        const client=await accountClient(),scrambles=ensureMonthlyScrambles(currentMonthlyEventTarget)[currentMonthlyEventTarget];
+        const client=await accountClient(),scrambles=(await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
         const {data,error}=await monthlyCloudRequest(client.rpc('account_monthly_start',{p_event:currentMonthlyEventTarget,p_scrambles:scrambles}));if(error)throw error;
         accountMonthly.set(data.event_id,data);closeMonthlyEntry();
         if(data.status==='completed'){alert('本月该项目已完成，不能再次参加。');renderMonthlyList();return;}
