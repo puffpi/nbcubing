@@ -8,6 +8,49 @@ let timerBluetoothCandidates = [];
 let timerMoyuSession = null;
 let timerBluetoothConnecting = false;
 let timerBluetoothIdleTimer=null;
+const timerCubeBattery={level:null,deviceId:null,pending:0,shown:0,noticeTimer:null,showTimer:null};
+function closeTimerBatteryNotice(){
+    clearTimeout(timerCubeBattery.noticeTimer);clearTimeout(timerCubeBattery.showTimer);
+    timerCubeBattery.noticeTimer=null;timerCubeBattery.showTimer=null;
+    const card=document.getElementById('timer-battery-notice');if(card)card.hidden=true;
+}
+function resetTimerCubeBattery(device){
+    closeTimerBatteryNotice();Object.assign(timerCubeBattery,{level:null,deviceId:device?.id||device?.name||null,pending:0,shown:0});
+}
+function renderTimerCubeBattery(connected=Boolean(timerBluetoothDevice?.gatt?.connected)){
+    const icon=document.getElementById('timer-bluetooth-icon'),battery=document.getElementById('timer-cube-battery'),status=document.getElementById('timer-bluetooth-status');
+    if(!icon||!battery)return;
+    const known=connected&&timerCubeBattery.level!==null;
+    icon.classList.toggle('has-battery',known);battery.hidden=!known;
+    status?.classList.toggle('has-battery',known);status?.setAttribute('data-power',known?(timerCubeBattery.level<=10?'critical':timerCubeBattery.level<=20?'warning':'normal'):'unknown');
+    if(known){const value=timerCubeBattery.level,percent=battery.querySelector?.('.timer-battery-percent');if(percent)percent.textContent=String(value);battery.style?.setProperty('--battery-level',value+'%');battery.classList.toggle('low',value<=20);battery.setAttribute('data-power',value<=10?'critical':value<=20?'warning':'normal');}
+    document.getElementById('timer-bluetooth-status')?.setAttribute('aria-label',connected?(known?`已连接，魔方剩余电量 ${timerCubeBattery.level}%`:'已连接，打开蓝牙设备'): '未连接，打开蓝牙设备');
+}
+function scheduleTimerBatteryNotice(){
+    if(!timerCubeBattery.pending||timerCubeBattery.showTimer!==null||timerCubeBattery.pending<=timerCubeBattery.shown)return;
+    if(!timerSmartContextActive()||timerSmartAttempt.phase!=='RESULT'||document.getElementById('timer-smart-result')?.hidden!==false)return;
+    // Let the result card finish appearing before showing the non-blocking reminder.
+    timerCubeBattery.showTimer=setTimeout(()=>{
+        timerCubeBattery.showTimer=null;
+        if(!timerSmartContextActive()||timerSmartAttempt.phase!=='RESULT'||document.getElementById('timer-smart-result')?.hidden!==false)return;
+        const notice=document.getElementById('timer-battery-notice');if(!notice)return;
+        const severity=timerCubeBattery.pending;if(!severity||severity<=timerCubeBattery.shown)return;
+        document.getElementById('timer-battery-notice-text').textContent=severity===2?'电量不足，请充电':'电量偏低，请及时充电';
+        timerCubeBattery.shown=severity;notice.hidden=false;clearTimeout(timerCubeBattery.noticeTimer);timerCubeBattery.noticeTimer=setTimeout(closeTimerBatteryNotice,3000);
+    },160);
+}
+function acceptTimerCubeBattery(level){
+    if(!Number.isInteger(level)||level<0||level>100)return false;
+    timerCubeBattery.level=level;
+    if(level>=20){timerCubeBattery.pending=0;timerCubeBattery.shown=0;closeTimerBatteryNotice();}
+    else timerCubeBattery.pending=Math.max(timerCubeBattery.pending,level===0?2:1);
+    renderTimerCubeBattery();scheduleTimerBatteryNotice();return true;
+}
+function handleTimerCubeBatteryDisconnect(){
+    // Loss of signal alone does not establish an empty battery. Only escalate a known low reading.
+    if(timerCubeBattery.level!==null&&timerCubeBattery.level<20)timerCubeBattery.pending=2;
+    scheduleTimerBatteryNotice();
+}
 const timerBluetoothIdleOptions=[[0,'切换界面自动断开'],[3,'3 分钟'],[5,'5 分钟'],[10,'10 分钟'],[-1,'保持连接']];
 function timerBluetoothIdleMinutes(){const value=Number(uiSettings.bluetoothAutoDisconnect??5);return timerBluetoothIdleOptions.some(([n])=>n===value)?value:5;}
 function updateTimerBluetoothIdleLabel(){const label=document.getElementById('timer-bluetooth-idle-label');if(label)label.textContent=timerBluetoothIdleOptions.find(([n])=>n===timerBluetoothIdleMinutes())[1];}
@@ -172,7 +215,8 @@ async function startTimerMoyu(device){
     let resolveInitial,rejectInitial;const initial=new Promise((resolve,reject)=>{resolveInitial=resolve;rejectInitial=reject;});
     initial.catch(()=>{});
     const session={read,write,cipher,count:null,active:true,chain:Promise.resolve(),ready:false};timerMoyuSession=session;
-    const send=async(opcode,gyroEnabled)=>{const request=new Uint8Array(20);request[0]=opcode;if(gyroEnabled!==undefined)request[2]=gyroEnabled?1:0;const data=await cipher.encode(request);if(!session.active)return;if(write.properties.write)await write.writeValueWithResponse(data);else await write.writeValueWithoutResponse(data);};
+    session.writeChain=Promise.resolve();
+    const send=(opcode,gyroEnabled)=>{const task=session.writeChain.then(async()=>{if(!session.active)return;const request=new Uint8Array(20);request[0]=opcode;if(gyroEnabled!==undefined)request[2]=gyroEnabled?1:0;const data=await cipher.encode(request);if(!session.active)return;if(write.properties.write)await write.writeValueWithResponse(data);else await write.writeValueWithoutResponse(data);});session.writeChain=task.catch(()=>{});return task;};
     session.send=send;
     session.listener=event=>{const value=event.target.value,raw=new Uint8Array(value.buffer,value.byteOffset,value.byteLength).slice();
         session.chain=session.chain.then(async()=>{if(!session.active)return;timerMoyuDiagnostic.packets++;if(!timerMoyuDiagnostic.lengths.includes(raw.length))timerMoyuDiagnostic.lengths.push(raw.length);const data=await cipher.decode(raw);if(!session.active)return;
@@ -181,6 +225,7 @@ async function startTimerMoyu(device){
             if(data[0]===163){let state='';for(const face of [2,5,0,3,4,1])for(let j=0;j<8;j++){const color=number(8+face*24+j*3,3);if(color>5)throw Error('无法解码魔方状态');state+='FBUDLR'[color];if(j===3)state+='FBUDLR'[face];}setTimerLiveState(state);timerSmartPhysicalState=state;session.count=data[19];session.ready=true;resolveInitial();}
             else if(data[0]===165&&session.count!==null){const count=data[11],diff=(count-session.count)&255;if(!diff)return;if(diff>5){cancelTimerSmartAttempt();session.count=null;await send(163);return;}const moves=[];for(let i=diff-1;i>=0;i--){const code=number(96+i*5,5);if(code>=12)throw Error('转动数据无效');moves.push('FBUDLR'[code>>1]+(code&1?"'":''));}session.count=count;const now=performance.now();for(let index=0;index<moves.length;index++){const i=diff-1-index;let delay=0;for(let j=0;j<i;j++)delay+=number(8+j*16,16);const stamp=Math.max(session.lastMoveStamp||0,now-Math.min(delay,10000));session.lastMoveStamp=stamp;timerSmartPhysicalState=timerCubeTurn(timerSmartPhysicalState,moves[index]);handleTimerSmartMove(moves[index],stamp);queueTimerLiveMove(moves[index]);}}
             else if(data[0]===171){if(!timerMoyuGyro(data))timerMoyuDiagnostic.gyro='姿态数据无效，保留普通转动';}
+            else if(data[0]===164&&data.length===20){if(acceptTimerCubeBattery(data[1]))timerMoyuDiagnostic.battery=data[1]+'%';}
         }).catch(error=>{if(!session.active)return;rejectInitial(error);if(session.ready){stopTimerMoyu();updateTimerBluetoothStatus(Boolean(device.gatt?.connected));document.getElementById('timer-bluetooth-label').textContent=device.gatt?.connected?'已连接，转动未同步':'未连接';document.getElementById('timer-bluetooth-card').hidden=false;}document.getElementById('timer-bluetooth-card-title').textContent='数据同步失败，请重新连接';console.warn('MY32 同步失败',error);});};
     read.addEventListener('characteristicvaluechanged',session.listener);
     const timeout=setTimeout(()=>rejectInitial(Error(timerMoyuDiagnostic.packets?'收到了数据，但未取得有效魔方状态':'未收到魔方通知数据')),8000);
@@ -191,17 +236,20 @@ async function startTimerMoyu(device){
         timerMoyuStage('请求魔方状态');await send(163);
         retry=setInterval(()=>{if(session.active&&!session.ready)send(163).catch(rejectInitial);},1800);
         await initial;timerMoyuStage('转动同步成功');
+        // MY32 0xA4 reports battery percentage in byte 1, on the same encrypted transport.
+        const requestBattery=()=>{if(session.active)void send(164).catch(()=>{timerMoyuDiagnostic.battery='电量读取暂不可用';});};
+        requestBattery();session.batteryTimer=setInterval(()=>{if(!['SOLVING','INSPECTION'].includes(timerSmartAttempt.phase))requestBattery();},60000);
         // Optional probe only after move synchronization succeeds. Unsupported
         // gyro hardware must never turn a working connection into a failure.
         timerMoyuDiagnostic.gyro='等待可选陀螺仪数据';
         void send(172,true).catch(()=>{timerMoyuDiagnostic.gyro='陀螺仪请求不支持，保留普通转动';});
     }finally{clearTimeout(timeout);clearInterval(retry);}
 }
-function stopTimerMoyu(){
-    const session=timerMoyuSession;timerMoyuSession=null;if(session){session.active=false;session.read.removeEventListener('characteristicvaluechanged',session.listener);timerMoyuCleanup=timerMoyuCleanup.then(()=>session.read.stopNotifications()).catch(()=>{});}
+function stopTimerMoyu(preserveResult=false){
+    const session=timerMoyuSession;timerMoyuSession=null;if(session){session.active=false;clearInterval(session.batteryTimer);session.read.removeEventListener('characteristicvaluechanged',session.listener);timerMoyuCleanup=timerMoyuCleanup.then(()=>session.read.stopNotifications()).catch(()=>{});}
     timerLiveCube.epoch++;timerLiveCube.queue=[];timerLiveCube.running=false;
     resetTimerCubeGyro();
-    cancelTimerSmartAttempt();
+    if(!preserveResult||timerSmartAttempt.phase!=='RESULT')cancelTimerSmartAttempt();
     return timerMoyuCleanup;
 }
 
@@ -361,6 +409,7 @@ function updateTimerBluetoothStatus(connected) {
     status.classList.toggle('connected', connected);
     document.getElementById('timer-bluetooth-label').textContent = connected ? '已连接' : '未连接';
     document.getElementById('timer-bluetooth-icon').classList.toggle('disconnected', !connected);
+    renderTimerCubeBattery(connected);
     document.getElementById('timer-virtual-cube').setAttribute('aria-label', `虚拟${timerSmartEvent === '222' ? 2 : 3}阶魔方，${connected ? '已连接' : '未连接'}，可拖动旋转`);
 }
 
@@ -409,6 +458,7 @@ function layoutTimerSmartStage(){
     const stage=document.querySelector('.timer-main.smart-cube-mode .timer-smart-stage');if(stage)stage.style.removeProperty('top');
 }
 function cancelTimerSmartAttempt(){
+    closeTimerBatteryNotice();
     resetTimerSmartAbortHold();
     const attempt=timerSmartAttempt;attempt.generation++;attempt.phase='IDLE';attempt.lastGesture=null;attempt.tokens=[];attempt.errors=[];attempt.partial=null;attempt.result=null;
     if(attempt.frame!==null&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(attempt.frame);attempt.frame=null;
@@ -473,6 +523,7 @@ function finishTimerSmartSolve(stamp,aborted=false){
         recalculateSessionStats();saveTimerData();
     }
     renderTimerSmartScramble();
+    scheduleTimerBatteryNotice();
 }
 function configureTimerSmartAnalysisEntry(button,record){if(!button)return;const disabled=Boolean(record?.smartAborted);button.disabled=disabled;button.textContent=disabled?'无法分析':'数据分析';}
 const timerSmartAbortHold={started:null,timeout:null,pointer:null,source:null};
@@ -636,9 +687,20 @@ function toggleTimerSmartReplay(){
     replay.clockFrame=requestAnimationFrame(frame);
 }
 function bindTimerSmartReplayView(model){
-    let drag=null;model.onpointerdown=event=>{if(event.button!==0)return;drag={x:event.clientX,y:event.clientY,axis:null};model.setPointerCapture(event.pointerId);model.classList.add('dragging');};
-    model.onpointermove=event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(!drag.axis&&Math.hypot(dx,dy)>5)drag.axis=Math.abs(dx)>=Math.abs(dy)?'y':'x';if(drag.axis==='y')model.style.setProperty('--cube-y',(-32+dx*.65)+'deg');if(drag.axis==='x')model.style.setProperty('--cube-x',(-25-dy*.65)+'deg');};
-    const reset=()=>{drag=null;model.classList.remove('dragging');model.style.removeProperty('--cube-x');model.style.removeProperty('--cube-y');};model.onpointerup=reset;model.onpointercancel=reset;model.onlostpointercapture=reset;
+    let drag=null;
+    const consume=event=>{if(event.cancelable)event.preventDefault();event.stopPropagation();};
+    const begin=(id,x,y)=>{drag={id,x,y,axis:null};model.classList.add('dragging');};
+    const move=(id,x,y)=>{if(!drag||drag.id!==id)return;const dx=x-drag.x,dy=y-drag.y;if(!drag.axis&&Math.hypot(dx,dy)>5)drag.axis=Math.abs(dx)>=Math.abs(dy)?'y':'x';if(drag.axis==='y')model.style.setProperty('--cube-y',(-32+dx*.65)+'deg');if(drag.axis==='x')model.style.setProperty('--cube-x',(-25-dy*.65)+'deg');};
+    const reset=()=>{drag=null;model.classList.remove('dragging');model.style.removeProperty('--cube-x');model.style.removeProperty('--cube-y');};
+    model.onpointerdown=event=>{if(drag||(event.pointerType!=='touch'&&event.button!==0)||event.isPrimary===false)return;consume(event);begin(event.pointerId,event.clientX,event.clientY);try{model.setPointerCapture(event.pointerId);}catch{reset();}};
+    model.onpointermove=event=>{if(!drag||drag.id!==event.pointerId)return;consume(event);move(event.pointerId,event.clientX,event.clientY);};
+    const stop=event=>{if(!drag||drag.id!==event.pointerId)return;consume(event);reset();};model.onpointerup=stop;model.onpointercancel=stop;model.onlostpointercapture=stop;
+    // A non-passive touch listener also keeps older embedded browsers from
+    // treating a drag on the 3D stickers as a page swipe. Pointer capture stays
+    // on the model so replacing animated stickers cannot terminate the gesture.
+    model.addEventListener('touchstart',event=>{consume(event);if(!window.PointerEvent&&!drag&&event.touches.length===1){const t=event.changedTouches[0];begin(t.identifier,t.clientX,t.clientY);}},{passive:false});
+    model.addEventListener('touchmove',event=>{consume(event);if(window.PointerEvent||!drag)return;const t=Array.from(event.changedTouches).find(t=>t.identifier===drag.id);if(t)move(t.identifier,t.clientX,t.clientY);},{passive:false});
+    const stopTouch=event=>{consume(event);if(!window.PointerEvent&&drag&&Array.from(event.changedTouches).some(t=>t.identifier===drag.id))reset();};model.addEventListener('touchend',stopTouch,{passive:false});model.addEventListener('touchcancel',stopTouch,{passive:false});
 }
 function handleTimerSmartMove(move,stamp=performance.now()){
     if(timerSmartAnalysis.open||timerSmartDeleteRecord)return;
@@ -711,22 +773,27 @@ async function openTimerBluetoothCard() {
     scanTimerBluetooth();
 }
 
+function showTimerBluetoothScanIssue(message,error){
+    document.getElementById('timer-bluetooth-card-title').textContent=message;
+    const list=document.getElementById('timer-bluetooth-devices');let help=document.getElementById('timer-bluetooth-scan-help');if(!help){help=document.createElement('p');help.id='timer-bluetooth-scan-help';help.style.cssText='font-size:13px;line-height:1.7;color:var(--text-main);margin:10px 0;overflow-wrap:anywhere';list.append(help);}
+    help.textContent=error?error.name+': '+(error.message||'浏览器没有返回设备'):'Android 手机请使用 Chrome 直接打开 HTTPS 网站。微信等内置网页和未接入原生蓝牙的 App 可能无法提供蓝牙连接。';
+}
 function scanTimerBluetooth() {
     const title = document.getElementById('timer-bluetooth-card-title');
-    if (!navigator.bluetooth?.requestDevice) {
-        title.textContent = '当前浏览器不支持蓝牙连接';
-        return;
-    }
+    document.getElementById('timer-bluetooth-scan-help')?.remove?.();
+    if(globalThis.isSecureContext===false){showTimerBluetoothScanIssue('蓝牙连接需要 HTTPS 安全页面');return;}
+    if (!navigator.bluetooth?.requestDevice) {showTimerBluetoothScanIssue('当前浏览器未提供网页蓝牙接口');return;}
     title.textContent = '搜寻魔域智能魔方...';
     // The browser's native chooser performs discovery. Web Bluetooth does not expose
     // an arbitrary nearby-device list to a website before the user grants access.
-    return navigator.bluetooth.requestDevice({
+    let selection;try{selection=navigator.bluetooth.requestDevice({
         // The currently selectable smart-cube family is MoYu. Match its advertised
         // name or dedicated service; never use shared battery/device-info services.
         filters: [{namePrefix:'WCU_MY'}, {services:['0783b03e-7735-b5a0-1760-a305d2795cb0']}],
         optionalServices:['0783b03e-7735-b5a0-1760-a305d2795cb0'],
         optionalManufacturerData:timerMoyuManufacturerIds()
-    }).then(async device => {
+    });}catch(error){showTimerBluetoothScanIssue('浏览器拒绝启动蓝牙设备选择',error);return;}
+    return Promise.resolve(selection).then(async device => {
         title.textContent='正在自动识别魔方...';
         timerMoyuDiagnostic.advertisements=0;
         await timerMoyuAdvertisementMac(device);
@@ -734,7 +801,7 @@ function scanTimerBluetooth() {
         renderTimerBluetoothCandidates();
         await connectTimerBluetoothDevice(device);
     }).catch(error => {
-        title.textContent = error.name === 'NotFoundError' ? '未选择设备' : '搜寻失败，请重试';
+        const message=error.name==='NotFoundError'?'未返回设备：选择已取消，或浏览器未打开选择窗口':error.name==='SecurityError'||error.name==='NotAllowedError'?'浏览器限制或权限阻止了蓝牙请求':'蓝牙设备选择失败';showTimerBluetoothScanIssue(message,error);
     });
 }
 
@@ -749,10 +816,10 @@ async function connectTimerBluetoothDevice(device) {
         await stopTimerMoyu();
         if(!timerMoyuAddresses.get(device.id))await timerMoyuAdvertisementMac(device);
         await device.gatt.connect();
-        timerBluetoothDevice=device;updateTimerBluetoothStatus(true);
+        resetTimerCubeBattery(device);timerBluetoothDevice=device;updateTimerBluetoothStatus(true);
         timerCubeView.x=-25;timerCubeView.y=-32;const view=document.getElementById('timer-virtual-cube');view.style.setProperty('--cube-x','-25deg');view.style.setProperty('--cube-y','-32deg');
         if(!device.__nbDisconnectInstalled){device.__nbDisconnectInstalled=true;device.addEventListener('gattserverdisconnected',()=>{
-            if(timerBluetoothDevice!==device)return;stopTimerMoyu();timerBluetoothDevice=null;if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothStatus(false);title.textContent='连接已断开';
+            if(timerBluetoothDevice!==device)return;stopTimerMoyu(true);timerBluetoothDevice=null;if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothStatus(false);title.textContent='连接已断开';handleTimerCubeBatteryDisconnect();
         });}
         title.textContent='已连接，正在同步转动数据...';
         try {

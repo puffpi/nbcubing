@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.44.10-compact-settings">
+    <link rel="stylesheet" href="style.css?v=1.45.0-battery-compact-20261016">
 </head>
 <body>
 
@@ -118,7 +118,7 @@
                 <div class="home-intro-copy">
                     <p class="home-eyebrow">NINGBO CUBING <span>宁波 · 魔方</span></p>
                     <h1 id="home-heading">每一次突破，<br>都在这里。</h1>
-                    <p class="home-intro-description">关注宁波选手，记录赛场新成绩。<br>从日常练习，到下一次登场。</p>
+                    <p class="home-intro-description"><span class="home-business-description">关注宁波选手，记录赛场新成绩。<br>从日常练习，到下一次登场。</span><span class="home-modern-description">转动之间，探索更多可能。<br>练习、挑战，与热爱一同进阶。</span></p>
                 </div>
                 <div class="home-intro-side">
                     <div class="home-tile-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -128,12 +128,23 @@
                     <button type="button" onclick="initMonthly()"><span>02</span><strong>参加月赛</strong><small>每月挑战</small><b aria-hidden="true">↗</b></button>
                     <button type="button" onclick="navigateTo('records-page'); generateRecords();"><span>03</span><strong>查看纪录</strong><small>宁波纪录</small><b aria-hidden="true">↗</b></button>
                 </div>
+                <div class="modern-event-strip" role="img" aria-label="WCA 现行比赛项目"><div class="modern-event-icons" aria-hidden="true"><i class="cubing-icon event-333"></i><i class="cubing-icon event-222"></i><i class="cubing-icon event-444"></i><i class="cubing-icon event-555"></i><i class="cubing-icon event-666"></i><i class="cubing-icon event-777"></i><i class="cubing-icon event-333bf"></i><i class="cubing-icon event-333fm"></i><i class="cubing-icon event-333oh"></i><i class="cubing-icon event-clock"></i><i class="cubing-icon event-minx"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-skewb"></i><i class="cubing-icon event-sq1"></i><i class="cubing-icon event-444bf"></i><i class="cubing-icon event-555bf"></i><i class="cubing-icon event-333mbf"></i></div></div>
             </section>
+            <section class="modern-home-features" aria-label="探索宁波魔方">
+                <div class="modern-timer-shell"><button class="modern-feature modern-timer" type="button" onclick="openModernTimer('wca')"><span class="modern-eyebrow">NB TIMER</span><span class="modern-kicker">计时器 · 智能魔方</span><span class="modern-timer-art" aria-hidden="true">0.00</span></button></div>
+                <button class="modern-feature modern-challenge" type="button" onclick="initChallenge(); navigateTo('challenge-page');"><span class="modern-eyebrow">NB CHALLENGE</span><span class="modern-kicker">面对面 · PK</span><svg class="modern-swords" viewBox="0 0 120 100" aria-hidden="true"><g transform="translate(60 50) rotate(40)"><g class="modern-sword modern-sword-a"><path d="M0-47 5-39V17H-5V-39Z" /><path class="sword-facet" d="M0-47 5-39V17H0Z" /><path class="sword-guard" d="M-15 16 0 18 15 16 16 20 0 22-16 20Z M-4 40H4L5 44 0 47-5 44Z" /><path class="sword-grip" d="M-3 22H3L2.5 40H-2.5Z" /><path class="sword-binding" d="m-2.8 26 5.6 2m-5.4 3 5.2 2m-5 3 4.8 2" /></g></g><g transform="translate(60 50) rotate(-40)"><g class="modern-sword modern-sword-b"><path d="M0-47 5-39V17H-5V-39Z" /><path class="sword-facet" d="M0-47 5-39V17H0Z" /><path class="sword-guard" d="M-15 16 0 18 15 16 16 20 0 22-16 20Z M-4 40H4L5 44 0 47-5 44Z" /><path class="sword-grip" d="M-3 22H3L2.5 40H-2.5Z" /><path class="sword-binding" d="m-2.8 26 5.6 2m-5.4 3 5.2 2m-5 3 4.8 2" /></g></g></svg></button>
+                
+                <button class="modern-feature modern-monthly" type="button" onclick="initMonthly()"><span class="modern-eyebrow">MONTHLY CHALLENGE</span><span class="modern-kicker">巅峰月赛</span><span class="modern-month-period" id="modern-month-period" aria-hidden="true"></span><span class="modern-monthly-art" aria-hidden="true"><svg viewBox="0 0 120 80"><path d="M49 28 29 54 M71 28 91 54 M38 68 H82" /></svg><i class="cubing-icon event-333"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-333bf"></i></span></button>
+                <button class="modern-feature modern-space" type="button" onclick="openCubeSpace()"><span class="modern-eyebrow">CUBE SPACE</span><span class="modern-kicker">魔方空间</span><span class="modern-space-stage" aria-hidden="true"><svg class="modern-space-plane" viewBox="0 0 120 88"><path class="space-cube-top" d="m60 14 24 14-24 14-24-14Z" /><path class="space-cube-outline" d="m60 14 24 14v28L60 70 36 56V28Z M36 28l24 14 24-14 M60 42v28" /><path class="space-cube-hidden" d="M60 14v28 M36 56l24-14 24 14" /><path class="space-cube-axes" d="M60 8V2 M30 59l-9 5 M90 59l9 5" /></svg></span></button>
+                
+            </section>
+
+            <button class="modern-feature modern-formulas" type="button" onclick="openFormulaLibrary()"><span class="modern-eyebrow">LEARN · EXPLORE</span><span class="modern-kicker">公式 · 方法</span><span class="modern-formula-library" aria-hidden="true"><span class="modern-formula-sheet sheet-back"></span><span class="modern-formula-sheet sheet-middle"></span><span class="modern-formula-sheet sheet-front"><small>CFOP</small><b>R U R′ U′</b><span class="formula-page-lines"><i></i><i></i></span></span></span></button>
             <div class="home-board">
             <section class="home-section home-events">
                 <div class="section-header">
                     <h3 class="section-title">赛事日程</h3>
-                    <button class="more-link" type="button" onclick="openCompsPage()">全部赛事 ↗</button>
+                    <button class="more-link" type="button" onclick="openCompsPage()">全部赛事<span class="home-more-arrow"> ↗</span></button>
                 </div>
                 <div id="recent-comps-grid" class="comps-grid">
                     <div class="loading-text">载入中...</div>
@@ -143,7 +154,7 @@
                 <section class="home-section news-section">
                     <div class="section-header">
                         <h3 class="section-title">新闻资讯</h3>
-                        <button class="more-link" type="button" onclick="openNewsPage()">全部动态 ↗</button>
+                        <button class="more-link" type="button" onclick="openNewsPage()">全部动态<span class="home-more-arrow"> ↗</span></button>
                     </div>
                     <div id="news-list" class="news-list"><div class="loading-text">载入中...</div></div>
                 </section>
@@ -151,14 +162,14 @@
                 <section class="home-section records-section">
                     <div class="section-header">
                         <h3 class="section-title">宁波纪录</h3>
-                        <button class="more-link" type="button" onclick="navigateTo('records-page'); generateRecords();">全部项目 ↗</button>
+                        <button class="more-link" type="button" onclick="navigateTo('records-page'); generateRecords();">全部项目<span class="home-more-arrow"> ↗</span></button>
                     </div>
                     <div id="mini-records-list" class="mini-records-list card">
                     </div>
                 </section>
             </div>
 
-            <footer class="home-footer"><span>NINGBO CUBING</span><span>作者：b站@泡芙老师k3</span></footer>
+            <footer class="home-footer"><span>CUBE SPACE</span><span>作者：b站@泡芙老师k3</span></footer>
         </div>
     </div>
 
@@ -251,32 +262,6 @@
                 <button class="page-btn" id="news-next-btn" onclick="changeNewsPage(1)">下一页</button>
             </div>
         </div>
-    </div>
-
-    <!-- 新增：3D 立体交互版首页 -->
-    <div id="home-page-3d" class="page-container card home-flex" style="max-width: 650px; margin: 0 auto; min-height: calc(100vh - 40px); box-sizing: border-box;">
-        <div class="page-header" style="margin-top: 15px; margin-bottom: 0;">
-            <h1 style="margin:0; font-size: 28px; color: var(--text-main);">WCA 宁波魔方数据库</h1>
-        </div>
-
-        <div class="scene" id="scene-container">
-            <div class="cube-tilt">
-                <div class="cube" id="home-cube">
-                    <div class="face top" id="cube-face-top" onclick="handleCubeClick('top')">成绩排行榜</div>
-                    <div class="face front" id="cube-face-front" onclick="handleCubeClick('front')">宁波纪录</div>
-                    <div class="face right" id="cube-face-right" onclick="handleCubeClick('right')">成绩查询 · PK</div>
-                    <div class="face back"></div>
-                    <div class="face left"></div>
-                    <div class="face bottom"></div>
-                </div>
-            </div>
-        </div>
-
-        <div style="text-align: center; color: var(--text-muted); font-size: 15px; margin-top: 110px;">
-            <div style="font-weight: 500; letter-spacing: 1px;">滑动屏幕 · 旋转魔方以选择功能</div>
-        </div>
-
-        <p style="text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 400; margin-top: auto; margin-bottom: 5px; letter-spacing: 0.5px;">作者：b站@泡芙老师k3</p>
     </div>
 
     <!-- 按需加载的公式集：入口、方法介绍和公式列表 -->
@@ -404,10 +389,7 @@
 
             <div class="ios-setting-group custom-ui-group">
                 <span>首页排版</span>
-                <div class="ios-segment-control" style="width: 140px; margin: 0; display: flex;">
-                    <div class="ios-segment-btn" id="btn-layout-simple-global" onclick="setHomeLayout('business')" style="flex: 1; text-align: center; padding: 5px 0;">商务</div>
-                    <div class="ios-segment-btn active" id="btn-layout-3d-global" onclick="setHomeLayout('3d')" style="flex: 1; text-align: center; padding: 5px 0;">立体</div>
-                </div>
+                <button type="button" class="cube-appearance-picker" onclick="openHomeLayoutModal()"><span id="home-layout-label">现代</span><span aria-hidden="true">›</span></button>
             </div>
 
             <div class="ios-setting-group custom-ui-group">
@@ -438,7 +420,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.44.10</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.45.0</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -1255,7 +1237,7 @@
                     <div class="timer-smart-visual">
                         <div class="timer-virtual-cube" id="timer-virtual-cube" role="img" tabindex="0" aria-label="智能魔方虚拟模型，可拖动旋转"></div>
                         <div class="timer-bluetooth-status" id="timer-bluetooth-status" role="button" tabindex="0" onclick="openTimerBluetoothCard()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTimerBluetoothCard();}">
-                            <span id="timer-bluetooth-icon" class="disconnected" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg></span><span id="timer-bluetooth-label">未连接</span>
+                            <span id="timer-bluetooth-icon" class="disconnected" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg><span id="timer-cube-battery" class="timer-cube-battery" hidden><span class="timer-battery-body"><i></i><span class="timer-battery-percent"></span></span></span></span><span id="timer-bluetooth-label">未连接</span>
                         </div>
                     </div>
                     <div id="timer-display" class="timer-display">0.00</div>
@@ -1922,15 +1904,16 @@
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
-    <script src="main.js?v=1.44.10-unified-loading"></script>
+    <script src="main.js?v=1.45.0-battery-daily-20261016"></script>
     <script src="forum.js?v=1.41-dark-switches-20261006"></script>
-    <script src="account.js?v=1.44.10-monthly-loading-20261015"></script>
-    <script src="theme.js?v=1.44.10-mobile-surfaces"></script>
+    <script src="account.js?v=1.45.0-monthly-loading-20261015"></script>
+    <script src="theme.js?v=1.45.0-mobile-surfaces"></script>
 
-<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 Q13 8 8 12 Q13 16 15 19"/></svg></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 Q11 8 16 12 Q11 16 9 19"/></svg></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
+<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
-    <script src="timer_smart.js?v=1.44.10-bluetooth-help"></script>
+<div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
+    <script src="timer_smart.js?v=1.45.0-battery-daily-20261016"></script>
     <script src="cube_space_player.js?v=1.17-detail35"></script>
 </body>
 </html>

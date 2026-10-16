@@ -184,7 +184,7 @@ async function ensureSupabaseClient() {
 
 // ================= 新增：界面设置全局变量 =================
 let uiSettings = {
-    homeLayout: 'simple', // 默认简约版
+    homeLayout: 'modern', // 新访客默认现代首页；保留已选择的商务排版
     font: 'default',
     fontSize: 100,
     scrambleSize: 100,
@@ -659,8 +659,7 @@ function navigateTo(pageId, isForward = false) {
 
 // 统跳主页的路由函数
 function goHome() {
-    let is3D = uiSettings.homeLayout === '3d';
-    navigateTo(is3D ? 'home-page-3d' : 'home-page'); // 商务版其实就是复用原本的 dom 结构，直接跳转 home-page
+    navigateTo('home-page');
 }
 
 function goBack() {
@@ -2096,11 +2095,7 @@ async function initData() {
         const activePage = document.querySelector('.page-container.active');
         if (!activePage) {
             // 核心修改：仅在首次打开网页时进入主页，并触发一次动画
-            let is3D = uiSettings.homeLayout === '3d';
-            navigateTo(is3D ? 'home-page-3d' : 'home-page');
-            if (is3D) {
-                setTimeout(() => triggerCubeSpin('right', true), 50);
-            }
+            goHome();
         } else {
             if (activePage.id === 'ranking-page') updateRanking();
             if (activePage.id === 'records-page') generateRecords();
@@ -4491,8 +4486,9 @@ function loadTimerData() {
         }
     } catch (e) { console.warn("读取本地历史数据失败", e); }
 
-    // 👇 绝对强制令：无论本地存了什么，所有人都必须用商务版！
-    uiSettings.homeLayout = 'business';
+    // Migrate the retired 3D option while preserving a saved business/modern choice.
+    if (uiSettings.homeLayout === 'simple') uiSettings.homeLayout = 'business';
+    else if (!['business','modern'].includes(uiSettings.homeLayout)) uiSettings.homeLayout = 'modern';
 
     // 核心防御：包裹 UI 设置，就算报错也绝不中断网页启动
     try { applyUiSettings(); } catch(e) { console.warn("UI配置应用失败", e); }
@@ -4517,6 +4513,7 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+    document.getElementById('home-page')?.classList.toggle('home-modern',uiSettings.homeLayout==='modern');
     const profileLayoutLabel=document.getElementById('person-layout-label');if(profileLayoutLabel)profileLayoutLabel.textContent=({classic:'经典',card:'卡片',dense:'密集'})[uiSettings.personLayout||'dense'];
     const smartCube = document.getElementById('timer-virtual-cube');
     if (smartCube) smartCube.dataset.logo = uiSettings.smartCubeLogo === 'none' ? 'none' : 'puffpi';
@@ -4594,14 +4591,9 @@ function applyUiSettings() {
     let avgHex = document.getElementById('color-avg-hex');
     if (avgHex) avgHex.value = uiSettings.colorAvg.toUpperCase();
 
-    // 控制全局设置页面的排版滑动开关状态
-    let btnSimpleGlobal = document.getElementById('btn-layout-simple-global');
-    let btn3dGlobal = document.getElementById('btn-layout-3d-global');
-
-    if (btnSimpleGlobal && btn3dGlobal) {
-        btnSimpleGlobal.classList.toggle('active', uiSettings.homeLayout === 'business');
-        btn3dGlobal.classList.toggle('active', uiSettings.homeLayout === '3d');
-    }
+    const monthPeriod=document.getElementById('modern-month-period');if(monthPeriod)monthPeriod.textContent=getCurrentMonthKey().replace('-', ' / ');
+    const homeLayoutLabel=document.getElementById('home-layout-label');
+    if(homeLayoutLabel)homeLayoutLabel.textContent=uiSettings.homeLayout==='modern'?'现代':'商务';
 
     // --- 👇直接在这里追加：读取并显示用户名和 WCA ID ---
     let userEl = document.getElementById('setting-username');
@@ -4795,134 +4787,28 @@ function applyNativeColor(hex) {
 
 // ================= 新增：3D 首页排版与交互逻辑 =================
 function setHomeLayout(layout) {
+    if (!['business','modern'].includes(layout)) return;
     uiSettings.homeLayout = layout;
     applyUiSettings();
     saveTimerData();
     // 如果当前正在主页，则瞬间切换排版
     const activePage = document.querySelector('.page-container.active');
-    if (activePage && (activePage.id === 'home-page' || activePage.id === 'home-page-3d')) {
+    if (activePage && activePage.id === 'home-page') {
         goHome();
     }
 }
 
-// 升级为 3 状态机 (0: 基础模块, 1: 计时与挑战, 2: 全局设置)
-let cubeState = 0;
-let isCubeAnimating = false;
-
-function handleCubeClick(face) {
-    if (isCubeAnimating) return;
-
-    if (cubeState === 0) {
-        if (face === 'top') { navigateTo('ranking-page'); }
-        if (face === 'front') { navigateTo('records-page'); generateRecords(); }
-        if (face === 'right') { openSearchPage(); }
-    } else if (cubeState === 1) {
-        if (face === 'top') { initMonthly(); }
-        if (face === 'front') { navigateTo('timer-page'); initTimer(); }
-        if (face === 'right') { initChallenge(); navigateTo('challenge-page'); }
-    } else if (cubeState === 2) {
-        if (face === 'top') openCubeSpace();
-        if (face === 'front') openCompsPage();
-        if (face === 'right') navigateTo('settings-page');
-    }
+function openHomeLayoutModal(){
+    const modal=document.getElementById('cube-appearance-modal');modal.classList.remove('timer-settings-context');
+    document.getElementById('cube-appearance-title').textContent='首页排版';const list=document.getElementById('cube-appearance-options');list.replaceChildren();
+    for(const [value,name] of [['business','商务'],['modern','现代']]){const option=document.createElement('button');option.type='button';option.className='cube-appearance-option'+(uiSettings.homeLayout===value?' active':'');option.textContent=name;option.onclick=()=>{setHomeLayout(value);closeCubeAppearanceModal();};list.append(option);}modal.hidden=false;
 }
 
-// 支持左划/右划判断，并兼容入场动画调用
-function triggerCubeSpin(direction = 'right', isEntryAnim = false) {
-    // 兼容之前只传了一个 boolean 值的入场动画代码
-    if (typeof direction === 'boolean') {
-        isEntryAnim = direction;
-        direction = 'right';
-    }
-
-    if (isCubeAnimating) return;
-    isCubeAnimating = true;
-    const cube = document.getElementById('home-cube');
-    const scene = document.getElementById('scene-container');
-
-    cube.classList.remove('spinning-right', 'spinning-left', 'spinning');
-    if (scene) scene.classList.remove('spinning-blur');
-    void cube.offsetWidth;
-
-    // 根据滑动方向赋予不同的动画类名
-    if (direction === 'left') {
-        cube.classList.add('spinning-left');
-    } else {
-        cube.classList.add('spinning-right');
-    }
-
-    if (scene) scene.classList.add('spinning-blur');
-
-    if (!isEntryAnim) {
-        setTimeout(() => {
-            // 核心修复：顺应标准的轮播交互直觉
-            // 向左滑 (看下一页) -> 状态 +1
-            // 向右滑 (看上一页) -> 状态 +2 (等同于-1)
-            if (direction === 'left') {
-                cubeState = (cubeState + 1) % 3;
-            } else {
-                cubeState = (cubeState + 2) % 3;
-            }
-
-            const elTop = document.getElementById('cube-face-top');
-            const elFront = document.getElementById('cube-face-front');
-            const elRight = document.getElementById('cube-face-right');
-
-            if (cubeState === 0) {
-                elTop.innerText = '成绩排行榜';
-                elFront.innerText = '宁波纪录';
-                elRight.innerText = '成绩查询 · PK';
-            } else if (cubeState === 1) {
-                elTop.innerText = '巅峰月赛';
-                elFront.innerText = 'NB Timer';
-                elRight.innerText = 'NB Challenge';
-            } else if (cubeState === 2) {
-                elTop.innerText = '魔方空间';
-                elFront.innerText = '赛事';
-                elRight.innerText = '设置';
-            }
-        }, 350);
-    }
-
-    // 核心修复：在 700ms 动画播放完毕后，彻底剥离动画类名
-    setTimeout(() => {
-        isCubeAnimating = false;
-
-        // 扒掉类名，让魔方瞬间切回静止的 -45 度（与旋转终点视觉完美重合），杜绝 display 切换时的二次重播
-        if (cube) cube.classList.remove('spinning-right', 'spinning-left', 'spinning');
-        if (scene) scene.classList.remove('spinning-blur');
-    }, 700);
+// Original interactive 3D homepage is preserved in docs/design_archive/home_3d_20261016.
+function openModernTimer(mode){
+    currentTimerMode=mode==='smart'?'smart':'wca';
+    navigateTo('timer-page');initTimer();
 }
-
-// 全局滑动侦测升级 (加入正负方向判断)
-let cubeStartX = 0;
-document.addEventListener('touchstart', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (activePage && activePage.id === 'home-page-3d') { cubeStartX = e.changedTouches[0].screenX; }
-}, {passive: false});
-
-document.addEventListener('touchend', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (activePage && activePage.id === 'home-page-3d') {
-        let delta = e.changedTouches[0].screenX - cubeStartX;
-        if (delta > 50) triggerCubeSpin('right');
-        else if (delta < -50) triggerCubeSpin('left');
-    }
-});
-
-document.addEventListener('mousedown', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (activePage && activePage.id === 'home-page-3d') { cubeStartX = e.clientX; }
-});
-
-document.addEventListener('mouseup', (e) => {
-    const activePage = document.querySelector('.page-container.active');
-    if (activePage && activePage.id === 'home-page-3d') {
-        let delta = e.clientX - cubeStartX;
-        if (delta > 80) triggerCubeSpin('right');
-        else if (delta < -80) triggerCubeSpin('left');
-    }
-});
 
 // ================= 用户名与 WCA ID 保存引擎 =================
 function saveUsername(val) {
@@ -8737,7 +8623,7 @@ function renderTimerDailyStats(){
     document.getElementById('timer-daily-count').textContent=stats.valid+'/'+stats.total;document.getElementById('timer-daily-mean').textContent=stats.mean===null?'N/A':formatNbTimerOutput(stats.mean);document.getElementById('timer-daily-best').textContent=stats.best===null?'-':formatNbTimerOutput(stats.best);document.getElementById('timer-daily-worst').textContent=stats.worst===null?'-':formatNbTimerOutput(stats.worst);
     const ns='http://www.w3.org/2000/svg',canvasWidth=Math.max(280,document.getElementById('timer-daily-chart').clientWidth),svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 '+canvasWidth+' 248');svg.setAttribute('role','img');svg.setAttribute('aria-label','各时间段复原次数，总计 '+stats.total+' 次');let selected=null;const clearCount=()=>{svg.querySelectorAll('.daily-count-tip').forEach(node=>node.remove());svg.querySelectorAll('.daily-bar.active').forEach(node=>node.classList.remove('active'));selected=null;};svg.addEventListener('click',clearCount);
     function element(tag,attributes,text){const node=document.createElementNS(ns,tag);for(const [name,value]of Object.entries(attributes))node.setAttribute(name,value);if(text!==undefined)node.textContent=text;svg.append(node);return node;}
-    const x=38,y=18,width=canvasWidth-54,height=190,maximum=Math.max(1,...stats.bins),step=Math.max(1,Math.ceil((maximum/0.88)/4)),top=step*4,unit=width/stats.bins.length;
+    const y=18,height=190,maximum=Math.max(1,...stats.bins),step=Math.max(1,Math.ceil((maximum/0.88)/4)),top=step*4,x=Math.max(28,String(top).length*7+10),width=canvasWidth-x-10,unit=width/stats.bins.length;
     for(let tick=0;tick<=4;tick++){const py=y+height-tick/4*height;element('line',{x1:x,y1:py,x2:x+width,y2:py,class:'daily-grid'});element('text',{x:x-9,y:py+4,'text-anchor':'end',class:'daily-axis'},String(tick*step));}
     stats.bins.forEach((count,index)=>{if(!count)return;const barHeight=count/top*height;const rect=element('rect',{x:x+index*unit+unit*.16,y:y+height-barHeight,width:unit*.68,height:barHeight,rx:Math.min(4,unit*.1),class:'daily-bar','data-count':count});const title=document.createElementNS(ns,'title');const slot=state.period==='day'?index+' - '+(index+1)+' 时':state.period==='month'?(index+1)+' 日':(index+1)+' 月';title.textContent=slot+'：'+count+' 次';rect.append(title);rect.setAttribute('role','button');rect.setAttribute('tabindex','0');rect.setAttribute('aria-label',title.textContent);const select=event=>{event.stopPropagation();const wasSelected=selected===index;clearCount();if(wasSelected)return;selected=index;rect.classList.add('active');element('text',{x:x+index*unit+unit*.5,y:y+height-barHeight-7,'text-anchor':'middle',class:'daily-count-tip'},String(count));};rect.addEventListener('click',select);rect.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select(event);}});});
     const ticks=state.period==='day'?Array.from({length:25},(_,i)=>i):Array.from({length:stats.bins.length},(_,i)=>i+1);for(const tick of ticks){const px=state.period==='day'?x+tick*unit:x+(tick-.5)*unit;element('line',{x1:px,y1:y+height,x2:px,y2:y+height+4,class:'daily-grid'});const show=state.period==='day'?tick%4===0:state.period==='month'?tick===1||tick===stats.bins.length||tick%5===0:canvasWidth>=420||tick===12||tick%2===1;if(show)element('text',{x:px,y:y+height+23,'text-anchor':'middle',class:'daily-axis'},state.period==='year'?tick+'月':String(tick));}
