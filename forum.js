@@ -11,7 +11,7 @@ let forumClient = null;
 async function ensureForumClient() {
     if (forumClient) return forumClient;
     await ensureSupabaseClient();
-    return forumClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'nbcubing-forum-auth' } });
+    return forumClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'nbcubing-forum-auth' }, global: { fetch: accountServiceFetch } });
 }
 const forumEl = id => document.getElementById(id);
 function forumNode(tag, className, value) {

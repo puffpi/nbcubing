@@ -18,7 +18,7 @@ async function accountClient() {
 }
 function accountWelcome(){return accountProfile?.wca_id==='2024GUOC01' && forumAdmin ? '欢迎开发者2024GUOC01登录' : `欢迎用户${accountProfile?.nickname || ''}登录`;}
 function accountError(error) {
-    if (/Failed to fetch|NetworkError|Load failed/i.test(error?.message || '')) return `无法连接账号服务。请检查 account 函数是否已部署、JWT 验证是否关闭，以及 SITE_ORIGINS 是否包含当前网站地址 ${location.origin}。`;
+    if (/Failed to fetch|NetworkError|Load failed|脚本加载|脚本未初始化/i.test(error?.message || '')) return '暂时无法连接账号服务，请检查网络或切换 Wi-Fi / 移动网络后重试。已有练习记录仍保存在本机。';
     if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return '连接账号服务超时，请检查网络后重试。';
     const code=String(error?.code || ''),detail=error?.message ? `\n${error.message}` : '';
     if (/^PGRST30[123]$/.test(code)) return `登录凭证无效或未提供，请退出账号后重新登录再试。（${code}）`;
@@ -60,9 +60,9 @@ async function refreshAccount() {
 async function accountRequest(action,fields) {
     const client=await accountClient(),session=await client.auth.getSession();
     // Supabase display-name edits do not change the deployed function's slug.
-    const response=await fetch(`${SUPABASE_URL}/functions/v1/swift-processor`,{
+    const response=await accountServiceFetch(`${SUPABASE_URL}/functions/v1/swift-processor`,{
         method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,...(session.data.session ? {Authorization:`Bearer ${session.data.session.access_token}`} : {})},
-        body:JSON.stringify({action,...fields,...(action==='recover'?{redirectTo:`${location.origin}${location.pathname}?account=recovery`}:{})}),signal:AbortSignal.timeout(20000)
+        body:JSON.stringify({action,...fields,...(action==='recover'?{redirectTo:`${location.origin}${location.pathname}?account=recovery`}:{})})
     });
     let result;try{result=await response.json();}catch{throw new Error('账号服务尚未部署或暂不可用。');}
     if(!response.ok)throw new Error(result.error || '账号操作失败。');

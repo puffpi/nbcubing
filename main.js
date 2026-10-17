@@ -21,9 +21,10 @@ function loadOptionalScript(url, ready) {
     if (optionalScripts.has(url)) return optionalScripts.get(url);
     const promise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
+        const timer = setTimeout(() => { script.remove(); reject(new Error(`脚本加载超时：${url}`)); }, 15000);
         script.src = url;
-        script.onload = () => ready() ? resolve() : reject(new Error(`脚本未初始化：${url}`));
-        script.onerror = () => reject(new Error(`脚本加载失败：${url}`));
+        script.onload = () => { clearTimeout(timer); ready() ? resolve() : reject(new Error(`脚本未初始化：${url}`)); };
+        script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error(`脚本加载失败：${url}`)); };
         document.head.appendChild(script);
     }).catch(error => {
         optionalScripts.delete(url);
@@ -178,8 +179,34 @@ const SUPABASE_KEY = 'sb_publishable_VnqJY_Yz9PyqFhKxBPsasA_cgBb9JfU'; // 记得
 let supabaseClient = null;
 async function ensureSupabaseClient() {
     if (supabaseClient) return supabaseClient;
-    await loadOptionalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', () => !!window.supabase?.createClient);
-    return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { detectSessionInUrl: false } });
+    await loadOptionalScript('vendor/supabase-2.49.8.js', () => !!window.supabase?.createClient);
+    return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { detectSessionInUrl: false }, global: { fetch: accountServiceFetch } });
+}
+
+// Bound network waits; retry only reads, never a login or score submission.
+async function accountServiceFetch(input, options = {}) {
+    const method = String(options.method || input?.method || 'GET').toUpperCase();
+    const signal = options.signal || input?.signal;
+    const attempts = ['GET', 'HEAD'].includes(method) ? 2 : 1;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
+        const controller = new AbortController();
+        let timedOut = false;
+        const abort = () => controller.abort();
+        signal?.addEventListener('abort', abort, { once: true });
+        const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+        try {
+            return await fetch(input, { ...options, signal: controller.signal });
+        } catch (error) {
+            if (signal?.aborted) throw error;
+            if (timedOut) error = new DOMException('连接账号服务超时', 'TimeoutError');
+            if (attempt + 1 === attempts || (!timedOut && error?.name !== 'TypeError')) throw error;
+        } finally {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', abort);
+        }
+        await new Promise(resolve => setTimeout(resolve, 400));
+    }
 }
 
 // ================= 新增：界面设置全局变量 =================
@@ -7249,9 +7276,9 @@ function undoCsAction() {
 async function ensureCubeSpaceDependencies() {
     await ensureThreeCore();
     await Promise.all([
-        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js', () => !!THREE.Reflector),
-        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', () => !!THREE.OrbitControls),
-        loadOptionalScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js', () => !!THREE.TransformControls)
+        loadOptionalScript('vendor/Reflector.js?v=r128', () => !!THREE.Reflector),
+        loadOptionalScript('vendor/OrbitControls.js?v=r128', () => !!THREE.OrbitControls),
+        loadOptionalScript('vendor/TransformControls.js?v=r128', () => !!THREE.TransformControls)
     ]);
     initCsTvTexture();
 }
@@ -7264,7 +7291,7 @@ async function openCubeSpace() {
         try { await ensureCubeSpaceDependencies(); }
         catch (error) {
             console.warn('魔方空间组件加载失败', error);
-            alert('魔方空间暂时无法加载，请检查网络后重试');
+            alert('魔方空间组件加载失败，请重新打开后重试。若仍失败，请更新 App 或刷新网页。');
             return;
         } finally { loader.style.display = 'none'; }
     }

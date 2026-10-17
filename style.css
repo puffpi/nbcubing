@@ -4856,5 +4856,16 @@ html[data-theme=dark] .timer-cube-battery[data-power=critical],html[data-theme=d
 .timer-daily-date span{display:flex;align-items:center;justify-content:center;min-height:32px;}
 .timer-daily-date button span{font:inherit;line-height:1;min-height:0;}
 @media(max-width:768px){.timer-daily-card{padding:18px 12px;}.timer-daily-date button{font-size:16px;}}
+
+/* Phone homepage: avoid stacking page padding and card-container padding. */
+@media(max-width:768px){
+    #home-page.page-container{padding:72px 0 36px !important;}
+    #home-page .home-content-wrapper,
+    #home-page.home-modern .home-content-wrapper{padding:14px 16px 20px;}
+}
+@media(max-width:360px){
+    #home-page .home-content-wrapper,
+    #home-page.home-modern .home-content-wrapper{padding-left:14px;padding-right:14px;}
+}
 /* Override the universal manipulation rule only inside the replay model. */
 #smart-analysis-cube,#smart-analysis-cube *{touch-action:none!important;}
