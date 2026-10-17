@@ -1,6 +1,7 @@
 /* Shared Supabase identity for forum and monthly competition. */
 let accountProfile = null, accountMonthly = new Map(), accountActiveEntry = null;
 let accountAuthClient = null, accountRefreshSequence = 0, accountRecoveryAllowed = false, accountSaveBusy = false;
+let accountRefreshTask = null, accountIdentityRevision = 0;
 let accountNicknameTimer = null;
 const accountEl = id => document.getElementById(id);
 async function accountClient() {
@@ -8,6 +9,7 @@ async function accountClient() {
     if (accountAuthClient !== client) {
         accountAuthClient = client;
         client.auth.onAuthStateChange((event) => {
+            if(event!=='INITIAL_SESSION')accountIdentityRevision++;
             if (event === 'PASSWORD_RECOVERY') accountRecoveryAllowed = true;
             setTimeout(async () => {
                 try { await refreshAccount(); if (event === 'PASSWORD_RECOVERY') navigateTo('account-password-page',true); } catch { /* explicit actions show errors */ }
@@ -17,6 +19,11 @@ async function accountClient() {
     return client;
 }
 function accountWelcome(){return accountProfile?.wca_id==='2024GUOC01' && forumAdmin ? '欢迎开发者2024GUOC01登录' : `欢迎用户${accountProfile?.nickname || ''}登录`;}
+async function accountSession(client){
+    let timer;
+    try{return await Promise.race([client.auth.getSession(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new DOMException('账号状态检查超时','TimeoutError')),12000);})]);}
+    finally{clearTimeout(timer);}
+}
 function accountError(error) {
     if (/Failed to fetch|NetworkError|Load failed|脚本加载|脚本未初始化/i.test(error?.message || '')) return '暂时无法连接账号服务，请检查网络或切换 Wi-Fi / 移动网络后重试。已有练习记录仍保存在本机。';
     if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return '连接账号服务超时，请检查网络后重试。';
@@ -30,8 +37,16 @@ function accountError(error) {
     return error?.message || '暂时无法连接账号服务，请稍后重试。';
 }
 async function refreshAccount() {
+    if(accountRefreshTask)return accountRefreshTask;
+    const task=(async()=>{
+        for(;;){const revision=accountIdentityRevision;const profile=await refreshAccountOnce(revision);if(revision===accountIdentityRevision)return profile;}
+    })();
+    accountRefreshTask=task;
+    try{return await task;}finally{if(accountRefreshTask===task)accountRefreshTask=null;}
+}
+async function refreshAccountOnce(revision) {
     const sequence=++accountRefreshSequence,client=await accountClient();
-    const session=await client.auth.getSession();if(session.error)throw session.error;
+    const session=await accountSession(client);if(session.error)throw session.error;
     const user=session.data.session?.user;
     let profile=null,records=[];
     if(user && !user.is_anonymous) {
@@ -39,7 +54,7 @@ async function refreshAccount() {
         profile=result.data;
         if(profile){const result=await client.from('account_monthly_entries').select('*').eq('month_key',getCurrentMonthKey());if(result.error)throw result.error;records=result.data || [];}
     }
-    if(sequence!==accountRefreshSequence)return accountProfile;
+    if(sequence!==accountRefreshSequence || revision!==accountIdentityRevision)return accountProfile;
     accountProfile=profile;accountMonthly=new Map(records.map(r=>[r.event_id,r]));
     if(profile) {
         uiSettings.username=profile.nickname;uiSettings.wcaId=profile.wca_id;saveTimerData();
@@ -50,7 +65,11 @@ async function refreshAccount() {
     accountEl('account-signed-in').hidden=!profile;accountEl('account-login-form').hidden=!!profile;
     
     forumUser=user || null;
-    const admin=await client.rpc('is_forum_admin');forumAdmin=admin.data===true;
+    forumAdmin=false;
+    if(user)void client.rpc('is_forum_admin').then(admin=>{
+        if(sequence!==accountRefreshSequence)return;forumAdmin=admin.data===true;
+        if(accountProfile)accountEl('account-profile-title').textContent=accountWelcome();
+    }).catch(error=>console.warn('账号权限检查暂不可用',error));
     if(profile)accountEl('account-profile-title').textContent=accountWelcome();
     const wca=accountEl('setting-wcaid');if(wca)wca.textContent=profile?.wca_id || '未登录';
     const email=accountEl('setting-email');if(email)email.textContent=profile ? (profile.email || '未填写') : '未登录';
@@ -58,7 +77,7 @@ async function refreshAccount() {
     return profile;
 }
 async function accountRequest(action,fields) {
-    const client=await accountClient(),session=await client.auth.getSession();
+    const client=await accountClient(),session=await accountSession(client);if(session.error)throw session.error;
     // Supabase display-name edits do not change the deployed function's slug.
     const response=await accountServiceFetch(`${SUPABASE_URL}/functions/v1/swift-processor`,{
         method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,...(session.data.session ? {Authorization:`Bearer ${session.data.session.access_token}`} : {})},
@@ -116,10 +135,11 @@ syncMonthlyResultToCloud=function(){/* RPC commits the leaderboard with the last
 uploadWeeklyResult=async function(){throw new Error('月赛成绩只能通过已登录账号逐次提交。');};
 const accountOriginalMonthlyList=renderMonthlyList;
 renderMonthlyList=async function(){
-    await accountOriginalMonthlyList();
+    const rendering=accountOriginalMonthlyList();
     for(const [event,row] of accountMonthly)if(row.status==='started' && row.month_key===getCurrentMonthKey()){
         const button=document.querySelector(`#monthly-event-list .event-${event}`)?.closest('.monthly-event-row')?.querySelector('button');if(button)button.textContent='继续';
     }
+    await rendering;
 };
 
 let monthlyPageLoading=false;
@@ -131,9 +151,12 @@ function setMonthlyEntryLoading(loading){
 }
 initMonthly=async function(){
     if(monthlyPageLoading)return;monthlyPageLoading=true;accountEl('monthly-page-loading').hidden=false;
-    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}await renderMonthlyList();navigateTo('monthly-page');ensureTwistyPlayer().catch(console.warn);}
-    catch(error){accountEl('monthly-page-loading').hidden=true;alert(accountError(error));}
+    let failure;
+    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}void renderMonthlyList().catch(error=>console.warn('月赛统计更新失败',error));navigateTo('monthly-page');ensureTwistyPlayer().catch(console.warn);}
+    catch(error){failure=error;}
     finally{monthlyPageLoading=false;accountEl('monthly-page-loading').hidden=true;}
+    // Commit removal of the loading layer before a blocking native JS dialog.
+    if(failure){await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));alert(accountError(failure));}
 };
 function openMonthlyAccountModal(after=initMonthly,allowGuest=false){
     const form=forumNode('form');form.append(forumNode('p','','登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存。'));

@@ -196,7 +196,8 @@ async function accountServiceFetch(input, options = {}) {
         signal?.addEventListener('abort', abort, { once: true });
         const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
         try {
-            return await fetch(input, { ...options, signal: controller.signal });
+            const transport = typeof window !== 'undefined' && window.nbAppAccountFetch ? window.nbAppAccountFetch : fetch;
+            return await transport(input, { ...options, signal: controller.signal });
         } catch (error) {
             if (signal?.aborted) throw error;
             if (timedOut) error = new DOMException('连接账号服务超时', 'TimeoutError');
@@ -4485,10 +4486,12 @@ document.addEventListener('keyup', (e) => {
 
 // ================= 本地数据持久化引擎 =================
 function loadTimerData() {
+    let storedConfig = null;
     try {
         const saved = localStorage.getItem('nbTimerConfig');
         if (saved) {
             const parsed = JSON.parse(saved);
+            storedConfig = parsed;
             if (parsed.history) timerHistoryData = parsed.history;
             if (parsed.stat1) stat1 = parsed.stat1;
             if (parsed.stat2) stat2 = parsed.stat2;
@@ -4513,7 +4516,13 @@ function loadTimerData() {
         }
     } catch (e) { console.warn("读取本地历史数据失败", e); }
 
-    // Migrate the retired 3D option while preserving a saved business/modern choice.
+    // Reset previous homepage choices once. A later manual business choice stays saved.
+    if (uiSettings.modernHomeMigration !== 1) {
+        uiSettings.homeLayout = 'modern';
+        uiSettings.modernHomeMigration = 1;
+        try { localStorage.setItem('nbTimerConfig', JSON.stringify({ ...storedConfig, uiSettings })); }
+        catch (error) { console.warn('首页排版迁移保存失败', error); }
+    }
     if (uiSettings.homeLayout === 'simple') uiSettings.homeLayout = 'business';
     else if (!['business','modern'].includes(uiSettings.homeLayout)) uiSettings.homeLayout = 'modern';
 
@@ -7105,8 +7114,11 @@ function initCategoryIcons() {
 }
 
 // ==================== 持久化存档引擎 ====================
+let csRestoreDepth = 0;
 function saveCsConfig() {
     csPlayer.sceneDirty = true;
+    // Restoration adds many objects; persist only the complete scene afterwards.
+    if (csRestoreDepth) return;
     const config = {
         timeState: csTimeState,
         floorType: csCurrentFloorType,
@@ -7126,6 +7138,7 @@ function saveCsConfig() {
 }
 
 function loadCsConfig() {
+    csRestoreDepth++;
     try {
         const saved = localStorage.getItem('nbCubeSpaceConfig');
         if (saved) {
@@ -7154,6 +7167,9 @@ function loadCsConfig() {
         }
     } catch (e) {
         generateDefaultScene();
+    } finally {
+        csRestoreDepth--;
+        if (!csRestoreDepth) saveCsConfig();
     }
 }
 
@@ -7290,20 +7306,23 @@ async function openCubeSpace() {
         loader.style.display = 'flex';
         try { await ensureCubeSpaceDependencies(); }
         catch (error) {
+            loader.style.display = 'none';
             console.warn('魔方空间组件加载失败', error);
             alert('魔方空间组件加载失败，请重新打开后重试。若仍失败，请更新 App 或刷新网页。');
             return;
-        } finally { loader.style.display = 'none'; }
+        }
     }
     document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
     document.getElementById('cube-space-page').classList.add('active');
     csEnterLandscape();
 
     if (!isCsInitialized) {
-        initCategoryIcons();
-        initCubeSpace3D();
-        loadCsConfig();
-        isCsInitialized = true;
+        try {
+            initCategoryIcons();
+            initCubeSpace3D();
+            loadCsConfig();
+            isCsInitialized = true;
+        } finally { document.getElementById('global-loading').style.display = 'none'; }
     }
     setCubeSpaceMode('observe');
     isCsExpanded = false;
@@ -8091,7 +8110,9 @@ function initCubeSpace3D() {
         csRenderPlayerHand();
     };
 
-    animate();
+    // The scene is restored immediately after initialization; avoid compiling
+    // and rendering an empty room before its actual objects are available.
+    requestAnimationFrame(animate);
     initInfoCardListeners();
 } // <--- 就是这个关键的大括号！之前少了这个导致整个页面崩溃
 
@@ -8125,10 +8146,11 @@ function addObjToSpace(id, type, restoreData = null) {
             ];
             const black = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
             const offset = (size - pSize) / 2;
+            const pieceGeometry = new THREE.BoxGeometry(pSize * gapScale, pSize * gapScale, pSize * gapScale);
             for (let x = 0; x < order; x++) {
                 for (let y = 0; y < order; y++) {
                     for (let z = 0; z < order; z++) {
-                        const piece = new THREE.Mesh(new THREE.BoxGeometry(pSize * gapScale, pSize * gapScale, pSize * gapScale), [
+                        const piece = new THREE.Mesh(pieceGeometry, [
                             x === order - 1 ? mats[0] : black, x === 0 ? mats[1] : black,
                             y === order - 1 ? mats[2] : black, y === 0 ? mats[3] : black,
                             z === order - 1 ? mats[4] : black, z === 0 ? mats[5] : black

@@ -3574,6 +3574,9 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 /* Player HUD and the portrait-browser landscape fallback. */
 #cube-space-page { touch-action: none; z-index: 2000 !important; animation: none !important; --cs-nav-height: 64px; --cs-pad-size: 64px; }
 #cube-space-page > .global-nav-header { width: 100% !important; }
+/* Keep the existing mobile landscape controls, with navigation restored on exit. */
+#cube-space-page.cs-touch { --cs-nav-height: 0px !important; }
+#cube-space-page.cs-touch > .global-nav-header { display: none !important; }
 #cube-space-canvas { top: var(--cs-nav-height) !important; height: calc(100% - var(--cs-nav-height)) !important; }
 #cube-space-page > button { top: calc(var(--cs-nav-height) + 14px) !important; }
 #cube-space-page #cube-space-hint { top: calc(var(--cs-nav-height) + 18px) !important; }
