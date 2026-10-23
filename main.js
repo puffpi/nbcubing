@@ -535,7 +535,7 @@ function preloadFormulaViewer() {
     if (formulaViewerPromise) return formulaViewerPromise;
     formulaViewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'formulas/formula_viewer.js?v=1.46.5';
+        script.src = 'formulas/formula_viewer.js?v=1.46.8';
         script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
         script.onerror = () => reject(new Error('公式图示组件加载失败'));
         document.body.appendChild(script);
@@ -792,7 +792,7 @@ function cancelInlinePK(refresh = true) {
 async function openCubeExplorer() {
     navigateTo('cube-explorer-page', true);
     try {
-        await loadOptionalScript('cube_explorer.js?v=1.46.5', () => !!window.CubeExplorer);
+        await loadOptionalScript('cube_explorer.js?v=1.46.8', () => !!window.CubeExplorer);
         if (document.getElementById('cube-explorer-page').classList.contains('active')) window.CubeExplorer.enter();
     } catch (error) {
         document.getElementById('ce-status').textContent = '工具暂时无法加载，请重新打开后重试。';
@@ -2473,8 +2473,8 @@ function renderTimerImportMode() {
     document.getElementById('timer-import-textarea').hidden = dc;
     document.getElementById('timer-import-dropzone').hidden = !dc;
     const toggle = document.getElementById('timer-import-mode-toggle');
-    toggle.textContent = dc ? '返回粘贴成绩数据' : '导入 DC Timer 数据';
-    toggle.setAttribute('aria-pressed', String(dc));
+    toggle.checked = dc;
+    document.getElementById('timer-import-external-row').dataset.external = String(dc);
 }
 function setTimerImportBusy(busy) {
     document.getElementById('timer-import-modal').setAttribute('aria-busy', String(busy));
@@ -2505,9 +2505,9 @@ function closeTimerImportModal() {
     timerImportTask = null;
     document.getElementById('timer-import-modal').style.display = 'none';
 }
-function toggleTimerImportMode() {
+function toggleTimerImportMode(enabled) {
     if (timerImportTask || timerImportComplete) return;
-    timerImportMode = timerImportMode === 'native' ? 'dc' : 'native';
+    timerImportMode = (typeof enabled === 'boolean' ? enabled : timerImportMode === 'native') ? 'dc' : 'native';
     setTimerImportStatus(''); renderTimerImportMode();
 }
 function chooseTimerImportFile() {

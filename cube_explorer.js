@@ -148,7 +148,7 @@ self.onmessage=({data})=>{
   stopPlayback();const snapshot=state,scramble=source,id=++job,excluded=records.filter(record=>{try{return C.canonical(record.state)===facelets;}catch(error){return false;}}).map(record=>record.algorithm);started=performance.now();setBusy(true);status(excluded.length?'正在寻找不同的还原路径…':'正在准备搜索…');
   deadline=setTimeout(()=>timeout(id,excluded.length>0),30000);ticker=setInterval(()=>{if(id===job&&busy)$('ce-solve-text').textContent='停止搜索 · '+Math.floor((performance.now()-started)/1000)+' 秒';},500);
   try{
-   if(!worker){worker=new Worker('cube_explorer.js?v=1.46.5');worker.onerror=()=>{const running=busy;cancel(true,true);if(running)status('求解引擎加载失败，请重试。','error');};}
+   if(!worker){worker=new Worker('cube_explorer.js?v=1.46.8');worker.onerror=()=>{const running=busy;cancel(true,true);if(running)status('求解引擎加载失败，请重试。','error');};}
    worker.onmessage=async({data})=>{
     if(data.id!==job||!busy)return;
     if(performance.now()-started>=30000){timeout(id,excluded.length>0);return;}

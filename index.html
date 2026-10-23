@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.46.5">
-    <link rel="stylesheet" href="cube_explorer.css?v=1.46.5">
+    <link rel="stylesheet" href="style.css?v=1.46.8">
+    <link rel="stylesheet" href="cube_explorer.css?v=1.46.8">
 </head>
 <body>
 
@@ -422,7 +422,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.46.5</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.46.8</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -753,7 +753,10 @@
                 <span id="timer-import-file-hint">或点击选择 .txt 文件</span>
             </button>
             <input id="timer-import-file-input" type="file" accept=".txt,text/plain" hidden onchange="selectTimerImportFiles(this.files)">
-            <button id="timer-import-mode-toggle" class="timer-import-mode-toggle" type="button" aria-pressed="false" onclick="toggleTimerImportMode()">导入 DC Timer 数据</button>
+            <div id="timer-import-external-row" class="timer-import-external-row" data-external="false">
+                <span class="timer-import-external-label">DC Timer 导入</span>
+                <div class="timer-import-switch"><span class="timer-import-no">否</span><label class="cs-switch"><input id="timer-import-mode-toggle" type="checkbox" role="switch" aria-label="DC Timer 导入" aria-controls="timer-import-dropzone timer-import-textarea" onchange="toggleTimerImportMode(this.checked)"><span class="cs-slider"></span></label><span class="timer-import-yes">是</span></div>
+            </div>
             <div id="timer-import-status" role="status" aria-live="polite" hidden><span class="timer-import-spinner" aria-hidden="true" hidden></span><span id="timer-import-status-text"></span></div>
             <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
                 <button id="timer-import-cancel" type="button" class="edit-btn-cancel" onclick="closeTimerImportModal()">取消</button>
@@ -1953,7 +1956,7 @@
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="dc_timer_import.js?v=20261020"></script>
-    <script src="main.js?v=1.46.5"></script>
+    <script src="main.js?v=1.46.8"></script>
     <script src="forum.js?v=20261021-no-recovery"></script>
     <script src="account.js?v=20261021-no-recovery"></script>
     <script src="theme.js?v=1.45.4-mobile-surfaces"></script>

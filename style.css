@@ -889,18 +889,13 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 #timer-import-file-name { max-width: 100%; overflow-wrap: anywhere; font-size: 13px; font-weight: 600; text-align: center; }
 #timer-import-file-hint { font-size: 12px; line-height: 1.6; color: var(--text-muted); text-align: center; }
 #timer-import-dropzone.is-dragging { border-color: var(--primary-color); background: var(--border-color); }
-#timer-import-dropzone:focus-visible, #timer-import-mode-toggle:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
-#timer-import-mode-toggle {
-    margin: 12px 0 16px;
-    padding: 9px 16px;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 9px;
-    color: var(--text-main);
-    font: 600 14px/1.5 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-    cursor: pointer;
-}
-#timer-import-mode-toggle:hover { background: var(--border-color); }
+#timer-import-dropzone:focus-visible, #timer-import-mode-toggle:focus-visible + .cs-slider { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+.timer-import-external-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:nowrap;width:100%;min-height:28px;margin:9px 0 12px;box-sizing:border-box;font:400 13px/1.4 'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;color:var(--text-muted);}
+.timer-import-external-label{margin-right:auto;white-space:nowrap;}
+.timer-import-switch{display:flex;align-items:center;gap:6px;flex:none;color:var(--text-muted);}
+.timer-import-switch .cs-switch{flex:none;margin:0;}
+
+.timer-import-external-row:has(input:disabled){opacity:.65;}
 #timer-import-status {
     display: flex;
     align-items: center;
