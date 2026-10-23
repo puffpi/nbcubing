@@ -10,6 +10,7 @@ let searchHistoryList = [];
 let inlinePkState = 0;
 let inlinePkPlayerA = null;
 let pendingPkPlayerB = null;
+const inlinePkDirtyPages = new Set();
 let isDataReady = false;
 let allHistoryData = {};
 let historyDataPromise = null;
@@ -34,7 +35,7 @@ function loadOptionalScript(url, ready) {
     return promise;
 }
 
-const ensureChartJs = () => loadOptionalScript('https://cdn.jsdelivr.net/npm/chart.js', () => !!window.Chart);
+const ensureChartJs = () => loadOptionalScript('vendor/chart-4.5.1.umd.min.js?v=4.5.1', () => !!window.Chart);
 async function ensureThreeCore() {
     if (window.THREE) return;
     try {
@@ -534,7 +535,7 @@ function preloadFormulaViewer() {
     if (formulaViewerPromise) return formulaViewerPromise;
     formulaViewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'formulas/formula_viewer.js?v=18';
+        script.src = 'formulas/formula_viewer.js?v=1.46.5';
         script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
         script.onerror = () => reject(new Error('公式图示组件加载失败'));
         document.body.appendChild(script);
@@ -708,14 +709,7 @@ function goBack() {
         }
     }
 
-    if (inlinePkState !== 0) {
-        inlinePkState = 0; inlinePkPlayerA = null; pendingPkPlayerB = null;
-        document.body.classList.remove('pk-mode');
-        const floatingBar = document.getElementById('pk-floating-bar');
-        if (floatingBar) floatingBar.style.display = 'none';
-        const confirmModal = document.getElementById('pk-confirm-modal');
-        if (confirmModal) confirmModal.style.display = 'none';
-    }
+    if (inlinePkState !== 0) cancelInlinePK(false);
 
     if (historyStack.length > 0) {
         const prevState = historyStack.pop();
@@ -728,6 +722,9 @@ function goBack() {
 
 function showPage(pageId) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
+    const previousPage = document.querySelector('.page-container.active');
+    if (previousPage && previousPage.id !== pageId && (inlinePkState || pendingPkPlayerB)) cancelInlinePK(false);
+    if (previousPage?.id === 'cube-explorer-page' && pageId !== previousPage.id) window.CubeExplorer?.leave();
     if (typeof forumPageChanged === 'function') forumPageChanged(pageId);
     if (pageId !== 'competition-detail-page') {
         if (competitionCountdownTimer) clearInterval(competitionCountdownTimer);
@@ -742,6 +739,11 @@ function showPage(pageId) {
     });
     void page.offsetWidth;
     page.classList.add('active');
+    if (isDataReady && inlinePkDirtyPages.delete(pageId)) {
+        if (pageId === 'ranking-page') updateRanking();
+        if (pageId === 'records-page') generateRecords();
+    }
+    if (pageId === 'cube-explorer-page') window.CubeExplorer?.enter();
     if(pageId==='person-page'&&typeof restorePublicProfile==='function')restorePublicProfile();
     if (pageId === 'competition-detail-page' && (activeCompetitionWcaData || activeCompetitionWcif)) startCompetitionCountdown();
     if (pageId === 'competition-detail-page' && activeCompetitionDetail) startCompetitionAvailabilityRefresh(activeCompetitionDetail);
@@ -774,13 +776,27 @@ function startInlinePK(wcaId, name) {
     if (document.getElementById('records-page').classList.contains('active')) generateRecords();
 }
 
-function cancelInlinePK() {
+function cancelInlinePK(refresh = true) {
     inlinePkState = 0;
     inlinePkPlayerA = null;
+    pendingPkPlayerB = null;
     document.body.classList.remove('pk-mode');
     document.getElementById('pk-floating-bar').style.display = 'none';
-    if (document.getElementById('ranking-page').classList.contains('active')) updateRanking();
-    if (document.getElementById('records-page').classList.contains('active')) generateRecords();
+    document.getElementById('pk-float-name').textContent = '';
+    document.getElementById('pk-confirm-modal').style.display = 'none';
+    inlinePkDirtyPages.add('ranking-page'); inlinePkDirtyPages.add('records-page');
+    if (refresh && document.getElementById('ranking-page').classList.contains('active')) updateRanking();
+    if (refresh && document.getElementById('records-page').classList.contains('active')) generateRecords();
+}
+
+async function openCubeExplorer() {
+    navigateTo('cube-explorer-page', true);
+    try {
+        await loadOptionalScript('cube_explorer.js?v=1.46.5', () => !!window.CubeExplorer);
+        if (document.getElementById('cube-explorer-page').classList.contains('active')) window.CubeExplorer.enter();
+    } catch (error) {
+        document.getElementById('ce-status').textContent = '工具暂时无法加载，请重新打开后重试。';
+    }
 }
 
 function selectOpponent(wcaId, name) {
@@ -2237,6 +2253,41 @@ let activeSolvePenalty = '';
 let pendingInspectionKey = null;
 let touchWasIdle = false;
 let inspectionVoiceTimers = [];
+let timerHoldStarted = null;
+
+// Input can wait behind rendering or other tasks. Use its creation timestamp,
+// on the same monotonic clock as performance.now(), rather than handler latency.
+function nbTimerInputStamp(input, now = performance.now()) {
+    let stamp = typeof input === 'number' ? input : input?.timeStamp;
+    if (!Number.isFinite(stamp)) return now;
+    if (stamp > 1e12) stamp -= performance.timeOrigin; // Older WebKit epoch timestamps.
+    return stamp >= 0 && stamp <= now ? stamp : now;
+}
+
+function beginNbTimerHold(event, inspection = false) {
+    timerHoldStarted = nbTimerInputStamp(event);
+    timerState = inspection ? 'WAITING_INSPECTION' : 'WAITING';
+    const display = document.getElementById('timer-display');
+    if (inspection) setInspectionColor('inspection-holding');
+    else display.classList.add('waiting');
+    clearTimeout(timerHoldTimeout);
+    timerHoldTimeout = setTimeout(() => {
+        if (timerState !== (inspection ? 'WAITING_INSPECTION' : 'WAITING')) return;
+        timerState = inspection ? 'READY_INSPECTION' : 'READY';
+        if (inspection) setInspectionColor('inspection-ready');
+        else { display.classList.remove('waiting'); display.classList.add('ready'); }
+    }, Math.max(0, 350 - (performance.now() - timerHoldStarted)));
+}
+
+function resolveNbTimerHold(event) {
+    if (timerHoldStarted === null) return;
+    const inspection = ['WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState);
+    if (!inspection && !['WAITING', 'READY'].includes(timerState)) return;
+    const ready = nbTimerInputStamp(event) - timerHoldStarted >= 350;
+    clearTimeout(timerHoldTimeout);
+    timerState = inspection ? (ready ? 'READY_INSPECTION' : 'WAITING_INSPECTION') : (ready ? 'READY' : 'WAITING');
+    timerHoldStarted = null;
+}
 
 function setInspectionColor(state) {
     const display = document.getElementById('timer-display');
@@ -2299,18 +2350,18 @@ function scheduleInspectionVoice() {
     }
 }
 
-function beginInspection() {
+function beginInspection(stamp = performance.now()) {
     if (!timerScrambleReady) return;
     timerState = 'OBSERVING';
-    inspectionStartTime = performance.now();
+    inspectionStartTime = nbTimerInputStamp(stamp);
     inspectionPenalty = '';
     setInspectionColor('inspecting');
     scheduleInspectionVoice();
     renderInspection();
 }
 
-function finishInspection() {
-    const elapsed = performance.now() - inspectionStartTime;
+function finishInspection(stamp = performance.now()) {
+    const elapsed = Math.max(0, nbTimerInputStamp(stamp) - inspectionStartTime);
     inspectionPenalty = elapsed >= 17000 ? 'DNF' : elapsed >= 15000 ? '+2' : '';
     cancelAnimationFrame(inspectionFrameId);
     inspectionVoiceTimers.forEach(clearTimeout);
@@ -2321,6 +2372,7 @@ function finishInspection() {
 
 function resetInspection() {
     clearTimeout(timerHoldTimeout);
+    timerHoldStarted = null;
     cancelAnimationFrame(inspectionFrameId);
     inspectionVoiceTimers.forEach(clearTimeout);
     inspectionVoiceTimers = [];
@@ -2407,32 +2459,135 @@ function confirmTimerExport() {
     });
 }
 
+let timerImportMode = 'native', timerImportFile = null, timerImportTask = null;
+let timerImportHistoryKey = '', timerImportComplete = false;
+function setTimerImportStatus(message, kind = '') {
+    const status = document.getElementById('timer-import-status');
+    status.hidden = !message;
+    status.dataset.kind = kind;
+    document.getElementById('timer-import-status-text').textContent = message;
+    status.querySelector('.timer-import-spinner').hidden = kind !== 'loading';
+}
+function renderTimerImportMode() {
+    const dc = timerImportMode === 'dc';
+    document.getElementById('timer-import-textarea').hidden = dc;
+    document.getElementById('timer-import-dropzone').hidden = !dc;
+    const toggle = document.getElementById('timer-import-mode-toggle');
+    toggle.textContent = dc ? '返回粘贴成绩数据' : '导入 DC Timer 数据';
+    toggle.setAttribute('aria-pressed', String(dc));
+}
+function setTimerImportBusy(busy) {
+    document.getElementById('timer-import-modal').setAttribute('aria-busy', String(busy));
+    for (const id of ['timer-import-textarea', 'timer-import-dropzone', 'timer-import-file-input', 'timer-import-mode-toggle']) {
+        document.getElementById(id).disabled = busy || timerImportComplete;
+    }
+    const confirm = document.getElementById('timer-import-confirm');
+    confirm.disabled = busy;
+    confirm.textContent = busy ? '载入中...' : timerImportComplete ? '完成' : '确定导入';
+    document.getElementById('timer-import-cancel').hidden = timerImportComplete;
+}
 function openTimerImportModal() {
+    if (timerImportTask) timerImportTask.cancelled = true;
+    timerImportTask = null;
+    timerImportMode = 'native'; timerImportFile = null; timerImportComplete = false;
+    timerImportHistoryKey = getTimerHistoryKey();
     document.getElementById('timer-more-dropdown').style.display = 'none';
     document.getElementById('timer-import-textarea').value = '';
+    document.getElementById('timer-import-file-input').value = '';
+    document.getElementById('timer-import-file-name').textContent = '将 DC Timer 文件拖到这里';
+    document.getElementById('timer-import-file-hint').textContent = '或点击选择 .txt 文件';
+    document.getElementById('timer-import-dropzone').classList.remove('is-dragging');
+    setTimerImportStatus(''); renderTimerImportMode(); setTimerImportBusy(false);
     document.getElementById('timer-import-modal').style.display = 'flex';
 }
-function closeTimerImportModal() { document.getElementById('timer-import-modal').style.display = 'none'; }
-
-function confirmTimerImport() {
-    const str = document.getElementById('timer-import-textarea').value.trim();
-    if (!str) return alert('输入内容不能为空！');
-    try {
-        const parsed = JSON.parse(str);
-        if (!Array.isArray(parsed)) throw new Error('格式不合法');
-
-        // 追加合并成绩，并剔除无效数据
-        const currentData = timerHistoryData[getTimerHistoryKey()] || [];
-        const validParsed = parsed.filter(r => r.hasOwnProperty('rawMs') && typeof r.rawMs === 'number');
-        timerHistoryData[getTimerHistoryKey()] = [...currentData, ...validParsed];
-
-        recalculateSessionStats();
-        saveTimerData();
-        closeTimerImportModal();
-        alert('成绩导入成功！');
-    } catch (e) {
-        alert('解析失败，请检查粘贴的数据格式是否正确！');
+function closeTimerImportModal() {
+    if (timerImportTask) timerImportTask.cancelled = true;
+    timerImportTask = null;
+    document.getElementById('timer-import-modal').style.display = 'none';
+}
+function toggleTimerImportMode() {
+    if (timerImportTask || timerImportComplete) return;
+    timerImportMode = timerImportMode === 'native' ? 'dc' : 'native';
+    setTimerImportStatus(''); renderTimerImportMode();
+}
+function chooseTimerImportFile() {
+    if (timerImportTask || timerImportComplete) return;
+    document.getElementById('timer-import-file-input').value = '';
+    document.getElementById('timer-import-file-input').click();
+}
+function selectTimerImportFiles(files) {
+    if (timerImportTask || timerImportComplete || !files?.length) return;
+    if (files.length !== 1) { setTimerImportStatus('请一次选择一个 DC Timer 文本文件。', 'error'); return; }
+    timerImportFile = files[0];
+    document.getElementById('timer-import-file-name').textContent = timerImportFile.name;
+    document.getElementById('timer-import-file-hint').textContent = '已选择文件，点击“确定导入”开始识别；点击此处可更换';
+    setTimerImportStatus('');
+}
+function dragOverTimerImport(event) {
+    event.preventDefault(); event.stopPropagation();
+    if (timerImportTask || timerImportComplete) return;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    event.currentTarget.classList.add('is-dragging');
+}
+function leaveTimerImportDropzone(event) {
+    if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.classList.remove('is-dragging');
+}
+function dropTimerImportFile(event) {
+    event.preventDefault(); event.stopPropagation();
+    event.currentTarget.classList.remove('is-dragging');
+    selectTimerImportFiles(event.dataTransfer?.files);
+}
+async function confirmTimerImport() {
+    if (timerImportTask) return;
+    if (timerImportComplete) { closeTimerImportModal(); return; }
+    const dc = timerImportMode === 'dc';
+    const text = document.getElementById('timer-import-textarea').value.trim();
+    if (dc ? !timerImportFile : !text) {
+        setTimerImportStatus(dc ? '请先拖入或选择一个 DC Timer 文本文件。' : '请先粘贴成绩数据。', 'error'); return;
     }
+    const task = { cancelled: false, key: timerImportHistoryKey };
+    timerImportTask = task; setTimerImportBusy(true); setTimerImportStatus('载入中...', 'loading');
+    try {
+        // Let the busy state paint before reading or parsing. The DC parser also yields between batches.
+        await new Promise(resolve => setTimeout(resolve, 32));
+        if (task.cancelled) return;
+        let imported;
+        if (dc) {
+            if (!window.DcTimerImport) throw new Error('导入组件尚未加载，请刷新页面后重试。');
+            imported = await DcTimerImport.readDcTimerFile(timerImportFile, { isCancelled: () => task.cancelled });
+            // DC numbers run oldest to newest; NB Timer stores newest first.
+            imported.reverse();
+        } else {
+            let parsed;
+            try { parsed = JSON.parse(text); } catch { throw new Error('解析失败，请检查粘贴的数据格式是否正确。'); }
+            if (!Array.isArray(parsed)) throw new Error('解析失败，请粘贴本系统导出的成绩数据。');
+            imported = parsed.filter(r => r && Number.isFinite(r.rawMs) && r.rawMs >= 0).map(r => ({
+                ...r, penalty: ['+2', 'DNF'].includes(r.penalty) ? r.penalty : '',
+                scramble: typeof r.scramble === 'string' ? r.scramble : '',
+                timestamp: typeof r.timestamp === 'string' ? r.timestamp : ''
+            }));
+        }
+        if (task.cancelled) return;
+        if (!imported.length) throw new Error('没有找到可导入的成绩，请检查文件或粘贴内容。');
+        const current = timerHistoryData[task.key] || [];
+        if (current.length + imported.length > 10000) throw new Error('导入后超过当前项目的 10000 条保存上限，请先备份并整理已有成绩。');
+        const history = { ...timerHistoryData, [task.key]: [...current, ...imported] };
+        // Write successfully before replacing the live list, so a full disk cannot report a false success.
+        try { localStorage.setItem('nbTimerConfig', JSON.stringify(timerConfigForStorage(history))); }
+        catch { throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。'); }
+        timerHistoryData = history;
+        recalculateSessionStats();
+        timerImportComplete = true;
+        setTimerImportStatus(`已导入 ${imported.length} 条成绩。`, 'success');
+    } catch (error) {
+        if (!task.cancelled) setTimerImportStatus(error.message || '导入失败，请检查数据后重试。', 'error');
+    } finally {
+        if (timerImportTask === task) { timerImportTask = null; setTimerImportBusy(false); }
+    }
+}
+
+function timerRecordDateLabel(record) {
+    return record.importSource === 'dc-timer' ? 'DC Timer 导入' : record.timestamp || '';
 }
 
 // ================= 智能成绩分布引擎 (带动态区间防溢出) =================
@@ -2491,6 +2646,8 @@ function openTimerDistModal() {
 
     const sortedBinKeys = Object.keys(bins).map(Number).sort((a, b) => a - b);
     container.innerHTML = '';
+    // Reserve a count-sized gutter even on narrow screens; labels sit outside bars.
+    container.style.setProperty('--dist-label-space', `${String(maxCount).length * 7 + 16}px`);
 
     // 👇 刻度字符智能格式化：自动隐藏多余小数点，超长则按分:秒格式化 👇
     const getTickStr = (val) => {
@@ -2507,7 +2664,7 @@ function openTimerDistModal() {
     sortedBinKeys.forEach((start, index) => {
         let count = bins[start];
         let end = start + stepMs;
-        let percentage = maxCount === 0 ? 0 : (count / maxCount) * 100;
+        let percentage = maxCount === 0 ? 0 : (count / maxCount) * 94;
 
         let startStr = getTickStr(start);
         let endStr = getTickStr(end);
@@ -2523,7 +2680,7 @@ function openTimerDistModal() {
                 <div class="dist-y-tick-top">${startStr}</div>
                 ${endLabelHtml}
                 <div class="dist-bar-track">
-                    <div class="dist-bar-fill" style="width: 0%; ${count === 0 ? 'background: transparent;' : ''}" data-width="${percentage}%">
+                    <div class="dist-bar-fill" style="width: 0%; ${count === 0 ? 'background: transparent; min-width: 0;' : ''}" data-width="${percentage}%">
                         ${count > 0 ? `<span class="dist-bar-label">${count}</span>` : ''}
                     </div>
                 </div>
@@ -2546,91 +2703,127 @@ function closeTimerDistModal() {
 }
 
 
-// ================= 折线图走势引擎 =================
-let timerTrendChartInstance = null;
-
+// ================= NB Timer trend chart: prepared data and cached paths =================
+let timerTrendChartInstance = null, timerTrendSequence = 0, timerTrendAnimationFrame = 0;
+function setTimerTrendStatus(message, state = 'loading') {
+    const status = document.getElementById('timer-trend-status');
+    status.hidden = !message;
+    status.dataset.state = state;
+    status.querySelector('.timer-trend-message').textContent = message;
+}
+function animateTimerTrend(chart) {
+    const start = performance.now(), duration = 340;
+    const frame = now => {
+        if (timerTrendChartInstance !== chart) return;
+        const progress = Math.min(1, (now - start) / duration);
+        chart.$timerReveal = 1 - Math.pow(1 - progress, 3);
+        // Draw the cached paths; never rebuild thousands of points per frame.
+        chart.draw();
+        timerTrendAnimationFrame = progress < 1 ? requestAnimationFrame(frame) : 0;
+    };
+    timerTrendAnimationFrame = requestAnimationFrame(frame);
+}
+const timerTrendRevealPlugin = {
+    id: 'timerTrendReveal',
+    beforeInit(chart) { chart.$timerReveal = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0; },
+    beforeEvent(chart) { if (chart.$timerReveal < 1) return false; },
+    beforeDatasetsDraw(chart) {
+        if (chart.$timerReveal >= 1 || !chart.chartArea) return;
+        const { left, top, right, bottom } = chart.chartArea;
+        chart.ctx.save();
+        chart.$timerRevealSaved = true;
+        // Reveal cached lines left to right without moving points or rescaling axes.
+        chart.ctx.beginPath();
+        chart.ctx.rect(left - 4, top - 4, (right - left + 8) * chart.$timerReveal, bottom - top + 8);
+        chart.ctx.clip();
+    },
+    afterDatasetsDraw(chart) { if (chart.$timerRevealSaved) { chart.ctx.restore(); chart.$timerRevealSaved = false; } }
+};
 async function openTimerTrendModal() {
     document.getElementById('timer-more-dropdown').style.display = 'none';
     const records = timerHistoryData[getTimerHistoryKey()] || [];
-    const ctx = document.getElementById('timer-trend-canvas').getContext('2d');
-
-    if (records.length === 0) {
-        alert('暂无成绩数据可生成图表');
-        return;
-    }
-    try { await ensureChartJs(); }
-    catch (error) {
-        console.warn('图表组件加载失败', error);
-        alert('图表暂时无法加载，请检查网络后重试');
-        return;
-    }
-
-    // 数据反转，从老到新
-    const chronoRecords = [...records].reverse();
-
-    const labels = chronoRecords.map((_, i) => `#${i + 1}`);
-    const chartSeconds = ms => ms === Infinity ? null : Math.floor(ms / (uiSettings.nbPrecision === 3 ? 1 : 10)) / (uiSettings.nbPrecision === 3 ? 1000 : 100);
-    const singleData = chronoRecords.map(r => chartSeconds(r.effectiveMs));
-    const stat1Data = chronoRecords.map(r => chartSeconds(r.stat1Ms));
-    const stat2Data = chronoRecords.map(r => chartSeconds(r.stat2Ms));
-
-    if (timerTrendChartInstance) {
-        timerTrendChartInstance.destroy();
-    }
-
-    timerTrendChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: '单次',
-                    data: singleData,
-                    borderColor: '#f59e0b', // 琥珀橙
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 2,
-                    spanGaps: true // 跨越 DNF
-                },
-                {
-                    label: `${stat1.type}${stat1.count}`,
-                    data: stat1Data,
-                    borderColor: '#3b82f6', // 经典蓝
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointRadius: 0, // 隐藏端点使曲线更干净
-                    spanGaps: true
-                },
-                {
-                    label: `${stat2.type}${stat2.count}`,
-                    data: stat2Data,
-                    borderColor: '#10b981', // 翡翠绿
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    spanGaps: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { position: 'top', labels: { font: { size: 13, family: 'sans-serif' } } },
-                tooltip: { backgroundColor: 'rgba(51, 65, 85, 0.95)' }
-            },
-            scales: {
-                y: { title: { display: true, text: '时间 (秒)', font: { size: 12 } } },
-                x: { ticks: { autoSkip: true, maxTicksLimit: 10 } }
-            }
+    if (!records.length) { alert('暂无成绩数据可生成图表'); return; }
+    closeTimerTrendModal();
+    const sequence = ++timerTrendSequence;
+    const modal = document.getElementById('timer-trend-modal');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-busy', 'true');
+    setTimerTrendStatus('载入中...');
+    try {
+        // Paint the loading state and measure a visible canvas before construction.
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        if (sequence !== timerTrendSequence) return;
+        await ensureChartJs();
+        if (sequence !== timerTrendSequence) return;
+        const data = [[], [], []], quantum = uiSettings.nbPrecision === 3 ? 1 : 10;
+        let minimum = Infinity, maximum = -Infinity;
+        const seconds = ms => {
+            if (!Number.isFinite(ms) || ms < 0) return null;
+            const value = Math.floor(ms / quantum) * quantum / 1000;
+            minimum = Math.min(minimum, value); maximum = Math.max(maximum, value);
+            return value;
+        };
+        // Keep every solve, including gaps. Hover uses the original record index.
+        for (let index = records.length - 1; index >= 0; index--) {
+            const record = records[index], x = records.length - index;
+            const single = record.penalty === 'DNF' || record.smartAborted ? Infinity : Number(record.rawMs) + (record.penalty === '+2' ? 2000 : 0);
+            data[0].push({ x, y: seconds(single) });
+            data[1].push({ x, y: seconds(record.stat1Ms) });
+            data[2].push({ x, y: seconds(record.stat2Ms) });
         }
-    });
-
-    document.getElementById('timer-trend-modal').style.display = 'flex';
+        const pointLimit = Math.min(120, Math.max(30, Math.floor(document.getElementById('timer-trend-canvas').clientWidth / 6)));
+        const dense = records.length > pointLimit, span = Number.isFinite(minimum) ? Math.max(1, maximum - minimum) : 1;
+        const chart = new Chart(document.getElementById('timer-trend-canvas').getContext('2d'), {
+            type: 'line',
+            plugins: [timerTrendRevealPlugin],
+            data: { datasets: [
+                { label: '单次', data: data[0], borderColor: '#f59e0b', order: 3, pointRadius: dense ? 0 : 2 },
+                { label: stat1.type + stat1.count, data: data[1], borderColor: '#3b82f6', order: 2, pointRadius: 0 },
+                { label: stat2.type + stat2.count, data: data[2], borderColor: '#10b981', order: 1, pointRadius: 0 }
+            ].map(dataset => ({ ...dataset, backgroundColor: 'transparent', borderWidth: 2, pointHoverRadius: 4, pointHitRadius: 10, tension: 0, spanGaps: true })) },
+            options: {
+                responsive: true, maintainAspectRatio: false, resizeDelay: 80,
+                parsing: false, normalized: true, animation: false,
+                devicePixelRatio: Math.min(2, window.devicePixelRatio || 1),
+                interaction: { mode: 'index', axis: 'x', intersect: false },
+                plugins: {
+                    legend: { position: 'top', labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex, boxWidth: 18, boxHeight: 2, padding: 16, font: { size: 12, family: 'sans-serif' } } },
+                    tooltip: { itemSort: (a, b) => a.datasetIndex - b.datasetIndex, animation: false, backgroundColor: 'rgba(51, 65, 85, 0.95)', callbacks: {
+                        title: items => items.length ? '#' + items[0].parsed.x : ''
+                    } }
+                },
+                scales: {
+                    y: { min: Number.isFinite(minimum) ? Math.max(0, minimum - span * .08) : 0,
+                         max: Number.isFinite(maximum) ? maximum + span * .08 : 1,
+                         title: { display: true, text: '时间 (秒)', font: { size: 12 } },
+                         ticks: { maxTicksLimit: 7, sampleSize: 7 } },
+                    x: { type: 'linear', min: 1, max: Math.max(2, records.length),
+                         ticks: { autoSkip: true, maxTicksLimit: window.innerWidth < 500 ? 5 : 10, minRotation: 0, maxRotation: 0,
+                                  callback: value => '#' + Math.round(value) } }
+                }
+            }
+        });
+        timerTrendChartInstance = chart;
+        setTimerTrendStatus('');
+        if (chart.$timerReveal < 1) animateTimerTrend(chart);
+    } catch (error) {
+        if (sequence !== timerTrendSequence) return;
+        const incomplete = timerTrendChartInstance || window.Chart?.getChart?.(document.getElementById('timer-trend-canvas'));
+        if (incomplete) incomplete.destroy();
+        timerTrendChartInstance = null;
+        console.warn('成绩折线图加载失败', error);
+        setTimerTrendStatus('图表暂时无法加载，请关闭后重试。', 'error');
+    } finally {
+        if (sequence === timerTrendSequence) modal.setAttribute('aria-busy', 'false');
+    }
 }
 function closeTimerTrendModal() {
-    document.getElementById('timer-trend-modal').style.display = 'none';
+    timerTrendSequence++;
+    cancelAnimationFrame(timerTrendAnimationFrame); timerTrendAnimationFrame = 0;
+    if (timerTrendChartInstance) { timerTrendChartInstance.destroy(); timerTrendChartInstance = null; }
+    const modal = document.getElementById('timer-trend-modal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-busy', 'false');
 }
 
 function switchSidebarTab(tab) {
@@ -2688,57 +2881,50 @@ function calculateStat(slice, type, count) {
     }
 }
 
+const timerSessionStatsCache = new WeakMap();
+function prepareTimerRecord(record, historyKey) {
+    if (historyKey.startsWith('smart-') && record.smartAborted) record.penalty = 'DNF';
+    record.effectiveMs = record.penalty === 'DNF' ? Infinity : record.rawMs + (record.penalty === '+2' ? 2000 : 0);
+    record.displayTime = record.penalty === 'DNF' ? 'DNF' : formatNbTimerOutput(record.effectiveMs) + (record.penalty === '+2' ? '+' : '');
+}
+function calculateTimerRecordStats(records, index, best) {
+    const record = records[index];
+    record.isPb = record.effectiveMs !== Infinity && record.effectiveMs < best.single;
+    if (record.isPb) best.single = record.effectiveMs;
+    for (const [number, config] of [[1, stat1], [2, stat2]]) {
+        const value = calculateStat(records.slice(index, index + config.count), config.type, config.count);
+        record[`stat${number}Str`] = value.str;
+        record[`stat${number}Ms`] = value.ms;
+        record[`isStat${number}Pb`] = value.ms !== Infinity && value.ms <= best[`stat${number}`];
+        if (record[`isStat${number}Pb`]) best[`stat${number}`] = value.ms;
+    }
+}
 function recalculateSessionStats() {
-    const sessionArr = timerHistoryData[getTimerHistoryKey()] || [];
-    currentSessionBestMs = Infinity;
-    currentSessionBestStat1Ms = Infinity;
-    currentSessionBestStat2Ms = Infinity;
-
-    for (let i = 0; i < sessionArr.length; i++) {
-        let r = sessionArr[i];
-        if(getTimerHistoryKey().startsWith('smart-')&&r.smartAborted)r.penalty='DNF';
-        if (r.penalty === '+2') {
-            r.effectiveMs = r.rawMs + 2000;
-            r.displayTime = formatNbTimerOutput(r.effectiveMs) + '+';
-        } else if (r.penalty === 'DNF') {
-            r.effectiveMs = Infinity;
-            r.displayTime = 'DNF';
-        } else {
-            r.effectiveMs = r.rawMs;
-            r.displayTime = formatNbTimerOutput(r.effectiveMs);
+    const key = getTimerHistoryKey(), records = timerHistoryData[key] || [];
+    const settings = `${key}/${stat1.type}/${stat1.count}/${stat2.type}/${stat2.count}/${uiSettings.nbPrecision}`;
+    const previous = timerSessionStatsCache.get(records);
+    // A newly completed solve changes only the newest average windows. Older
+    // windows and historical PB flags keep the same values after a prepend.
+    const prepended = previous && previous.settings === settings && records.length === previous.length + 1 && records[1] === previous.head;
+    const best = prepended ? { ...previous.best } : { single: Infinity, stat1: Infinity, stat2: Infinity };
+    let validCount = prepended ? previous.validCount : 0;
+    if (prepended) {
+        prepareTimerRecord(records[0], key);
+        if (records[0].penalty !== 'DNF') validCount++;
+        calculateTimerRecordStats(records, 0, best);
+    } else {
+        for (const record of records) {
+            prepareTimerRecord(record, key);
+            if (record.penalty !== 'DNF') validCount++;
         }
+        for (let index = records.length - 1; index >= 0; index--) calculateTimerRecordStats(records, index, best);
     }
-
-    for (let i = sessionArr.length - 1; i >= 0; i--) {
-        sessionArr[i].isPb = false;
-        if (sessionArr[i].effectiveMs !== Infinity && sessionArr[i].effectiveMs < currentSessionBestMs) {
-            currentSessionBestMs = sessionArr[i].effectiveMs;
-            sessionArr[i].isPb = true;
-        }
-
-        let slice1 = sessionArr.slice(i, i + stat1.count);
-        let s1 = calculateStat(slice1, stat1.type, stat1.count);
-        sessionArr[i].stat1Str = s1.str;
-        sessionArr[i].stat1Ms = s1.ms;
-        sessionArr[i].isStat1Pb = false;
-        if (s1.ms !== Infinity && s1.ms <= currentSessionBestStat1Ms) {
-            currentSessionBestStat1Ms = s1.ms;
-            sessionArr[i].isStat1Pb = true;
-        }
-
-        let slice2 = sessionArr.slice(i, i + stat2.count);
-        let s2 = calculateStat(slice2, stat2.type, stat2.count);
-        sessionArr[i].stat2Str = s2.str;
-        sessionArr[i].stat2Ms = s2.ms;
-        sessionArr[i].isStat2Pb = false;
-        if (s2.ms !== Infinity && s2.ms <= currentSessionBestStat2Ms) {
-            currentSessionBestStat2Ms = s2.ms;
-            sessionArr[i].isStat2Pb = true;
-        }
-    }
-
-    document.getElementById('header-stat1').innerText = `${stat1.type}${stat1.count}`;
-    document.getElementById('header-stat2').innerText = `${stat2.type}${stat2.count}`;
+    timerSessionStatsCache.set(records, { settings, length: records.length, head: records[0], best, validCount });
+    currentSessionBestMs = best.single;
+    currentSessionBestStat1Ms = best.stat1;
+    currentSessionBestStat2Ms = best.stat2;
+    document.getElementById('header-stat1').textContent = `${stat1.type}${stat1.count}`;
+    document.getElementById('header-stat2').textContent = `${stat2.type}${stat2.count}`;
     renderTimerHistory();
 }
 
@@ -2746,11 +2932,11 @@ function recalculateSessionStats() {
 let pendingSolveMs = 0;
 let pendingSolvePenalty = '';
 
-function stopTimer() {
+function stopTimer(stamp = performance.now()) {
     timerState = 'IDLE';
     cancelAnimationFrame(requestAnimFrameId);
 
-    let elapsed = Math.floor(performance.now() - solveStartTime);
+    let elapsed = Math.max(0, Math.floor(nbTimerInputStamp(stamp) - solveStartTime));
     let finalTimeStr = activeSolvePenalty === 'DNF' ? 'DNF' : formatNbTimerOutput(elapsed + (activeSolvePenalty === '+2' ? 2000 : 0)) + (activeSolvePenalty === '+2' ? '+' : '');
     document.getElementById('timer-display').innerText = finalTimeStr;
     document.getElementById('timer-display').classList.remove('nb-status-text');
@@ -2838,38 +3024,127 @@ function confirmPostSolve() {
     generateScramble();
 }
 
+const TIMER_HISTORY_ROW_HEIGHT = 44;
+let timerHistoryViewport = null;
+function updateTimerHistoryScrollbar() {
+    const list = document.getElementById('timer-history-list'), track = document.getElementById('timer-history-scrollbar');
+    if (!list || !track) return;
+    const height = list.clientHeight, maximum = Math.max(0, list.scrollHeight - height);
+    track.hidden = height <= 0 || maximum <= 1;
+    track.setAttribute('aria-valuemax', String(Math.round(maximum)));
+    track.setAttribute('aria-valuenow', String(Math.round(list.scrollTop)));
+    if (track.hidden) return;
+    const thumb = track.firstElementChild, thumbHeight = Math.min(height, Math.max(30, height * height / list.scrollHeight));
+    thumb.style.height = `${thumbHeight}px`;
+    thumb.style.transform = `translateY(${list.scrollTop / maximum * (height - thumbHeight)}px)`;
+}
+function bindTimerHistoryScrollbar(list) {
+    const track = document.getElementById('timer-history-scrollbar');
+    if (!track) return;
+    let drag = null;
+    track.addEventListener('pointerdown', event => {
+        if (event.isPrimary === false || event.button > 0) return;
+        event.preventDefault(); event.stopPropagation();
+        const rect = track.getBoundingClientRect(), thumbHeight = track.firstElementChild.getBoundingClientRect().height;
+        const maximum = Math.max(0, list.scrollHeight - list.clientHeight), travel = rect.height - thumbHeight;
+        if (maximum <= 0 || travel <= 0) return;
+        if (event.target !== track.firstElementChild) list.scrollTop = (event.clientY - rect.top - thumbHeight / 2) / travel * maximum;
+        drag = { id: event.pointerId, y: event.clientY, scrollTop: list.scrollTop, maximum, travel };
+        track.setPointerCapture(event.pointerId); track.classList.add('is-dragging');
+        updateTimerHistoryScrollbar();
+    });
+    track.addEventListener('pointermove', event => {
+        if (!drag || event.pointerId !== drag.id) return;
+        event.preventDefault(); event.stopPropagation();
+        list.scrollTop = drag.scrollTop + (event.clientY - drag.y) / drag.travel * drag.maximum;
+        updateTimerHistoryScrollbar();
+    });
+    const finish = event => {
+        if (!drag || event.pointerId !== drag.id) return;
+        event.stopPropagation(); drag = null; track.classList.remove('is-dragging');
+    };
+    track.addEventListener('pointerup', finish); track.addEventListener('pointercancel', finish); track.addEventListener('lostpointercapture', finish);
+    track.addEventListener('click', event => event.stopPropagation());
+    track.addEventListener('wheel', event => {
+        event.preventDefault(); event.stopPropagation();
+        list.scrollTop += event.deltaY * (event.deltaMode === 1 ? TIMER_HISTORY_ROW_HEIGHT : event.deltaMode === 2 ? list.clientHeight : 1);
+    }, { passive: false });
+    track.addEventListener('keydown', event => {
+        const delta = { ArrowDown: TIMER_HISTORY_ROW_HEIGHT, ArrowUp: -TIMER_HISTORY_ROW_HEIGHT, PageDown: list.clientHeight, PageUp: -list.clientHeight, ' ': (event.shiftKey ? -1 : 1) * list.clientHeight }[event.key];
+        if (delta === undefined && !['Home', 'End'].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        list.scrollTop = event.key === 'Home' ? 0 : event.key === 'End' ? list.scrollHeight : list.scrollTop + delta;
+        updateTimerHistoryScrollbar();
+    });
+}
+function paintTimerHistoryWindow(force = false) {
+    const state = timerHistoryViewport;
+    if (!state) return;
+    const { list, records } = state;
+    const visibleCount = Math.ceil((list.clientHeight || 440) / TIMER_HISTORY_ROW_HEIGHT);
+    const start = Math.max(0, Math.min(records.length - 1, Math.floor(list.scrollTop / TIMER_HISTORY_ROW_HEIGHT)) - 8);
+    const end = Math.min(records.length, start + visibleCount + 16);
+    if (!force && state.start === start && state.end === end) return;
+    state.start = start; state.end = end;
+    const fragment = document.createDocumentFragment();
+    const spacer = height => {
+        const node = document.createElement('div'); node.className = 'timer-history-spacer';
+        node.style.height = `${Math.max(0, height)}px`; node.setAttribute('aria-hidden', 'true'); return node;
+    };
+    fragment.append(spacer(start * TIMER_HISTORY_ROW_HEIGHT));
+    for (let index = start; index < end; index++) {
+        const record = records[index], row = document.createElement('div');
+        row.className = 'timer-history-item'; row.dataset.index = String(index);
+        for (const [column, text, highlight, clickable, number] of [
+            ['col-id', records.length - index, false, false, 0],
+            ['col-time', record.displayTime, record.isPb, true, 0],
+            ['col-stat', record.stat1Str, record.isStat1Pb, record.stat1Str !== '-', 1],
+            ['col-stat', record.stat2Str, record.isStat2Pb, record.stat2Str !== '-', 2]
+        ]) {
+            const cell = document.createElement('span'); cell.className = column;
+            cell.textContent = String(text ?? '-'); cell.title = cell.textContent;
+            if (clickable) { cell.classList.add('clickable-time'); cell.dataset.stat = String(number); }
+            if (highlight) cell.classList.add(column === 'col-time' ? 'timer-pb-single' : 'timer-pb-avg');
+            row.append(cell);
+        }
+        fragment.append(row);
+    }
+    fragment.append(spacer((records.length - end) * TIMER_HISTORY_ROW_HEIGHT));
+    list.replaceChildren(fragment);
+}
 function renderTimerHistory() {
     const list = document.getElementById('timer-history-list');
-    list.innerHTML = '';
     const records = timerHistoryData[getTimerHistoryKey()] || [];
-
-    records.forEach((r, index) => {
-        const div = document.createElement('div');
-        div.className = 'timer-history-item';
-        let displayCount = records.length - index;
-
-        let stat1Name = stat1.type + stat1.count;
-        let stat2Name = stat2.type + stat2.count;
-
-        let stat1Click = r.stat1Str !== '-' ? `onclick="openAvgPopup(${index}, ${stat1.count}, '${stat1Name}', '${r.stat1Str}')"` : '';
-        let stat2Click = r.stat2Str !== '-' ? `onclick="openAvgPopup(${index}, ${stat2.count}, '${stat2Name}', '${r.stat2Str}')"` : '';
-
-        let stat1Class = r.stat1Str !== '-' ? 'clickable-time' : '';
-        let stat2Class = r.stat2Str !== '-' ? 'clickable-time' : '';
-
-        // 核心修复：应用 timer-pb-single 和 timer-pb-avg 以完美响应你的颜色设置
-        div.innerHTML = `
-            <span class="col-id">${displayCount}</span>
-            <span class="col-time clickable-time ${r.isPb ? 'timer-pb-single' : ''}" onclick="openEditPopup(${index})">${r.displayTime}</span>
-            <span class="col-stat ${stat1Class} ${r.isStat1Pb ? 'timer-pb-avg' : ''}" ${stat1Click}>${r.stat1Str}</span>
-            <span class="col-stat ${stat2Class} ${r.isStat2Pb ? 'timer-pb-avg' : ''}" ${stat2Click}>${r.stat2Str}</span>
-        `;
-        list.appendChild(div);
-    });
-
+    if (!list.dataset.virtualHistory) {
+        list.dataset.virtualHistory = 'true'; list.tabIndex = 0;
+        list.setAttribute('aria-label', '成绩列表，可上下滚动');
+        let frame = null;
+        const resize = () => { paintTimerHistoryWindow(true); updateTimerHistoryScrollbar(); };
+        bindTimerHistoryScrollbar(list);
+        list.addEventListener('scroll', () => {
+            if (frame !== null) return;
+            frame = requestAnimationFrame(() => { frame = null; paintTimerHistoryWindow(); updateTimerHistoryScrollbar(); });
+        }, { passive: true });
+        list.addEventListener('click', event => {
+            const cell = event.target.closest('.clickable-time[data-stat]');
+            if (!cell || !list.contains(cell)) return;
+            const index = Number(cell.closest('.timer-history-item').dataset.index);
+            const record = timerHistoryData[getTimerHistoryKey()]?.[index];
+            if (!record) return;
+            if (cell.dataset.stat === '0') openEditPopup(index);
+            else { const number = Number(cell.dataset.stat), config = number === 1 ? stat1 : stat2;
+                openAvgPopup(index, config.count, config.type + config.count, record[`stat${number}Str`]); }
+        });
+        if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe(list);
+        else window.addEventListener('resize', resize);
+    }
+    if (timerHistoryViewport?.key !== getTimerHistoryKey()) list.scrollTop = 0;
+    timerHistoryViewport = { list, records, key: getTimerHistoryKey(), start: -1, end: -1 };
+    paintTimerHistoryWindow(true);
+    updateTimerHistoryScrollbar();
     if (records.length > 0) {
         // 👇 核心新增：实时计算有效成绩次数并更新显示 👇
-        let validCount = records.filter(r => r.penalty !== 'DNF').length;
+        let validCount = timerSessionStatsCache.get(records)?.validCount ?? records.filter(r => r.penalty !== 'DNF').length;
         let countEl = document.getElementById('timer-stat-count');
         if (countEl) countEl.innerText = `${validCount}/${records.length}`;
 
@@ -2887,6 +3162,121 @@ function renderTimerHistory() {
 }
 
 // ================= 编辑成绩弹窗交互逻辑 =================
+let editScramblePreviewTask = null;
+function cancelEditScramblePreview() {
+    const task = editScramblePreviewTask;
+    editScramblePreviewTask = null;
+    if (!task) return;
+    task.controller.abort();
+    task.puzzle?.disconnect?.();
+    task.scene?.currentTwisty2DPuzzleWrapper?.()?.disconnect?.();
+    task.scene?.disconnect?.();
+    for (const vantage of task.vantages || []) vantage.disconnect?.();
+    task.player?.pause?.();
+    task.player?.remove();
+}
+function waitForEditPreviewValue(task, root, read) {
+    return new Promise((resolve, reject) => {
+        const abort = () => { observer.disconnect(); reject(new DOMException('预览已关闭', 'AbortError')); };
+        const check = () => {
+            if (task.controller.signal.aborted) return abort();
+            const value = read();
+            if (value) { observer.disconnect(); resolve(value); }
+        };
+        const observer = new MutationObserver(check);
+        observer.observe(root, { childList: true, subtree: true });
+        task.controller.signal.addEventListener('abort', abort, { once: true });
+        task.cleanups.push(() => { observer.disconnect(); task.controller.signal.removeEventListener('abort', abort); });
+        check();
+    });
+}
+async function loadEditScramblePreview(record, puzzleEvent, unsupported) {
+    cancelEditScramblePreview();
+    const preview = document.getElementById('edit-scramble-preview');
+    if (!preview) return;
+    preview.querySelector('twisty-player')?.remove();
+    const status = document.getElementById('edit-scramble-loading');
+    const message = status.querySelector('.edit-preview-message');
+    const spinner = status.querySelector('.edit-preview-spinner');
+    preview.dataset.state = unsupported ? 'unavailable' : 'loading';
+    preview.setAttribute('aria-busy', String(!unsupported));
+    status.hidden = unsupported;
+    spinner.hidden = false;
+    message.textContent = '载入中...';
+    if (unsupported) return;
+    const task = { controller: new AbortController(), cleanups: [] };
+    editScramblePreviewTask = task;
+    const checkCurrent = () => {
+        if (editScramblePreviewTask !== task || task.controller.signal.aborted) throw new DOMException('预览已关闭', 'AbortError');
+    };
+    let timer, abort;
+    const cancelledOrTimedOut = new Promise((_, reject) => {
+        abort = () => reject(new DOMException('预览已关闭', 'AbortError'));
+        task.controller.signal.addEventListener('abort', abort, { once: true });
+        // A failure boundary, never a substitute for the renderer's readiness.
+        timer = setTimeout(() => reject(new Error('预览加载超时')), 15000);
+    });
+    try {
+        await Promise.race([cancelledOrTimedOut, (async () => {
+            await ensureTwistyPlayer();
+            checkCurrent();
+            await customElements.whenDefined('twisty-player');
+            checkCurrent();
+            const player = document.createElement('twisty-player');
+            task.player = player;
+            player.id = 'edit-scramble-display';
+            player.setAttribute('control-panel', 'none');
+            player.setAttribute('background', 'none');
+            player.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
+            player.setAttribute('visualization', puzzleEvent === 'fto' ? 'auto' : '2D');
+            player.setAttribute('alg', String(record.scramble || '').replace(/<br\s*\/?>/gi, ' '));
+            player.setAttribute('aria-hidden', 'true');
+            player.style.transform = `scale(${getScrambleZoom(puzzleEvent)})`;
+            player.timestamp = 'end';
+            preview.appendChild(player);
+            const model = player.experimentalModel;
+            const parsed = await model.puzzleAlg.get();
+            if (parsed.issues.errors.length) throw new Error('打乱内容无法绘图');
+            const position = await model.legacyPosition.get();
+            checkCurrent();
+            if (puzzleEvent === 'fto') {
+                const puzzle = await player.experimentalCurrentThreeJSPuzzleObject();
+                checkCurrent();
+                puzzle.onPositionChange(position);
+                task.vantages = Array.from(await player.experimentalCurrentVantages());
+                if (!task.vantages.length) throw new Error('预览视角尚未创建');
+                await Promise.all(task.vantages.map(vantage => vantage.render()));
+            } else {
+                // These are the same SVG-construction and position promises
+                // used by cubing.js's 2D renderer, not a guessed paint delay.
+                const scene = await waitForEditPreviewValue(task, player.contentWrapper, () => player.contentWrapper.querySelector('twisty-2d-scene-wrapper'));
+                task.scene = scene;
+                const wrapper = await waitForEditPreviewValue(task, scene.contentWrapper, () => scene.currentTwisty2DPuzzleWrapper());
+                const puzzle = await wrapper.twisty2DPuzzle();
+                checkCurrent();
+                task.puzzle = puzzle;
+                puzzle.svgWrapper.draw(position.pattern);
+            }
+            checkCurrent();
+            player.removeAttribute('aria-hidden');
+            preview.dataset.state = 'ready';
+            status.hidden = true;
+        })()]);
+    } catch (error) {
+        if (editScramblePreviewTask === task && error.name !== 'AbortError') {
+            preview.dataset.state = 'error';
+            spinner.hidden = true;
+            message.textContent = '打乱图暂时无法加载，请重新打开后重试。';
+            status.hidden = false;
+            task.controller.abort();
+        }
+    } finally {
+        clearTimeout(timer);
+        task.controller.signal.removeEventListener('abort', abort);
+        task.cleanups.forEach(cleanup => cleanup());
+        if (editScramblePreviewTask === task) preview.setAttribute('aria-busy', 'false');
+    }
+}
 function openEditPopup(index) {
     editScoreIndex = index;
     const records = timerHistoryData[getTimerHistoryKey()];
@@ -2899,28 +3289,11 @@ function openEditPopup(index) {
 
     document.getElementById('edit-index').innerText = `#${records.length - index}`;
     document.getElementById('edit-time').innerText = r.displayTime;
-    document.getElementById('edit-timestamp').innerText = r.timestamp;
+    document.getElementById('edit-timestamp').innerText = timerRecordDateLabel(r);
     document.getElementById('edit-scramble').innerText = r.scramble;
 
-    // 核心新增：渲染卡片内部的打乱图并应用缩放补偿
-    const editDisplayEl = document.getElementById('edit-scramble-display');
-    if (editDisplayEl) {
-        const unsupported=timerOtherEvents.some(e=>e.id===currentTimerEvent);
-        editDisplayEl.hidden=unsupported;
-        let cleanScramble = unsupported?'':r.scramble.replace(/<br>/g, ' ');
-        const puzzleEvent = currentTimerMode === 'smart' ? timerSmartEvent : currentTimerEvent;
-        editDisplayEl.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
-        editDisplayEl.setAttribute('visualization', puzzleEvent === 'fto' ? 'auto' : '2D');
-        editDisplayEl.setAttribute('alg', cleanScramble);
-
-        editDisplayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
-        editDisplayEl.style.transform = `scale(${getScrambleZoom(puzzleEvent)})`;
-
-        // 瞬间跳转到打乱最终态
-        setTimeout(() => {
-            editDisplayEl.timestamp = "end";
-        }, 10);
-    }
+    const puzzleEvent = currentTimerMode === 'smart' ? timerSmartEvent : currentTimerEvent;
+    void loadEditScramblePreview(r, puzzleEvent, timerOtherEvents.some(e => e.id === puzzleEvent));
 
     setEditPenalty(currentEditPenalty, false);
     document.getElementById('edit-score-popup').style.display = 'flex';
@@ -3020,7 +3393,7 @@ function openAvgPopup(index, count, typeLabel, avgValue) {
         range: rangeStr,
         title: `${typeLabel} = ${avgValue}`,
         copyTitle: copyTitle,
-        timestamp: solves[0].timestamp, // 取最后一次复原的时间
+        timestamp: timerRecordDateLabel(solves[0]), // 取最后一次复原的时间或导入来源
         best: bestStr,
         worst: worstStr,
         median: medianStr,
@@ -3075,10 +3448,12 @@ function openAvgDetails() {
         item.innerHTML = `
             <div class="avg-detail-row1">
                 <span class="avg-detail-time">#${num} &nbsp; ${s.finalDisp}</span>
-                <span class="avg-detail-date">${s.timestamp}</span>
+                <span class="avg-detail-date"></span>
             </div>
-            <div class="avg-detail-scramble">${s.scramble}</div>
+            <div class="avg-detail-scramble"></div>
         `;
+        item.querySelector('.avg-detail-date').textContent = timerRecordDateLabel(s);
+        item.querySelector('.avg-detail-scramble').textContent = (s.scramble || '').replace(/<br\s*\/?>/gi, '\n');
         listContainer.appendChild(item);
     });
 
@@ -3090,6 +3465,7 @@ function closeAvgDetails() {
 }
 
 function closeEditPopup() {
+    cancelEditScramblePreview();
     document.getElementById('edit-score-popup').style.display = 'none';
 }
 
@@ -3295,15 +3671,16 @@ function formatTimerOutput(ms) {
     return `${sec}.${centi}`;
 }
 
-function startTimer() {
+function startTimer(stamp = performance.now()) {
     if (!timerScrambleReady) { timerState = 'IDLE'; return; }
-    if (timerState === 'READY_INSPECTION') activeSolvePenalty = finishInspection();
+    stamp = nbTimerInputStamp(stamp);
+    if (timerState === 'READY_INSPECTION') activeSolvePenalty = finishInspection(stamp);
     else activeSolvePenalty = '';
     timerState = 'RUNNING';
     const display = document.getElementById('timer-display');
     display.classList.remove('ready', 'waiting');
     setInspectionColor('');
-    solveStartTime = performance.now();
+    solveStartTime = stamp;
 
     function update() {
         if (timerState !== 'RUNNING') return;
@@ -3481,6 +3858,8 @@ function renderTimerScramble(scramble,displayEvent){
 document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (document.getElementById('timer-import-modal')?.style.display === 'flex') return;
+    if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar')) return;
     if (currentTimerMode === 'smart') return;
     if (!timerScrambleReady && timerState === 'IDLE' && e.code !== 'ArrowRight') return;
 
@@ -3504,14 +3883,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (uiSettings.inspection && timerState === 'OBSERVING' && e.code === 'Space' && !e.repeat) {
         e.preventDefault();
-        timerState = 'WAITING_INSPECTION';
-        setInspectionColor('inspection-holding');
-        timerHoldTimeout = setTimeout(() => {
-            if (timerState === 'WAITING_INSPECTION') {
-                timerState = 'READY_INSPECTION';
-                setInspectionColor('inspection-ready');
-            }
-        }, 350);
+        beginNbTimerHold(e, true);
         return;
     }
 
@@ -3541,34 +3913,28 @@ document.addEventListener('keydown', (e) => {
             e.preventDefault();
             if (document.activeElement) document.activeElement.blur();
             if (e.repeat) return;
-            timerState = 'WAITING';
-            const display = document.getElementById('timer-display');
-            display.classList.add('waiting');
-            timerHoldTimeout = setTimeout(() => {
-                if (timerState === 'WAITING') {
-                    timerState = 'READY';
-                    display.classList.remove('waiting');
-                    display.classList.add('ready');
-                }
-            }, 350);
+            beginNbTimerHold(e);
         }
     } else if (timerState === 'RUNNING') {
         e.preventDefault();
-        stopTimer();
+        stopTimer(nbTimerInputStamp(e));
     }
 });
 
 document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
+    if (document.getElementById('timer-import-modal')?.style.display === 'flex') return;
+    if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar')) return;
     if (currentTimerMode === 'smart') return;
     if (!timerScrambleReady && timerState === 'IDLE') return;
     if (uiSettings.inspection && timerState === 'IDLE' && pendingInspectionKey === 'Space' && e.code === 'Space') {
         pendingInspectionKey = null;
-        beginInspection();
+        beginInspection(nbTimerInputStamp(e));
         return;
     }
     if (e.code === 'Space') {
+        resolveNbTimerHold(e);
         const display = document.getElementById('timer-display');
         if (timerState === 'WAITING_INSPECTION') {
             clearTimeout(timerHoldTimeout);
@@ -3577,7 +3943,7 @@ document.addEventListener('keyup', (e) => {
             return;
         }
         if (timerState === 'READY_INSPECTION') {
-            startTimer();
+            startTimer(nbTimerInputStamp(e));
             return;
         }
         if (timerState === 'WAITING') {
@@ -3585,7 +3951,7 @@ document.addEventListener('keyup', (e) => {
             timerState = 'IDLE';
             display.classList.remove('waiting');
         } else if (timerState === 'READY') {
-            startTimer();
+            startTimer(nbTimerInputStamp(e));
         }
     }
 });
@@ -3622,7 +3988,7 @@ document.addEventListener('touchstart', (e) => {
 
     if (timerState === 'RUNNING') {
         if(e.cancelable) e.preventDefault();
-        stopTimer();
+        stopTimer(nbTimerInputStamp(e));
         return;
     }
 
@@ -3632,25 +3998,9 @@ document.addEventListener('touchstart', (e) => {
             setInspectionColor('inspection-arming');
             return;
         }
-        timerState = 'WAITING';
-        const display = document.getElementById('timer-display');
-        display.classList.add('waiting');
-        timerHoldTimeout = setTimeout(() => {
-            if (timerState === 'WAITING') {
-                timerState = 'READY';
-                display.classList.remove('waiting');
-                display.classList.add('ready');
-            }
-        }, 350);
+        beginNbTimerHold(e);
     } else if (uiSettings.inspection && timerState === 'OBSERVING') {
-        timerState = 'WAITING_INSPECTION';
-        setInspectionColor('inspection-holding');
-        timerHoldTimeout = setTimeout(() => {
-            if (timerState === 'WAITING_INSPECTION') {
-                timerState = 'READY_INSPECTION';
-                setInspectionColor('inspection-ready');
-            }
-        }, 350);
+        beginNbTimerHold(e, true);
     }
 }, { passive: false });
 
@@ -3680,6 +4030,7 @@ document.addEventListener('touchmove', (e) => {
         // 判定发生滑动，立即中断长按状态并恢复原色
         if (nbSwipeAction) {
             clearTimeout(timerHoldTimeout);
+            timerHoldStarted = null;
             if (timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION') timerState = 'OBSERVING';
             else if (!touchWasIdle) timerState = 'IDLE';
             touchWasIdle = false;
@@ -3702,6 +4053,7 @@ document.addEventListener('touchend', (e) => {
     if (!isTimerArea) {
         if (timerState === 'WAITING' || timerState === 'READY' || timerState === 'WAITING_INSPECTION' || timerState === 'READY_INSPECTION') {
             clearTimeout(timerHoldTimeout);
+            timerHoldStarted = null;
             timerState = uiSettings.inspection ? 'OBSERVING' : 'IDLE';
             document.getElementById('timer-display').classList.remove('waiting', 'ready');
         }
@@ -3731,9 +4083,10 @@ document.addEventListener('touchend', (e) => {
     const display = document.getElementById('timer-display');
     if (touchWasIdle && uiSettings.inspection && timerState === 'IDLE') {
         touchWasIdle = false;
-        beginInspection();
+        beginInspection(nbTimerInputStamp(e));
         return;
     }
+    resolveNbTimerHold(e);
     if (timerState === 'WAITING_INSPECTION') {
         clearTimeout(timerHoldTimeout);
         timerState = 'OBSERVING';
@@ -3742,7 +4095,7 @@ document.addEventListener('touchend', (e) => {
     }
     if (timerState === 'READY_INSPECTION') {
         if (e.cancelable) e.preventDefault();
-        startTimer();
+        startTimer(nbTimerInputStamp(e));
         return;
     }
     if (timerState === 'WAITING') {
@@ -3751,13 +4104,14 @@ document.addEventListener('touchend', (e) => {
         display.classList.remove('waiting');
     } else if (timerState === 'READY') {
         if(e.cancelable) e.preventDefault();
-        startTimer();
+        startTimer(nbTimerInputStamp(e));
     }
 }, { passive: false });
 
 document.addEventListener('touchcancel', (e) => {
     if (!document.getElementById('timer-page').classList.contains('active') || currentTimerMode === 'smart' || !e.target.closest('#timer-tab-main')) return;
     clearTimeout(timerHoldTimeout);
+    timerHoldStarted = null;
     if (touchWasIdle) {
         touchWasIdle = false;
         setInspectionColor('');
@@ -4530,6 +4884,17 @@ function loadTimerData() {
     try { applyUiSettings(); } catch(e) { console.warn("UI配置应用失败", e); }
 }
 
+function timerConfigForStorage(history = timerHistoryData) {
+    const savedHistory = {};
+    for (const [key, records] of Object.entries(history)) savedHistory[key] = records.map(record => {
+        // These fields are recomputed from the real solves on load. Keeping them
+        // in localStorage doubles large sessions and blocks every new save.
+        const { effectiveMs, displayTime, isPb, stat1Str, stat1Ms, isStat1Pb,
+            stat2Str, stat2Ms, isStat2Pb, ...saved } = record;
+        return saved;
+    });
+    return { history: savedHistory, stat1, stat2, uiSettings };
+}
 function saveTimerData() {
     try {
         for (let ev in timerHistoryData) {
@@ -4537,12 +4902,7 @@ function saveTimerData() {
                 timerHistoryData[ev] = timerHistoryData[ev].slice(0, 10000);
             }
         }
-        const dataToSave = {
-            history: timerHistoryData,
-            stat1: stat1,
-            stat2: stat2,
-            uiSettings: uiSettings
-        };
+        const dataToSave = timerConfigForStorage();
         localStorage.setItem('nbTimerConfig', JSON.stringify(dataToSave));
     } catch (e) { console.warn("本地存储已满", e); }
 }

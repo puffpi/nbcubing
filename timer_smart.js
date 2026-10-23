@@ -77,6 +77,37 @@ const timerMoyuAddresses = new Map();
 let timerMoyuCleanup = Promise.resolve();
 const timerMoyuDiagnostic = {stage:'未开始',addressSource:'未读取',advertisements:0,packets:0,lengths:[],types:[],error:''};
 function timerMoyuStage(stage){timerMoyuDiagnostic.stage=stage;}
+function timerSmartClockNow(){
+    const session=timerMoyuSession;
+    if(session?.active&&Number.isFinite(session.lastMoveStamp)&&Number.isFinite(session.lastPacketReceivedAt))return session.lastMoveStamp+Math.max(0,performance.now()-session.lastPacketReceivedAt);
+    return performance.now();
+}
+function resetTimerMoyuClock(session){session.lastMoveStamp=null;session.lastPacketReceivedAt=null;}
+function timerMoyuNotificationStamp(event){
+    if(typeof nbTimerInputStamp==='function')return nbTimerInputStamp(event);
+    const now=performance.now();let stamp=event?.timeStamp;
+    if(stamp>1e12)stamp-=performance.timeOrigin;
+    return Number.isFinite(stamp)&&stamp>=0&&stamp<=now?stamp:now;
+}
+function timerMoyuMoveStamps(session,intervals,receivedAt){
+    // MY32 reports a 16-bit millisecond interval for each move, newest first.
+    // Keep that device timeline across notifications: receive/decrypt jitter
+    // must not become solve time. Only the first packet needs a local anchor.
+    if(Number.isFinite(session.lastPacketReceivedAt)&&receivedAt-session.lastPacketReceivedAt>65535){
+        // A silent gap beyond the interval range cannot distinguish an on-cube
+        // counter wrap from a long pause. Do not save an unverifiable solve.
+        if(['INSPECTION','SOLVING'].includes(timerSmartAttempt.phase)){
+            cancelTimerSmartAttempt();
+            document.getElementById('timer-bluetooth-card-title').textContent='转动间隔过长，请重新开始本次还原';
+        }
+        resetTimerMoyuClock(session);
+    }
+    let stamp=Number.isFinite(session.lastMoveStamp)?session.lastMoveStamp:receivedAt-intervals.slice(0,-1).reduce((sum,n)=>sum+n,0)-intervals.at(-1);
+    const stamps=[];
+    for(let i=intervals.length-1;i>=0;i--){stamp+=intervals[i];stamps.push(stamp);}
+    session.lastMoveStamp=stamp;session.lastPacketReceivedAt=receivedAt;
+    return stamps;
+}
 function timerMoyuManufacturerIds(){
     const ids=Array.from({length:255},(_,i)=>(i+1)<<8);
     const oldChrome=navigator.userAgentData?.brands?.some(b=>['Google Chrome','Chromium'].includes(b.brand)&&parseInt(b.version,10)<130);
@@ -218,12 +249,12 @@ async function startTimerMoyu(device){
     session.writeChain=Promise.resolve();
     const send=(opcode,gyroEnabled)=>{const task=session.writeChain.then(async()=>{if(!session.active)return;const request=new Uint8Array(20);request[0]=opcode;if(gyroEnabled!==undefined)request[2]=gyroEnabled?1:0;const data=await cipher.encode(request);if(!session.active)return;if(write.properties.write)await write.writeValueWithResponse(data);else await write.writeValueWithoutResponse(data);});session.writeChain=task.catch(()=>{});return task;};
     session.send=send;
-    session.listener=event=>{const value=event.target.value,raw=new Uint8Array(value.buffer,value.byteOffset,value.byteLength).slice();
+    session.listener=event=>{const receivedAt=timerMoyuNotificationStamp(event),value=event.target.value,raw=new Uint8Array(value.buffer,value.byteOffset,value.byteLength).slice();
         session.chain=session.chain.then(async()=>{if(!session.active)return;timerMoyuDiagnostic.packets++;if(!timerMoyuDiagnostic.lengths.includes(raw.length))timerMoyuDiagnostic.lengths.push(raw.length);const data=await cipher.decode(raw);if(!session.active)return;
             if(!timerMoyuDiagnostic.types.includes(data[0]))timerMoyuDiagnostic.types.push(data[0]);
             const bits=[...data].map(v=>v.toString(2).padStart(8,'0')).join(''),number=(offset,len)=>parseInt(bits.slice(offset,offset+len),2);
-            if(data[0]===163){let state='';for(const face of [2,5,0,3,4,1])for(let j=0;j<8;j++){const color=number(8+face*24+j*3,3);if(color>5)throw Error('无法解码魔方状态');state+='FBUDLR'[color];if(j===3)state+='FBUDLR'[face];}setTimerLiveState(state);timerSmartPhysicalState=state;session.count=data[19];session.ready=true;resolveInitial();}
-            else if(data[0]===165&&session.count!==null){const count=data[11],diff=(count-session.count)&255;if(!diff)return;if(diff>5){cancelTimerSmartAttempt();session.count=null;await send(163);return;}const moves=[];for(let i=diff-1;i>=0;i--){const code=number(96+i*5,5);if(code>=12)throw Error('转动数据无效');moves.push('FBUDLR'[code>>1]+(code&1?"'":''));}session.count=count;const now=performance.now();for(let index=0;index<moves.length;index++){const i=diff-1-index;let delay=0;for(let j=0;j<i;j++)delay+=number(8+j*16,16);const stamp=Math.max(session.lastMoveStamp||0,now-Math.min(delay,10000));session.lastMoveStamp=stamp;timerSmartPhysicalState=timerCubeTurn(timerSmartPhysicalState,moves[index]);handleTimerSmartMove(moves[index],stamp);queueTimerLiveMove(moves[index]);}}
+            if(data[0]===163){let state='';for(const face of [2,5,0,3,4,1])for(let j=0;j<8;j++){const color=number(8+face*24+j*3,3);if(color>5)throw Error('无法解码魔方状态');state+='FBUDLR'[color];if(j===3)state+='FBUDLR'[face];}setTimerLiveState(state);timerSmartPhysicalState=state;session.count=data[19];resetTimerMoyuClock(session);session.ready=true;resolveInitial();}
+            else if(data[0]===165&&session.count!==null){const count=data[11],diff=(count-session.count)&255;if(!diff)return;if(diff>5){cancelTimerSmartAttempt();session.count=null;resetTimerMoyuClock(session);await send(163);return;}const moves=[],intervals=[];for(let i=diff-1;i>=0;i--){const code=number(96+i*5,5);if(code>=12)throw Error('转动数据无效');moves.push('FBUDLR'[code>>1]+(code&1?"'":''));}for(let i=0;i<diff;i++)intervals.push(number(8+i*16,16));session.count=count;const stamps=timerMoyuMoveStamps(session,intervals,receivedAt);for(let index=0;index<moves.length;index++){timerSmartPhysicalState=timerCubeTurn(timerSmartPhysicalState,moves[index]);handleTimerSmartMove(moves[index],stamps[index]);queueTimerLiveMove(moves[index]);}}
             else if(data[0]===171){if(!timerMoyuGyro(data))timerMoyuDiagnostic.gyro='姿态数据无效，保留普通转动';}
             else if(data[0]===164&&data.length===20){if(acceptTimerCubeBattery(data[1]))timerMoyuDiagnostic.battery=data[1]+'%';}
         }).catch(error=>{if(!session.active)return;rejectInitial(error);if(session.ready){stopTimerMoyu();updateTimerBluetoothStatus(Boolean(device.gatt?.connected));document.getElementById('timer-bluetooth-label').textContent=device.gatt?.connected?'已连接，转动未同步':'未连接';document.getElementById('timer-bluetooth-card').hidden=false;}document.getElementById('timer-bluetooth-card-title').textContent='数据同步失败，请重新连接';console.warn('MY32 同步失败',error);});};
@@ -488,15 +519,15 @@ async function replaceTimerSmartScrambleTail(){
 }
 function updateTimerSmartClock(){
     const attempt=timerSmartAttempt;if(!['INSPECTION','SOLVING'].includes(attempt.phase))return;
-    const now=performance.now(),display=document.getElementById('timer-display');
+    const now=timerSmartClockNow(),display=document.getElementById('timer-display');
     if(attempt.phase==='INSPECTION'){
         if(now>=attempt.inspectionEnd){startTimerSmartSolve(attempt.inspectionEnd);return;}
         const hidden=uiSettings.nbDisplayMode==='hidden';display.classList.toggle('nb-status-text',hidden);display.classList.add('inspecting');display.textContent=hidden?'观察中':String(Math.ceil((attempt.inspectionEnd-now)/1000));
     }else{display.classList.remove('inspecting');display.classList.toggle('nb-status-text',['hidden','onlyInspection'].includes(uiSettings.nbDisplayMode));display.textContent=formatNbRunningTime(Math.max(0,now-attempt.started));}
     attempt.frame=requestAnimationFrame(updateTimerSmartClock);
 }
-function beginTimerSmartInspection(){
-    const attempt=timerSmartAttempt;attempt.phase='INSPECTION';attempt.inspectionEnd=performance.now()+15000;attempt.partial=null;attempt.errors=[];attempt.lastGesture=null;
+function beginTimerSmartInspection(stamp=timerSmartClockNow()){
+    const attempt=timerSmartAttempt;attempt.phase='INSPECTION';attempt.inspectionEnd=stamp+15000;attempt.partial=null;attempt.errors=[];attempt.lastGesture=null;
     renderTimerSmartScramble();updateTimerSmartClock();
 }
 function startTimerSmartSolve(stamp,initialState=timerSmartPhysicalState){
@@ -530,7 +561,7 @@ const timerSmartAbortHold={started:null,timeout:null,pointer:null,source:null};
 function resetTimerSmartAbortHold(){clearTimeout(timerSmartAbortHold.timeout);Object.assign(timerSmartAbortHold,{started:null,timeout:null,pointer:null,source:null});document.getElementById('timer-display')?.classList.remove('smart-abort-warning','smart-abort-ready');document.getElementById('timer-tab-main')?.classList.remove('smart-abort-holding');}
 function canTimerSmartAbort(){return currentTimerMode==='smart'&&timerSmartEvent==='333'&&timerSmartAttempt.phase==='SOLVING'&&document.getElementById('timer-page')?.classList.contains('active')&&!timerSmartAnalysis.open;}
 function beginTimerSmartAbortHold(source,pointer=null){if(!canTimerSmartAbort()||timerSmartAbortHold.started!==null)return;Object.assign(timerSmartAbortHold,{started:performance.now(),source,pointer});document.getElementById('timer-tab-main')?.classList.add('smart-abort-holding');document.getElementById('timer-display').classList.add('smart-abort-warning');timerSmartAbortHold.timeout=setTimeout(()=>{if(canTimerSmartAbort()&&timerSmartAbortHold.started!==null){const display=document.getElementById('timer-display');display.classList.remove('smart-abort-warning');display.classList.add('smart-abort-ready');}},1000);}
-function releaseTimerSmartAbortHold(){const abort=canTimerSmartAbort()&&timerSmartAbortHold.started!==null&&performance.now()-timerSmartAbortHold.started>=1000;resetTimerSmartAbortHold();if(abort)finishTimerSmartSolve(performance.now(),true);}
+function releaseTimerSmartAbortHold(){const abort=canTimerSmartAbort()&&timerSmartAbortHold.started!==null&&performance.now()-timerSmartAbortHold.started>=1000;resetTimerSmartAbortHold();if(abort)finishTimerSmartSolve(timerSmartClockNow(),true);}
 function installTimerSmartAbortGesture(){
     const interactive='input,textarea,select,button,a,[contenteditable="true"],[role="button"],.edit-score-popup,.timer-bluetooth-card,.smart-result-overlay';
     document.addEventListener('keydown',event=>{if(event.code!=='Space'||!canTimerSmartAbort()||event.target.closest?.(interactive))return;event.preventDefault();event.stopImmediatePropagation();if(!event.repeat)beginTimerSmartAbortHold('keyboard');},true);
@@ -702,7 +733,7 @@ function bindTimerSmartReplayView(model){
     model.addEventListener('touchmove',event=>{consume(event);if(window.PointerEvent||!drag)return;const t=Array.from(event.changedTouches).find(t=>t.identifier===drag.id);if(t)move(t.identifier,t.clientX,t.clientY);},{passive:false});
     const stopTouch=event=>{consume(event);if(!window.PointerEvent&&drag&&Array.from(event.changedTouches).some(t=>t.identifier===drag.id))reset();};model.addEventListener('touchend',stopTouch,{passive:false});model.addEventListener('touchcancel',stopTouch,{passive:false});
 }
-function handleTimerSmartMove(move,stamp=performance.now()){
+function handleTimerSmartMove(move,stamp=timerSmartClockNow()){
     if(timerSmartAnalysis.open||timerSmartDeleteRecord)return;
     if(currentTimerMode!=='smart'||timerSmartEvent!=='333')return;
     if(!document.getElementById('timer-page')?.classList.contains('active')){if(timerSmartAttempt.phase!=='IDLE')cancelTimerSmartAttempt();return;}
@@ -724,10 +755,13 @@ function handleTimerSmartMove(move,stamp=performance.now()){
             else attempt.errors.push(move);
         }
         if(attempt.errors.length>6){void replaceTimerSmartScrambleTail();return;}
-        renderTimerSmartScramble();if(attempt.index===attempt.tokens.length&&!attempt.errors.length)beginTimerSmartInspection();return;
+        renderTimerSmartScramble();if(attempt.index===attempt.tokens.length&&!attempt.errors.length)beginTimerSmartInspection(stamp);return;
     }
     if(attempt.phase==='INSPECTION')startTimerSmartSolve(Math.min(stamp,attempt.inspectionEnd),timerCubeTurn(timerSmartPhysicalState,timerSmartInverse(move)));
     if(attempt.phase==='SOLVING'){
+        // The 15-second frame may run before a queued notification whose first
+        // physical turn actually preceded that deadline. Retain the turn time.
+        if(!attempt.trace.length&&stamp<attempt.started){attempt.started=stamp;attempt.initialState=timerCubeTurn(timerSmartPhysicalState,timerSmartInverse(move));}
         const last=attempt.lastMove,gap=last?Math.max(0,stamp-last.stamp):Math.max(0,stamp-attempt.started);
         if(gap>350)attempt.pauseMs+=gap-150;
         attempt.trace.push({move,t:Math.max(0,stamp-attempt.started)});

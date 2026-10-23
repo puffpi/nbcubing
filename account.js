@@ -1,6 +1,6 @@
 /* Shared Supabase identity for forum and monthly competition. */
 let accountProfile = null, accountMonthly = new Map(), accountActiveEntry = null;
-let accountAuthClient = null, accountRefreshSequence = 0, accountRecoveryAllowed = false, accountSaveBusy = false;
+let accountAuthClient = null, accountRefreshSequence = 0, accountSaveBusy = false;
 let accountRefreshTask = null, accountIdentityRevision = 0;
 let accountNicknameTimer = null;
 const accountEl = id => document.getElementById(id);
@@ -8,11 +8,10 @@ async function accountClient() {
     const client = await ensureForumClient();
     if (accountAuthClient !== client) {
         accountAuthClient = client;
-        client.auth.onAuthStateChange((event) => {
+        client.auth.onAuthStateChange((event,session) => {
             if(event!=='INITIAL_SESSION')accountIdentityRevision++;
-            if (event === 'PASSWORD_RECOVERY') accountRecoveryAllowed = true;
             setTimeout(async () => {
-                try { await refreshAccount(); if (event === 'PASSWORD_RECOVERY') navigateTo('account-password-page',true); } catch { /* explicit actions show errors */ }
+                try { await refreshAccount(); } catch { /* explicit actions show errors */ }
             },0);
         });
     }
@@ -77,11 +76,12 @@ async function refreshAccountOnce(revision) {
     return profile;
 }
 async function accountRequest(action,fields) {
+    if(!['register','login'].includes(action))throw new Error('无效操作。');
     const client=await accountClient(),session=await accountSession(client);if(session.error)throw session.error;
     // Supabase display-name edits do not change the deployed function's slug.
     const response=await accountServiceFetch(`${SUPABASE_URL}/functions/v1/swift-processor`,{
         method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,...(session.data.session ? {Authorization:`Bearer ${session.data.session.access_token}`} : {})},
-        body:JSON.stringify({action,...fields,...(action==='recover'?{redirectTo:`${location.origin}${location.pathname}?account=recovery`}:{})})
+        body:JSON.stringify({action,...fields})
     });
     let result;try{result=await response.json();}catch{throw new Error('账号服务尚未部署或暂不可用。');}
     if(!response.ok)throw new Error(result.error || '账号操作失败。');
@@ -92,28 +92,19 @@ async function openAccountPage() {
     accountEl('account-page').classList.add('account-resolving');navigateTo('account-page',true);accountEl('account-status').textContent='正在检查登录状态…';
     try{await refreshAccount();accountEl('account-status').textContent='';}catch(error){accountEl('account-page').classList.remove('account-resolving');accountEl('account-status').textContent=accountError(error);}
 }
+function openAccountRegistration(){
+    accountEl('account-login-form').elements.password.value='';
+    accountEl('account-register-status').textContent='';
+    navigateTo('account-register-page',true);
+}
 async function submitAccountForm(event) {
-    event.preventDefault();const form=event.currentTarget,action=event.submitter?.value || 'login',status=accountEl('account-status');
+    event.preventDefault();const form=event.currentTarget,action=form.dataset.accountMode || 'login',status=accountEl(action==='register'?'account-register-status':'account-status');
     const fields=Object.fromEntries(new FormData(form));fields.wcaId=fields.wcaId.trim().toUpperCase();
-    if(action==='register' && !fields.email.trim()){status.textContent='注册时需要填写找回密码的邮箱。';return;}
-    if(action==='register' && fields.password.length<8){status.textContent='密码至少 8 位。';return;}
+    if(action==='register' && !fields.email?.trim()){status.textContent='注册时需要填写邮箱。';return;}
+    if(action==='register' && fields.password.length<6){status.textContent='密码至少 6 位。';return;}
     const buttons=[...form.querySelectorAll('button[type=submit]')];if(buttons.some(b=>b.disabled))return;buttons.forEach(b=>b.disabled=true);status.textContent=action==='register'?'注册中...':'登录中...';
-    try{await accountRequest(action,fields);form.elements.password.value='';status.textContent=accountWelcome();}
+    try{await accountRequest(action,fields);form.elements.password.value='';if(action==='register')await openAccountPage();accountEl('account-status').textContent=accountWelcome();}
     catch(error){status.textContent=accountError(error);}finally{buttons.forEach(b=>b.disabled=false);}
-}
-function openAccountRecovery(){navigateTo('account-recovery-page',true);accountEl('account-recovery-status').textContent='验证邮件中的链接后，即可设置新密码。';}
-async function submitAccountRecovery(event){
-    event.preventDefault();const form=event.currentTarget,button=form.querySelector('button[type=submit]');if(button.disabled)return;button.disabled=true;
-    try{const result=await accountRequest('recover',Object.fromEntries(new FormData(form)));accountEl('account-recovery-status').textContent=result.message;}
-    catch(error){accountEl('account-recovery-status').textContent=accountError(error);}finally{button.disabled=false;}
-}
-async function submitAccountPassword(event){
-    event.preventDefault();const form=event.currentTarget,fields=Object.fromEntries(new FormData(form)),status=accountEl('account-password-status');
-    if(!accountRecoveryAllowed){status.textContent='请先打开邮箱中的有效重置链接。';return;}
-    if(fields.password!==fields.repeat){status.textContent='两次密码不一致，请重新输入。';return;}
-    const button=form.querySelector('button');if(button.disabled)return;button.disabled=true;
-    try{const client=await accountClient();const result=await client.auth.updateUser({password:fields.password});if(result.error)throw result.error;accountRecoveryAllowed=false;form.reset();await refreshAccount();navigateTo('account-page',true);if(accountProfile&&typeof loadAccountDashboard==='function')loadAccountDashboard();accountEl('account-status').textContent='新密码已保存，当前账号已登录。';}
-    catch(error){status.textContent=accountError(error);}finally{button.disabled=false;}
 }
 async function accountSignOut(){
     if(accountSaveBusy || monthlyTimerState==='RUNNING'){alert('请先完成当前计时及成绩保存。');return;}
@@ -158,23 +149,28 @@ initMonthly=async function(){
     // Commit removal of the loading layer before a blocking native JS dialog.
     if(failure){await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));alert(accountError(failure));}
 };
-function openMonthlyAccountModal(after=initMonthly,allowGuest=false){
-    const form=forumNode('form');form.append(forumNode('p','','登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存。'));
-    const nickname=forumFormField(form,'用户名（仅注册时选填）','input',24,false);nickname.placeholder='留空则自动生成并保存';
-    const wca=forumFormField(form,'账号（8–32 位字母、数字、下划线或短横线）','input',32);wca.value=uiSettings.wcaId || '';wca.autocomplete='username';
-    const password=forumFormField(form,'密码','input',128);password.type='password';password.autocomplete='current-password';password.placeholder='注册密码至少 8 位';
-    const email=forumFormField(form,'邮箱（仅注册时必填，用于找回密码）','input',254,false);email.type='email';email.placeholder='登录时无需填写';
+function openMonthlyAccountModal(after=initMonthly,allowGuest=false,mode='login'){
+    if(forumModalBusy)return;
+    const registering=mode==='register',form=forumNode('form','account-auth-form');
+    const nickname=registering?forumFormField(form,'用户名（选填，不填则系统生成随机用户名）','input',24,false):null;
+    if(nickname)nickname.autocomplete='nickname';
+    const wca=forumFormField(form,registering?'账号（至少 8 位，推荐使用WCA ID）':'账号','input',32);wca.autocomplete='username';wca.minLength=8;wca.placeholder='2009ZEMD01';wca.spellcheck=false;
+    const password=forumFormField(form,registering?'密码（至少 6 位）':'密码','input',128);password.type='password';password.autocomplete=registering?'new-password':'current-password';if(registering)password.minLength=6;
+    const email=registering?forumFormField(form,'邮箱（必填）','input',254):null;
+    if(email){email.type='email';email.autocomplete='email';}
     const status=forumNode('p','forum-form-status');form.append(status);
-    const actions=forumNode('div','forum-modal-actions'),register=forumNode('button','btn','注册'),login=forumNode('button','btn btn-primary','登录');register.type=login.type='submit';register.value='register';login.value='login';actions.append(register,login);form.append(actions);
-    const forgot=forumNode('button','account-text-link','忘记密码？');forgot.type='button';forgot.onclick=()=>{closeForumModal();openAccountRecovery();};form.append(forgot);
-    form.onsubmit=async event=>{event.preventDefault();const action=event.submitter.value;if(forumModalBusy)return;
-        if(action==='register' && (!email.value.trim() || password.value.length<8)){status.textContent='注册需要邮箱，密码至少 8 位。';return;}
-        forumModalBusy=true;register.disabled=login.disabled=true;status.textContent=action==='register'?'注册中...':'登录中...';
-        try{await accountRequest(action,{nickname:nickname.value,wcaId:wca.value,password:password.value,email:email.value});password.value='';forumModalBusy=false;closeForumModal();await after();}
-        catch(error){status.textContent=accountError(error);}finally{forumModalBusy=false;register.disabled=login.disabled=false;}
+    const actions=forumNode('div','forum-modal-actions'),submit=forumNode('button','btn btn-primary',registering?'注册':'登录');submit.type='submit';actions.append(submit);form.append(actions);
+    const links=forumNode('div','account-auth-links'),switchMode=forumNode('button','account-text-link',registering?'返回登录':'注册账号');switchMode.type='button';switchMode.onclick=()=>openMonthlyAccountModal(after,allowGuest,registering?'login':'register');links.append(switchMode);
+    form.append(links);
+    form.onsubmit=async event=>{event.preventDefault();const action=registering?'register':'login';if(forumModalBusy)return;
+        if(registering && (!email.value.trim() || password.value.length<6)){status.textContent='注册需要邮箱，密码至少 6 位。';return;}
+        forumModalBusy=true;actions.querySelectorAll('button').forEach(button=>button.disabled=true);status.textContent=registering?'注册中...':'登录中...';
+        const fields={wcaId:wca.value.trim().toUpperCase(),password:password.value};if(registering){fields.nickname=nickname.value;fields.email=email.value;}
+        try{await accountRequest(action,fields);password.value='';forumModalBusy=false;closeForumModal();await after();}
+        catch(error){status.textContent=accountError(error);}finally{forumModalBusy=false;actions.querySelectorAll('button').forEach(button=>button.disabled=false);}
     };
-    if(allowGuest){const guest=forumNode('button','btn btn-outline','游客登录');guest.type='button';guest.onclick=()=>confirmForumGuest(after);form.append(guest);}
-    showForumModal(allowGuest?'登录后参与交流':'用户 · 注册或登录',form);
+    if(allowGuest && !registering){const guest=forumNode('button','btn btn-outline account-guest-login','游客登录');guest.type='button';guest.onclick=()=>{if(!forumModalBusy)confirmForumGuest(after);};actions.prepend(guest);}
+    showForumModal(registering?'注册账号':allowGuest?'登录后参与交流':'账号登录',form);
 }
 openMonthlyEntry=async function(evId,cnName){
     if(monthlyEntryChecking)return;monthlyEntryChecking=true;
@@ -223,15 +219,29 @@ confirmMonthlyExit=async function(){
         accountMonthly.set(result.data.event_id,result.data);monthlyAttempts=result.data.attempts;monthlyTimerState='IDLE';monthlyHasFinished=true;closeMonthlyExit();renderMonthlyList();goBack();
     }catch(error){alert(accountError(error));}finally{accountSaveBusy=false;}
 };
-// No requests for logged-out homepage visitors; restore only saved sessions/recovery links.
-if(localStorage.getItem('nbcubing-forum-auth') || location.hash.includes('access_token=') || new URLSearchParams(location.search).get('account')==='recovery') {
-    const recoveryHint=location.hash.includes('type=recovery');
-    accountClient().then(async client=>{
-        const session=await client.auth.getSession();
-        // Supabase verifies the recovery token before establishing this session.
-        if(recoveryHint && session.data.session){accountRecoveryAllowed=true;navigateTo('account-password-page',true);}
-        await refreshAccount();
-    }).catch(error=>console.warn('账号自动恢复暂不可用',error));
+// Retired email links must never restore credentials or open a password form.
+function discardRetiredAccountLink(){
+    const url=new URL(location.href),fragment=new URLSearchParams(url.hash.slice(1));
+    const retired=url.searchParams.get('account')==='recovery' || url.searchParams.has('token_hash') || url.searchParams.has('code') || fragment.has('access_token') || fragment.get('type')==='recovery';
+    if(!retired)return false;
+    url.hash='';
+    for(const key of ['account','code','token_hash','access_token','refresh_token','type','error','error_code','error_description'])url.searchParams.delete(key);
+    history.replaceState(null,'',url.pathname+url.search);
+    return true;
+}
+async function initializeAccountFromLocation(){
+    if(discardRetiredAccountLink()){
+        await openAccountPage();
+        accountEl('account-status').textContent='该链接已停用，请使用账号和密码登录。';
+        return;
+    }
+    try{await refreshAccount();}catch(error){console.warn('账号自动恢复暂不可用',error);}
+}
+// No requests for logged-out homepage visitors; restore only saved sessions.
+const accountLocation=new URL(location.href);
+if(localStorage.getItem('nbcubing-forum-auth') || accountLocation.searchParams.get('account')==='recovery' || accountLocation.searchParams.has('token_hash') || accountLocation.searchParams.has('code') || location.hash.includes('access_token=') || location.hash.includes('type=recovery')){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initializeAccountFromLocation,{once:true});
+    else void initializeAccountFromLocation();
 }
 
 

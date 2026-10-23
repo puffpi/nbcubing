@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.45.3-mobile-spacing-20261017">
+    <link rel="stylesheet" href="style.css?v=1.46.5">
+    <link rel="stylesheet" href="cube_explorer.css?v=1.46.5">
 </head>
 <body>
 
@@ -96,6 +97,7 @@
             <div class="nav-menu-item has-dropdown">其他
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
+                    <a onclick="openCubeExplorer()">Cube Explorer</a>
                     <a onclick="openFormulaLibrary()">公式 · 方法</a>
                     <a onclick="openForum()">论坛</a>
                 </div>
@@ -420,7 +422,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.45.3</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.46.5</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -443,7 +445,9 @@
             </div>
             <div class="sidebar-settings-title about-data-title">数据</div>
             <div class="ios-setting-group custom-ui-group about-source-row"><span>WCA</span><span>世界魔方协会官网</span></div>
-            <div class="ios-setting-group custom-ui-group about-source-row" style="margin-bottom: 0;"><span>中国赛事</span><span>粗饼 · 中国魔方赛事网</span></div>
+            <div class="ios-setting-group custom-ui-group about-source-row" style="margin-bottom: 0;"><span>WCA · 中国地区</span><span>粗饼 · 中国魔方赛事网</span></div>
+            <div class="sidebar-settings-title about-data-title">魔方求解</div>
+            <div class="ios-setting-group custom-ui-group about-source-row"><span>二阶段算法</span><span>Herbert Kociemba · min2phase.js 0.0.4（Chen Shuang，MIT）</span></div>
         </div>
     </div>
 
@@ -453,23 +457,25 @@
         <section class="card account-card">
             <div id="account-signed-in" hidden><h3 id="account-profile-title"></h3><p>论坛与月赛数据已绑定此账号。</p><div class="account-actions"><button class="btn" onclick="goHome()">返回首页</button><button class="btn btn-outline" onclick="accountSignOut()">退出登录</button></div></div>
             <form id="account-login-form" onsubmit="submitAccountForm(event)">
-                <p>登录只需账号和密码，用户名和注册邮箱会自动同步。注册时可填写用户名，留空则自动生成并保存；下次登录会恢复已保存的用户名。</p>
-                <label>用户名（仅注册时选填）<input name="nickname" maxlength="24" autocomplete="nickname" placeholder="留空则自动生成并保存"></label>
-                <label>账号（至少 8 位，可使用 WCA ID）<input name="wcaId" minlength="8" maxlength="32" required autocomplete="username" placeholder="8–32 位字母、数字、下划线或短横线"></label>
-                <label>密码<input name="password" type="password" required maxlength="128" autocomplete="current-password" placeholder="至少 8 位"></label>
-                <label>邮箱（仅注册时必填，用于找回密码）<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="登录时无需填写"></label>
-                <div class="account-actions"><button type="submit" name="action" value="register" class="btn btn-outline">注册</button><button type="submit" name="action" value="login" class="btn">登录</button></div>
-                <button type="button" class="account-text-link" onclick="openAccountRecovery()">忘记密码？</button>
-            </form><p id="account-status" role="status"></p>
+                <label>账号<input name="wcaId" minlength="8" maxlength="32" required autocomplete="username" placeholder="2009ZEMD01" autocapitalize="characters" spellcheck="false"></label>
+                <label>密码<input name="password" type="password" required maxlength="128" autocomplete="current-password"></label>
+                <div class="account-actions"><button type="submit" name="action" value="login" class="btn">登录</button></div>
+                <div class="account-auth-links"><button type="button" class="account-text-link" onclick="openAccountRegistration()">注册账号</button></div>
+            </form><p id="account-status" role="status" aria-live="polite"></p>
         </section>
     </div>
-    <div id="account-recovery-page" class="page-container">
-        <div class="page-header"><h2>找回密码</h2></div>
-        <section class="card account-card"><form onsubmit="submitAccountRecovery(event)"><label>账号<input name="wcaId" required minlength="8" maxlength="32" autocomplete="username"></label><label>注册邮箱<input name="email" required type="email" autocomplete="email"></label><div class="account-actions"><button type="button" class="btn btn-outline" onclick="openAccountPage()">返回登录</button><button type="submit" class="btn">发送重置链接</button></div></form><p id="account-recovery-status" role="status"></p></section>
-    </div>
-    <div id="account-password-page" class="page-container">
-        <div class="page-header"><h2>设置新密码</h2></div>
-        <section class="card account-card"><form onsubmit="submitAccountPassword(event)"><label>新密码<input name="password" required type="password" minlength="8" maxlength="128" autocomplete="new-password"></label><label>重复输入新密码<input name="repeat" required type="password" minlength="8" maxlength="128" autocomplete="new-password"></label><button type="submit" class="btn">保存新密码</button></form><p id="account-password-status" role="status"></p></section>
+    <div id="account-register-page" class="page-container">
+        <div class="page-header"><h2>注册账号</h2></div>
+        <section class="card account-card">
+            <form id="account-register-form" data-account-mode="register" onsubmit="submitAccountForm(event)">
+                <label>用户名（选填，不填则系统生成随机用户名）<input name="nickname" maxlength="24" autocomplete="nickname"></label>
+                <label>账号（至少 8 位，推荐使用WCA ID）<input name="wcaId" minlength="8" maxlength="32" required autocomplete="username" placeholder="2009ZEMD01" autocapitalize="characters" spellcheck="false"></label>
+                <label>密码（至少 6 位）<input name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label>
+                <label>邮箱（必填）<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
+                <div class="account-actions"><button type="submit" name="action" value="register" class="btn">注册</button></div>
+                <div class="account-auth-links"><button type="button" class="account-text-link" onclick="openAccountPage()">返回登录</button></div>
+            </form><p id="account-register-status" role="status" aria-live="polite"></p>
+        </section>
     </div>
     <div id="forum-page" class="page-container">
         <div class="page-header"><button onclick="goBack()">返回上一页</button><h2>论坛</h2></div>
@@ -737,13 +743,21 @@
     </div>
 
     <!-- 3. 导入成绩输入弹窗 -->
-    <div id="timer-import-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
+    <div id="timer-import-modal" class="edit-score-popup" role="dialog" aria-modal="true" aria-labelledby="timer-import-title" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
         <div class="card pk-confirm-card" style="width: 360px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
-            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">导入成绩</h3>
-            <textarea id="timer-import-textarea" class="ios-input" placeholder="请粘贴之前导出的成绩数据..." style="width: 100%; height: 120px; resize: none; margin-bottom: 20px; text-align: left; padding: 10px; font-size: 13px; font-family: monospace;"></textarea>
+            <h3 id="timer-import-title" style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">导入成绩</h3>
+            <textarea id="timer-import-textarea" class="ios-input" aria-label="粘贴成绩数据" placeholder="请粘贴之前导出的成绩数据..." oninput="setTimerImportStatus('')"></textarea>
+            <button id="timer-import-dropzone" type="button" hidden onclick="chooseTimerImportFile()" ondragover="dragOverTimerImport(event)" ondragleave="leaveTimerImportDropzone(event)" ondrop="dropTimerImportFile(event)">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H6V3h1Z"/><path d="M14 3v5h4M12 17v-6m-3 3 3-3 3 3"/></svg>
+                <span id="timer-import-file-name">将 DC Timer 文件拖到这里</span>
+                <span id="timer-import-file-hint">或点击选择 .txt 文件</span>
+            </button>
+            <input id="timer-import-file-input" type="file" accept=".txt,text/plain" hidden onchange="selectTimerImportFiles(this.files)">
+            <button id="timer-import-mode-toggle" class="timer-import-mode-toggle" type="button" aria-pressed="false" onclick="toggleTimerImportMode()">导入 DC Timer 数据</button>
+            <div id="timer-import-status" role="status" aria-live="polite" hidden><span class="timer-import-spinner" aria-hidden="true" hidden></span><span id="timer-import-status-text"></span></div>
             <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
-                <button class="edit-btn-cancel" onclick="closeTimerImportModal()">取消</button>
-                <button class="edit-btn-confirm" onclick="confirmTimerImport()">确定导入</button>
+                <button id="timer-import-cancel" type="button" class="edit-btn-cancel" onclick="closeTimerImportModal()">取消</button>
+                <button id="timer-import-confirm" type="button" class="edit-btn-confirm" onclick="confirmTimerImport()">确定导入</button>
             </div>
         </div>
     </div>
@@ -764,11 +778,12 @@
 
     <!-- 5. 成绩走势折线图弹窗 -->
     <div id="timer-trend-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
-        <div class="card pk-confirm-card" style="width: 600px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
+        <div class="card pk-confirm-card timer-trend-card">
             <div class="timer-daily-heading timer-chart-heading"><h3>成绩折线图</h3><button type="button" aria-label="关闭成绩折线图" onclick="closeTimerTrendModal()">×</button></div>
 
-            <div style="width: 100%; height: 260px; position: relative;">
-                <canvas id="timer-trend-canvas"></canvas>
+            <div class="timer-trend-plot">
+                <canvas id="timer-trend-canvas" role="img" aria-label="当前项目按练习顺序排列的单次和平均成绩折线图"></canvas>
+                <div id="timer-trend-status" class="timer-chart-status" role="status" aria-live="polite" hidden><span class="timer-import-spinner" aria-hidden="true"></span><span class="timer-trend-message"></span></div>
             </div>
 
             <!-- 正常的右下角按钮 (应用在折线图弹窗) -->
@@ -922,8 +937,11 @@
                         <span class="col-stat" id="header-stat1">ao5</span>
                         <span class="col-stat" id="header-stat2">ao12</span>
                     </div>
-                    <div id="timer-history-list" class="timer-history-container">
-                        <!-- 成绩追加区域 -->
+                    <div class="timer-history-scroll-area">
+                        <div id="timer-history-list" class="timer-history-container">
+                            <!-- 仅挂载当前可见的成绩 -->
+                        </div>
+                        <div id="timer-history-scrollbar" role="scrollbar" aria-label="滚动成绩列表" aria-controls="timer-history-list" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span class="timer-history-scroll-thumb"></span></div>
                     </div>
                 </div>
 
@@ -937,8 +955,9 @@
                         <div id="edit-scramble">R U R' U' ...</div>
 
                         <!-- 成绩详情卡片内的打乱图 -->
-                        <div class="edit-scramble-preview">
+                        <div id="edit-scramble-preview" class="edit-scramble-preview" data-state="idle" aria-busy="false">
                             <twisty-player id="edit-scramble-display" visualization="2D" control-panel="none" background="none" style="width: 210px; height: 155px;"></twisty-player>
+                            <div id="edit-scramble-loading" role="status" aria-live="polite" hidden><span class="edit-preview-spinner" aria-hidden="true"></span><span class="edit-preview-message">载入中...</span></div>
                         </div>
 
                         <div class="edit-smart-analysis-row">
@@ -1480,6 +1499,35 @@
         </div>
     </div>
 
+    <div id="cube-explorer-page" class="page-container">
+        <div class="ce-shell">
+            <div class="page-header formula-header"><h2>Cube Explorer</h2></div>
+            <div class="ce-workspace">
+                <section class="card ce-visual-card" aria-label="魔方模型与六面展开">
+                    <div class="ce-model-section"><div class="ce-section-heading"><h3>观察魔方</h3><button type="button" class="ce-text-button" data-ce="view">重置视角</button></div>
+                    <div id="ce-model" tabindex="0" role="img" aria-label="三维魔方，可拖动或使用方向键旋转视角" title="拖动旋转视角，方向键微调"><span class="ce-placeholder">正在准备魔方…</span></div></div>
+                    <div class="ce-net-section">
+                        <div class="ce-section-heading ce-net-heading"><h3>展开图</h3><div class="ce-color-tools"><button type="button" class="ce-text-button" data-ce="reset-colors">重置</button><button type="button" class="ce-text-button" id="ce-edit-colors" data-ce="edit" aria-expanded="false" aria-controls="ce-palette">编辑配色</button><div id="ce-palette" class="ce-palette" hidden aria-label="选择涂色颜色"></div></div></div>
+                        <div class="ce-net-frame"><div id="ce-net" class="ce-net" aria-label="魔方六面展开图"></div></div>
+                    </div>
+                </section>
+                <section class="card ce-control-card" aria-label="打乱与求解">
+                    <div class="ce-scramble-section">
+                        <div class="ce-section-heading"><h3>打乱公式</h3><button type="button" class="ce-text-button" data-ce="copy-scramble">复制</button></div>
+                        <label class="sr-only" for="ce-algorithm">输入打乱公式</label><textarea id="ce-algorithm" spellcheck="false" placeholder="粘贴打乱，例如 R U R′ U′" rows="2"></textarea>
+                        <div class="ce-actions"><button type="button" class="ce-button" data-ce="reset">复原状态</button><button type="button" class="ce-button" data-ce="random">随机打乱</button><button type="button" class="ce-button" data-ce="apply">应用打乱</button></div>
+                    </div>
+                    <div class="ce-solver-section">
+                        <div class="ce-section-heading ce-solver-heading"><h3>寻找解法</h3><div class="ce-depth-control"><label for="ce-depth">步数设置</label><div class="ce-stepper"><button type="button" data-ce="minus" aria-label="减少步数">−</button><input id="ce-depth" type="number" min="1" max="30" value="20" inputmode="numeric" aria-label="求解步数上限"><button type="button" data-ce="plus" aria-label="增加步数">+</button></div></div></div>
+                        <button type="button" class="ce-button ce-solve-button" id="ce-solve" data-ce="solve"><span class="ce-spinner" hidden></span><span id="ce-solve-text">求解当前状态</span></button>
+                        <div id="ce-status" class="ce-status" role="status" aria-live="polite">准备就绪。</div>
+                        <div class="ce-history-panel"><div class="ce-section-heading ce-history-heading"><h3 id="ce-history-title">解法记录 <span id="ce-history-count">0</span></h3><button type="button" class="ce-text-button" data-ce="clear">清空记录</button></div><div class="ce-history-wrap"><div id="ce-history" tabindex="0" role="region" aria-labelledby="ce-history-title"><p class="ce-empty">求解后，记录会保存在这里。</p></div><div id="ce-history-scrollbar" role="scrollbar" aria-label="滚动解法记录" aria-controls="ce-history" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span class="ce-history-scroll-thumb"></span></div></div></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <!-- 丢失的 PK 结果页面补丁 -->
     <div id="pk-result-page" class="page-container">
         <div class="page-header">
@@ -1904,16 +1952,17 @@
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
-    <script src="main.js?v=1.45.3-offline-services-20261017"></script>
-    <script src="forum.js?v=1.45.3-network-20261017"></script>
-    <script src="account.js?v=1.45.3-network-20261017"></script>
-    <script src="theme.js?v=1.45.3-mobile-surfaces"></script>
+    <script src="dc_timer_import.js?v=20261020"></script>
+    <script src="main.js?v=1.46.5"></script>
+    <script src="forum.js?v=20261021-no-recovery"></script>
+    <script src="account.js?v=20261021-no-recovery"></script>
+    <script src="theme.js?v=1.45.4-mobile-surfaces"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
-    <script src="timer_smart.js?v=1.45.3-battery-daily-20261016"></script>
+    <script src="timer_smart.js?v=1.45.4-clock-20261020"></script>
     <script src="cube_space_player.js?v=1.17-detail35"></script>
 </body>
 </html>

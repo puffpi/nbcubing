@@ -132,12 +132,12 @@
         }
         return `<svg viewBox="0 0 118 115" role="img" aria-label="${type.toUpperCase()} 顶层案例图">${content}</svg>`;
     }
-    function mountCube(container, appearance='black') {
+    function mountCube(container, appearance='black', options={}) {
         if(mounted) mounted.dispose();
         if(!window.THREE) { container.textContent='魔方模型暂不可用'; return; }
         const THREE=window.THREE, scene=new THREE.Scene();
         const camera=new THREE.PerspectiveCamera(35,1,.1,100);
-        camera.position.set(0,0,11.2);
+        camera.position.set(0,0,11.2/(options.scale || 1));
         const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
         renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
         container.replaceChildren(renderer.domElement);
@@ -184,7 +184,7 @@
             wake();
         };
         // 贴纸和同形底框分离；圆角缺口保持透明，不再由完整方块填充。
-        const materials=Object.fromEntries(Object.entries(COLORS).map(([face,color])=>[face,new THREE.MeshBasicMaterial({
+        const materials=Object.fromEntries(Object.entries(options.colors || COLORS).map(([face,color])=>[face,new THREE.MeshBasicMaterial({
             color, side:THREE.FrontSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2
         })]));
         for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++) {
@@ -217,7 +217,9 @@
                 const outline=new THREE.LineLoop(outlineGeometry[kind],outlineMaterial);
                 outline.position.z=.006;
                 sticker.add(recess,backing,outline);
-                sticker.userData={kind,backing,outline};
+                let faceletIndex=-1;
+                for(let row=0;row<3;row++)for(let col=0;col<3;col++)if(faceletPosition(face,row,col).every((value,axis)=>value===[x,y,z][axis]))faceletIndex='URFDLB'.indexOf(face)*9+row*3+col;
+                sticker.userData={kind,backing,outline,face,faceletIndex};
                 sticker.geometry=appearance==='stickerless'?backingGeometry[kind]:coloredGeometry[kind];
                 backing.visible=appearance!=='stickerless';
                 outline.visible=appearance==='stickerless';
@@ -233,10 +235,11 @@
         }
         scene.add(new THREE.HemisphereLight(0xffffff,0xc7d4e4,.9));
         const lamp=new THREE.DirectionalLight(0xffffff,.55);lamp.position.set(4,5,7);scene.add(lamp);
-        let playToken=0,frame=0,drag=null,lastRun=Promise.resolve(),size='';
+        let playToken=0,frame=0,drag=null,lastRun=Promise.resolve(),size='',disposed=false;
         const resize=()=>{const w=container.clientWidth||250,h=container.clientHeight||235,key=`${w}x${h}`;if(key===size)return;size=key;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
-        const draw=()=>{if(!document.getElementById('formula-detail-page')?.classList.contains('active')) {frame=0;return;}resize();renderer.render(scene,camera);frame=requestAnimationFrame(draw);};
-        const wake=()=>{if(!frame) draw();};
+        const draw=()=>{frame=0;if(disposed||!(options.isActive?options.isActive():document.getElementById('formula-detail-page')?.classList.contains('active')))return;resize();renderer.render(scene,camera);};
+        const wake=()=>{if(!disposed&&!frame)frame=requestAnimationFrame(draw);};
+        const resizeObserver=new ResizeObserver(wake);resizeObserver.observe(container);
         const onDown=e=>{e.preventDefault();drag=[e.pointerId,e.clientX,e.clientY];container.setPointerCapture(e.pointerId);};
         const onMove=e=>{if(!drag||drag[0]!==e.pointerId)return;e.preventDefault();root.rotation.y+=(e.clientX-drag[1])*.008;root.rotation.x+=(e.clientY-drag[2])*.008;drag=[drag[0],e.clientX,e.clientY];wake();};
         const onUp=e=>{if(drag?.[0]===e.pointerId)drag=null;};
@@ -251,14 +254,18 @@
             const angle=move.quarter*Math.PI/2;
             if(animate){
                 const start=performance.now(),duration=(Math.abs(move.quarter)===2?620:440)/speed;
-                await new Promise(resolve=>{const step=now=>{if(token!==playToken){resolve();return;}const t=Math.min(1,(now-start)/duration);group.rotation[move.axis]=angle*(t*t*(3-2*t));if(t<1)requestAnimationFrame(step);else resolve();};requestAnimationFrame(step);});
+                await new Promise(resolve=>{const step=now=>{if(token!==playToken){resolve();return;}const t=Math.min(1,(now-start)/duration);group.rotation[move.axis]=angle*(t*t*(3-2*t));wake();if(t<1)requestAnimationFrame(step);else resolve();};requestAnimationFrame(step);});
             } else group.rotation[move.axis]=angle;
+            if(token!==playToken||disposed){root.remove(group);wake();return false;}
             for(const entry of chosen){root.attach(entry.piece);entry.position=rotateVector(entry.position,move.axis,move.quarter);entry.piece.position.set(...entry.position);}
             root.remove(group);
+            wake();
+            return true;
         }
         async function run(algorithm,token,speed) {
             const moves=parse(algorithm);
             reset();
+            for(const sticker of stickers)sticker.material=materials[sticker.userData.face];
             for(const move of targetOrientation(algorithm))await apply(move,false,token);
             for(const move of inverse(moves)) await apply(move,false,token);
             wake();
@@ -271,7 +278,11 @@
             lastRun=lastRun.catch(()=>{}).then(()=>run(algorithm,token,speed));
             return lastRun;
         }
-        mounted={play,setAppearance,dispose(){++playToken;cancelAnimationFrame(frame);container.removeEventListener('pointerdown',onDown);container.removeEventListener('pointermove',onMove);container.removeEventListener('pointerup',onUp);container.removeEventListener('pointercancel',onUp);container.removeEventListener('touchmove',onTouchMove);renderer.dispose();contactGeometry.dispose();recessGeometry.dispose();Object.values(coloredGeometry).forEach(geometry=>geometry.dispose());Object.values(backingGeometry).forEach(geometry=>geometry.dispose());Object.values(outlineGeometry).forEach(geometry=>geometry.dispose());recessMaterial.dispose();bodyMaterial.dispose();contactMaterial.dispose();hiddenContactMaterial.dispose();outlineMaterial.dispose();Object.values(materials).forEach(material=>material.dispose());container.replaceChildren();}};
+        const setState=facelets=>{if(typeof facelets!=='string'||facelets.length!==54||/[^URFDLB]/.test(facelets))throw Error('魔方状态无效');++playToken;reset();for(const sticker of stickers)sticker.material=materials[facelets[sticker.userData.faceletIndex]];wake();};
+        const resetView=()=>{root.rotation.set(.45,-.55,0);wake();};
+        const turnView=(x,y)=>{root.rotation.y+=x;root.rotation.x+=y;wake();};
+        const animateMove=(algorithm,speed=1.2)=>{const moves=parse(algorithm);if(moves.length!==1)throw Error('单步演示需要一个转动');return apply(moves[0],!matchMedia('(prefers-reduced-motion: reduce)').matches,++playToken,speed);};
+        mounted={play,setAppearance,setState,resetView,turnView,animateMove,dispose(){if(disposed)return;disposed=true;++playToken;cancelAnimationFrame(frame);resizeObserver.disconnect();container.removeEventListener('pointerdown',onDown);container.removeEventListener('pointermove',onMove);container.removeEventListener('pointerup',onUp);container.removeEventListener('pointercancel',onUp);container.removeEventListener('touchmove',onTouchMove);renderer.dispose();contactGeometry.dispose();recessGeometry.dispose();Object.values(coloredGeometry).forEach(geometry=>geometry.dispose());Object.values(backingGeometry).forEach(geometry=>geometry.dispose());Object.values(outlineGeometry).forEach(geometry=>geometry.dispose());recessMaterial.dispose();bodyMaterial.dispose();contactMaterial.dispose();hiddenContactMaterial.dispose();outlineMaterial.dispose();Object.values(materials).forEach(material=>material.dispose());container.replaceChildren();}};
         wake();
         return mounted;
     }
