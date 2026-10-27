@@ -8,6 +8,8 @@ let forumChannel = null, forumChannelKey = '', forumReloadTimer = null;
 let forumLoadSequence = 0, forumListSequence = 0, forumUser = null, forumAdmin = false;
 let forumAuthPromise = null, forumModalReturnFocus = null, forumModalBusy = false, forumReportSequence = 0;
 let forumClient = null;
+const forumLikeStates = new Map();
+let forumLikeRevision = 0;
 async function ensureForumClient() {
     if (forumClient) return forumClient;
     await ensureSupabaseClient();
@@ -69,6 +71,7 @@ function forumPageChanged(pageId) {
     clearTimeout(forumReloadTimer);
     if (forumChannel && forumClient) { forumClient.removeChannel(forumChannel); forumChannel = null; forumChannelKey = ''; }
     closeForumModal();
+    scheduleForumComposerViewport();
     if (pageId === 'forum-page') setTimeout(loadForumTopics, 0);
     if (pageId === 'forum-topic-page' && activeForumTopic) setTimeout(loadForumComments, 0);
 }
@@ -121,7 +124,11 @@ function openForumTopic(topicId) {
     forumEl('forum-topic-title').textContent = topic.title; forumEl('forum-topic-body').textContent = topic.body;
     forumEl('forum-topic-menu').replaceChildren(forumTopicMenu(topic));
     clearForumReplyTarget();
-    forumEl('forum-comments').replaceChildren(); navigateTo('forum-topic-page', true);
+    forumEl('forum-comments').replaceChildren();
+    forumEl('forum-comments').closest('.forum-comments-card').hidden=true;
+    forumEl('forum-comments-status').textContent='载入中...';
+    forumEl('forum-comments-status').classList.add('forum-loading');
+    navigateTo('forum-topic-page', true);
 }
 function setForumReplyTarget(comment) {
     if(!forumCanSpeak()){openMonthlyAccountModal(()=>setForumReplyTarget(comment),true);return;}
@@ -135,7 +142,7 @@ function forumAction(icon, label, action) {
     button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
     button.onclick = event => { event.stopPropagation(); action(button); }; return button;
 }
-function renderForumComments(comments, likes) {
+function renderForumComments(comments, likes, readRevision = forumLikeRevision) {
     const fragment = document.createDocumentFragment(), counts = new Map((likes || []).map(l => [String(l.comment_id), l]));
     for (const { comment: c, depth } of forumCommentOrder(comments, forumHiddenIds())) {
         const row = forumNode('div', `forum-comment${depth || c.parent_id ? ' forum-comment-reply' : ''}`);
@@ -149,6 +156,9 @@ function renderForumComments(comments, likes) {
         const like = forumAction('<path d="M12 20S3 14.5 3 8.8C3 4.2 8.5 2.7 12 7c3.5-4.3 9-2.8 9 1.8C21 14.5 12 20 12 20Z"/>', stat?.liked ? '取消点赞' : '点赞', b => likeForumComment(c.id,b));
         like.className = `forum-action-like${stat?.liked ? ' liked' : ''}`; like.setAttribute('aria-pressed', String(!!stat?.liked));
         like.append(forumNode('span', '', String(stat?.total || 0)));
+        like.dataset.commentId=String(c.id);
+        const likeState=forumLikeState(c.id,stat,readRevision);
+        paintForumLikeButton(like,likeState);
         const reply = forumAction('<path d="M3 4h18v12H9l-6 4V4Z"/>', `回复 ${c.nickname}`, () => setForumReplyTarget(c));
         const menu = forumNode('div', 'forum-comment-menu');
         const more = forumAction('<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>', '更多操作', () => {
@@ -162,11 +172,13 @@ function renderForumComments(comments, likes) {
     }
     // Atomic commit: never append to DOM across asynchronous requests.
     forumEl('forum-comments').replaceChildren(fragment);
+    forumEl('forum-comments').closest('.forum-comments-card').hidden=!forumEl('forum-comments').children.length;
 }
 async function loadForumComments() {
     const topicId = activeForumTopic?.id; if (!topicId) return;
-    const sequence = ++forumLoadSequence, status = forumEl('forum-comments-status');
-    status.textContent = '';status.classList.remove('forum-empty');
+    const sequence = ++forumLoadSequence, status = forumEl('forum-comments-status'), readRevision=forumLikeRevision;
+    const initial=!forumEl('forum-comments').children.length;
+    status.textContent = initial?'载入中...':'';status.classList.remove('forum-empty');status.classList.toggle('forum-loading',initial);
     try {
         const client = await ensureForumClient();
         const session = await client.auth.getSession(); forumUser = session.data?.session?.user || null;
@@ -178,23 +190,65 @@ async function loadForumComments() {
             const { data, error } = await client.from('forum_comments').select('id,nickname,body,created_at,parent_id,reply_to_nickname,author_id').eq('topic_id',topicId).is('deleted_at',null).gt('id',cursor).order('id',{ascending:true}).limit(200);
             if (error) throw error;
             if (sequence !== forumLoadSequence || activeForumTopic?.id !== topicId) return;
-            comments.push(...(data || [])); renderForumComments(comments, stats.data);
+            comments.push(...(data || []));
             if (!data || data.length < 200) break;
             cursor = data[data.length - 1].id;
         }
+        renderForumComments(comments, stats.data, readRevision);
+        status.classList.remove('forum-loading');
         status.textContent = comments.length ? '' : '还没有留言，来分享第一个想法吧。';
         status.classList.toggle('forum-empty',!comments.length);
         await forumSubscribe(topicId, ['forum_activity'], loadForumComments);
-    } catch (error) { if (sequence === forumLoadSequence) {status.textContent='';forumNotice('留言加载失败',forumError(error));} }
+    } catch (error) { if (sequence === forumLoadSequence) {status.classList.remove('forum-loading');status.textContent='留言加载失败，'+forumError(error);} }
 }
-async function likeForumComment(id, button) {
-    if (button.disabled) return; button.disabled = true;
-    try {
-        await forumIdentity(); const client = await ensureForumClient();
-        const { error } = await client.rpc('forum_toggle_like',{p_comment:id}); if (error) throw error;
-        await loadForumComments();
-    } catch(error) { forumEl('forum-comments-status').textContent = forumError(error); }
-    finally { button.disabled = false; }
+function forumLikeState(id, stat, readRevision=forumLikeRevision) {
+    const key=(forumUser?.id||'guest')+':'+activeForumTopic?.id+':'+id;
+    let state=forumLikeStates.get(key);
+    if(!state){state={key,id,topic:activeForumTopic?.id,user:forumUser?.id||null,confirmed:!!stat?.liked,desired:!!stat?.liked,total:Math.max(0,Number(stat?.total)||0),revision:0,running:false,timer:null,uncertain:false};forumLikeStates.set(key,state);}
+    else if(!state.running&&!state.timer&&!state.uncertain&&state.revision<=readRevision){state.confirmed=state.desired=!!stat?.liked;state.total=Math.max(0,Number(stat?.total)||0);}
+    return state;
+}
+function paintForumLikeButton(button,state){
+    const label=state.desired?'取消点赞':'点赞';button.classList.toggle('liked',state.desired);button.setAttribute('aria-pressed',String(state.desired));button.setAttribute('aria-label',label);button.title=label;
+    button.querySelector('span').textContent=String(Math.max(0,state.total+Number(state.desired)-Number(state.confirmed)));
+}
+function paintForumLike(state){
+    if(activeForumTopic?.id!==state.topic||(forumUser?.id||null)!==state.user)return;
+    for(const button of forumEl('forum-comments').querySelectorAll('.forum-action-like'))if(button.dataset.commentId===String(state.id))paintForumLikeButton(button,state);
+}
+function likeForumComment(id,button){
+    const state=forumLikeState(id,{liked:button.getAttribute('aria-pressed')==='true',total:Number(button.querySelector('span').textContent)},-1);
+    state.desired=!state.desired;state.revision=++forumLikeRevision;paintForumLikeButton(button,state);
+    // Coalesce bursts while keeping every click visible. At most one toggle
+    // request per comment is in flight; later clicks only change the target.
+    if(!state.running){clearTimeout(state.timer);state.timer=setTimeout(()=>syncForumLike(state),100);}
+}
+async function readForumLike(client,state){
+    const response=await client.rpc('forum_like_stats',{p_topic:state.topic});if(response.error)throw response.error;
+    const stat=response.data?.find(s=>String(s.comment_id)===String(state.id));
+    state.confirmed=!!stat?.liked;state.total=Math.max(0,Number(stat?.total)||0);state.uncertain=false;state.revision=++forumLikeRevision;
+}
+async function syncForumLike(state){
+    if(state.running)return;state.timer=null;state.running=true;
+    let client;
+    try{
+        const user=await forumIdentity();if(user.id!==state.user)throw new Error('登录状态已变化，请重新点赞。');client=await ensureForumClient();
+        if(state.uncertain)await readForumLike(client,state);
+        while(state.desired!==state.confirmed){
+            const response=await client.rpc('forum_toggle_like',{p_comment:state.id});
+            if(response.error)throw response.error;
+            if(typeof response.data!=='boolean')throw new Error('点赞响应无法确认。');
+            state.total=Math.max(0,state.total+Number(response.data)-Number(state.confirmed));state.confirmed=response.data;state.revision=++forumLikeRevision;paintForumLike(state);
+        }
+    }catch(error){
+        // A failed response may already have committed. Read before ever
+        // issuing another toggle; blind retry would invert a successful like.
+        state.uncertain=true;
+        let recovered=false;
+        if(client){try{await readForumLike(client,state);recovered=true;}catch{}}
+        state.desired=state.confirmed;state.revision=++forumLikeRevision;paintForumLike(state);
+        if(activeForumTopic?.id===state.topic){const status=forumEl('forum-comments-status');status.classList.remove('forum-loading');status.textContent=recovered?'点赞未能完成，已恢复云端状态，请重试。':'点赞未能同步，已恢复上次确认的状态，请稍后重试。';}
+    }finally{state.running=false;}
 }
 async function submitForumComment(event) {
     event.preventDefault(); const topic = activeForumTopic; if (!topic) return;
@@ -336,13 +390,31 @@ document.addEventListener('keydown',e=>{
 forumEl('forum-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeForumModal();});
 function resizeForumComposer() {
     const input = forumEl('forum-comment-body');
-    const maximum = Math.min(240, window.innerHeight * .35);
+    const maximum = Math.max(43,Math.min(240, (window.visualViewport?.height || window.innerHeight) * .35));
     input.style.height = '43px';
     input.style.height = `${Math.min(maximum, Math.max(43, input.scrollHeight + 2))}px`;
     input.style.overflowY = 'auto';
 }
 forumEl('forum-comment-body').addEventListener('input', resizeForumComposer);
-window.addEventListener('resize', resizeForumComposer);
+let forumViewportFrame=0;
+function scheduleForumComposerViewport(){
+    if(forumViewportFrame)return;
+    forumViewportFrame=requestAnimationFrame(()=>{forumViewportFrame=0;updateForumComposerViewport();});
+}
+function updateForumComposerViewport(){
+    const viewport=window.visualViewport,form=forumEl('forum-comment-form');
+    const mobile=window.innerWidth<=700,active=forumEl('forum-topic-page').classList.contains('active');
+    // Layout-resizing Android keyboards need no extra lift; on iOS/overlay
+    // keyboards the visual viewport reveals the actual unobscured bottom.
+    const offset=mobile&&active&&viewport&&Math.abs(viewport.scale-1)<.05?Math.max(0,window.innerHeight-viewport.height-viewport.offsetTop):0;
+    form.style.setProperty('--forum-keyboard-offset',Math.round(offset)+'px');
+    resizeForumComposer();
+}
+window.addEventListener('resize',scheduleForumComposerViewport);
+window.visualViewport?.addEventListener('resize',scheduleForumComposerViewport);
+window.visualViewport?.addEventListener('scroll',scheduleForumComposerViewport);
+forumEl('forum-comment-body').addEventListener('focus',scheduleForumComposerViewport);
+forumEl('forum-comment-body').addEventListener('blur',scheduleForumComposerViewport);
 if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => {
     forumEl('forum-topic-page').style.setProperty('--forum-composer-space', `${forumEl('forum-comment-form').offsetHeight + 40}px`);
 }).observe(forumEl('forum-comment-form'));

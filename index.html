@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.46.8">
+    <link rel="stylesheet" href="style.css?v=1.48.42">
     <link rel="stylesheet" href="cube_explorer.css?v=1.46.8">
+    <link rel="stylesheet" href="analysis.css?v=1.48.40">
 </head>
 <body>
 
@@ -91,13 +92,14 @@
                     <a onclick="navigateTo('timer-page'); initTimer();">NB Timer</a>
                     <a onclick="initChallenge(); navigateTo('challenge-page');">NB Challenge</a>
                     <a onclick="initMonthly();">巅峰月赛</a>
-                    <a onclick="openCubeSpace()">魔方空间</a>
+                    <a onclick="openCubeExplorer()">Cube Explorer</a>
                 </div>
             </div>
             <div class="nav-menu-item has-dropdown">其他
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
-                    <a onclick="openCubeExplorer()">Cube Explorer</a>
+                    <a onclick="openCubeSpace()">魔方空间</a>
+                    <a onclick="openDiscovery('insight')">成绩分析</a>
                     <a onclick="openFormulaLibrary()">公式 · 方法</a>
                     <a onclick="openForum()">论坛</a>
                 </div>
@@ -368,8 +370,8 @@
 
             <div class="ios-setting-group custom-ui-group">
                 <span>用户名</span>
-                <!-- 宽度严格锁定 140px，统一样式，带有浅灰色背景框 -->
-                <input type="text" id="setting-username" class="ios-input" style="width: 140px; padding: 6px 10px; margin: 0;" placeholder="请输入用户名" onchange="saveUsername(this.value)">
+                <!-- 用户名输入框与个性化设置控件保持一致。 -->
+                <input type="text" id="setting-username" class="ios-input" autocomplete="nickname" placeholder="请输入用户名" onchange="saveUsername(this.value)">
             </div>
 
             <div class="ios-setting-group custom-ui-group">
@@ -386,30 +388,30 @@
             <div class="sidebar-settings-title">个性化</div>
             <div class="ios-setting-group custom-ui-group">
                 <span>显示模式</span>
-                <button type="button" class="cube-appearance-picker" onclick="openDisplayModeModal()"><span id="display-mode-label">浅色</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openDisplayModeModal()"><span id="display-mode-label">浅色</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
 
             <div class="ios-setting-group custom-ui-group">
                 <span>首页排版</span>
-                <button type="button" class="cube-appearance-picker" onclick="openHomeLayoutModal()"><span id="home-layout-label">现代</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openHomeLayoutModal()"><span id="home-layout-label">现代</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
 
             <div class="ios-setting-group custom-ui-group">
                 <span>个人主页排版</span>
-                <button type="button" class="cube-appearance-picker" onclick="openPersonLayoutModal()"><span id="person-layout-label">密集</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openPersonLayoutModal()"><span id="person-layout-label">密集</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
 
             <div class="ios-setting-group custom-ui-group">
                 <span>智能魔方外观</span>
-                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('smart')"><span id="smart-cube-appearance-label">黑底</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('smart')"><span id="smart-cube-appearance-label">黑底</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>智能魔方显示LOGO</span>
-                <button type="button" class="cube-appearance-picker" onclick="openSmartCubeLogoModal()"><span id="smart-cube-logo-label">PuffPi</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openSmartCubeLogoModal()"><span id="smart-cube-logo-label">PuffPi</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>虚拟魔方外观</span>
-                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('virtual')"><span id="virtual-cube-appearance-label">黑底</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="openCubeAppearanceModal('virtual')"><span id="virtual-cube-appearance-label">黑底</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
 
             <hr class="settings-divider">
@@ -418,11 +420,11 @@
 
             <div class="ios-setting-group custom-ui-group">
                 <span>关于本站</span>
-                <button type="button" class="cube-appearance-picker" onclick="navigateTo('about-page', true)"><span>查看</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="cube-appearance-picker" onclick="navigateTo('about-page', true)"><span>查看</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.46.8</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.48.42</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -489,7 +491,8 @@
     <div id="forum-topic-page" class="page-container">
         <div class="forum-shell">
             <article class="card forum-topic-detail"><div id="forum-topic-menu" class="forum-topic-detail-menu"></div><h3 id="forum-topic-title"></h3><p id="forum-topic-body"></p><div class="forum-topic-footer"><span id="forum-topic-tag"></span></div></article>
-            <section class="card forum-comments-card"><div id="forum-comments-status" aria-live="polite"></div><div id="forum-comments"></div></section>
+            <div id="forum-comments-status" role="status" aria-live="polite"></div>
+            <section class="card forum-comments-card" hidden><div id="forum-comments"></div></section>
         </div>
         <form id="forum-comment-form" onsubmit="submitForumComment(event)">
             <div id="forum-reply-target" hidden><span></span><button type="button" onclick="clearForumReplyTarget()" aria-label="取消回复">×</button></div>
@@ -722,10 +725,11 @@
     <div id="timer-clear-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
             <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">清空成绩</h3>
-            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px; text-align: center;">确定要清空该项目的所有成绩记录吗？此操作无法撤销。</p>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px; text-align: center;">确定要清空所选项目的所有成绩记录吗？</p>
+            <div class="timer-clear-choices"><div id="timer-clear-mode" data-multiple="false"><span>多选</span><label class="cs-switch"><input id="timer-clear-multiple" type="checkbox" onchange="toggleTimerClearMultiple(this.checked)" aria-label="多选项目"><span class="cs-slider"></span></label></div><div id="timer-clear-projects"></div></div>
             <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
                 <button class="edit-btn-cancel" onclick="closeTimerClearModal()">取消</button>
-                <button class="edit-btn-confirm" style="background: #e63946;" onclick="confirmTimerClear()">确定清空</button>
+                <button class="edit-btn-confirm" id="timer-clear-confirm" style="background: #e63946;" onclick="confirmTimerClear()">确定清空</button>
             </div>
         </div>
     </div>
@@ -750,13 +754,14 @@
             <button id="timer-import-dropzone" type="button" hidden onclick="chooseTimerImportFile()" ondragover="dragOverTimerImport(event)" ondragleave="leaveTimerImportDropzone(event)" ondrop="dropTimerImportFile(event)">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H6V3h1Z"/><path d="M14 3v5h4M12 17v-6m-3 3 3-3 3 3"/></svg>
                 <span id="timer-import-file-name">将 DC Timer 文件拖到这里</span>
-                <span id="timer-import-file-hint">或点击选择 .txt 文件</span>
+                <span id="timer-import-file-hint">或选择 .txt/.db 文件</span>
             </button>
-            <input id="timer-import-file-input" type="file" accept=".txt,text/plain" hidden onchange="selectTimerImportFiles(this.files)">
+            <input id="timer-import-file-input" type="file" accept=".txt,.db,text/plain,application/vnd.sqlite3,application/x-sqlite3" hidden onchange="selectTimerImportFiles(this.files)">
             <div id="timer-import-external-row" class="timer-import-external-row" data-external="false">
                 <span class="timer-import-external-label">DC Timer 导入</span>
-                <div class="timer-import-switch"><span class="timer-import-no">否</span><label class="cs-switch"><input id="timer-import-mode-toggle" type="checkbox" role="switch" aria-label="DC Timer 导入" aria-controls="timer-import-dropzone timer-import-textarea" onchange="toggleTimerImportMode(this.checked)"><span class="cs-slider"></span></label><span class="timer-import-yes">是</span></div>
+                <div class="timer-import-switch"><span class="timer-import-no">否</span><label class="cs-switch"><input id="timer-import-mode-toggle" type="checkbox" role="switch" aria-label="DC Timer 导入" aria-controls="timer-import-dropzone timer-import-textarea timer-import-help" onchange="toggleTimerImportMode(this.checked)"><span class="cs-slider"></span></label><span class="timer-import-yes">是</span></div>
             </div>
+            <div id="timer-import-help" hidden><p>.txt文件一般是单项成绩的还原统计，请前往对应分组导入文件。</p><p>.db文件一般是整个数据库文件，包含所有项目的成绩信息，可在任意分组下导入文件，系统支持自动识别。</p></div>
             <div id="timer-import-status" role="status" aria-live="polite" hidden><span class="timer-import-spinner" aria-hidden="true" hidden></span><span id="timer-import-status-text"></span></div>
             <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
                 <button id="timer-import-cancel" type="button" class="edit-btn-cancel" onclick="closeTimerImportModal()">取消</button>
@@ -911,6 +916,7 @@
 
                     <!-- 更多下拉悬浮窗 -->
                     <div id="timer-more-dropdown" class="timer-more-dropdown">
+                        <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerAnalysis()">成绩分析</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDistModal()">成绩分布</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerTrendModal()">折线图</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDailyStats()">日常统计</div>
@@ -1033,7 +1039,7 @@
                     <!-- 👇 新增：每次成绩确认提示开关 👇 -->
                     <div class="ios-setting-group custom-ui-group">
                         <span>提示对每次成绩的操作</span>
-                        <div class="ios-segment-control" style="width: 100px; margin: 0; display: flex;">
+                        <div class="nb-settings-toggle" style="width: 100px; margin: 0; display: flex;"><span>否</span><label class="cs-switch"><input type="checkbox" id="nb-toggle-promptAction" aria-label="提示对每次成绩的操作" onchange="setPromptAction(this.checked)"><span class="cs-slider"></span></label><span>是</span><span class="nb-settings-pill-thumb" aria-hidden="true"></span>
                             <div class="ios-segment-btn active" id="btn-prompt-no" onclick="setPromptAction(false)" style="flex: 1; text-align: center; padding: 5px 0;">否</div>
                             <div class="ios-segment-btn" id="btn-prompt-yes" onclick="setPromptAction(true)" style="flex: 1; text-align: center; padding: 5px 0;">是</div>
                         </div>
@@ -1046,7 +1052,7 @@
                             <span>滚动平均次数</span>
                         </div>
                         <div class="stat-controls">
-                            <div class="ios-segment-control half-segment">
+                            <div class="ios-segment-control half-segment nb-average-segment"><span class="nb-average-thumb" aria-hidden="true"></span>
                                 <div class="ios-segment-btn active" onclick="setStatType(1, 'ao')" id="btn-stat1-ao">Average</div>
                                 <div class="ios-segment-btn" onclick="setStatType(1, 'mo')" id="btn-stat1-mo">Mean</div>
                             </div>
@@ -1062,7 +1068,7 @@
                             <span>滚动平均次数</span>
                         </div>
                         <div class="stat-controls">
-                            <div class="ios-segment-control half-segment">
+                            <div class="ios-segment-control half-segment nb-average-segment"><span class="nb-average-thumb" aria-hidden="true"></span>
                                 <div class="ios-segment-btn active" onclick="setStatType(2, 'ao')" id="btn-stat2-ao">Average</div>
                                 <div class="ios-segment-btn" onclick="setStatType(2, 'mo')" id="btn-stat2-mo">Mean</div>
                             </div>
@@ -1073,10 +1079,10 @@
 
                     <hr class="settings-divider">
                     <div class="sidebar-settings-title">计时</div>
-                    <div class="ios-setting-group custom-ui-group"><span>使用 WCA 观察</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-no" onclick="setNbTimingOption('inspection', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-yes" onclick="setNbTimingOption('inspection', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
-                    <div class="ios-setting-group custom-ui-group"><span>观察语音提示</span><div class="ios-segment-control" style="width:100px;margin:0;display:flex"><div class="ios-segment-btn active" id="btn-inspection-voice-no" onclick="setNbTimingOption('inspectionVoice', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-voice-yes" onclick="setNbTimingOption('inspectionVoice', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
-                    <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
-                    <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01 秒</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>使用 WCA 观察</span><div class="nb-settings-toggle" style="width:100px;margin:0;display:flex"><span>否</span><label class="cs-switch"><input type="checkbox" id="nb-toggle-inspection" aria-label="使用 WCA 观察" onchange="setNbTimingOption('inspection',this.checked)"><span class="cs-slider"></span></label><span>是</span><span class="nb-settings-pill-thumb" aria-hidden="true"></span><div class="ios-segment-btn active" id="btn-inspection-no" onclick="setNbTimingOption('inspection', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-yes" onclick="setNbTimingOption('inspection', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>观察语音提示</span><div class="nb-settings-toggle" style="width:100px;margin:0;display:flex"><span>否</span><label class="cs-switch"><input type="checkbox" id="nb-toggle-inspectionVoice" aria-label="观察语音提示" onchange="setNbTimingOption('inspectionVoice',this.checked)"><span class="cs-slider"></span></label><span>是</span><span class="nb-settings-pill-thumb" aria-hidden="true"></span><div class="ios-segment-btn active" id="btn-inspection-voice-no" onclick="setNbTimingOption('inspectionVoice', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-voice-yes" onclick="setNbTimingOption('inspectionVoice', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01 秒</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
 
                     <!-- 核心新增：界面设置模块 -->
                     <hr class="settings-divider">
@@ -1087,7 +1093,7 @@
                         <span>计时器字体</span>
                         <div class="ui-control-right" onclick="openFontModal()">
                             <span id="current-font-name">默认等宽</span>
-                            <span style="font-size: 10px; color: var(--text-muted);">▼</span>
+                            <span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span>
                         </div>
                     </div>
 
@@ -1110,7 +1116,7 @@
 
                     <div class="ios-setting-group custom-ui-group">
                         <span>智能魔方外观</span>
-                        <div class="ui-control-right" role="button" tabindex="0" onclick="openCubeAppearanceModal('smart', true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCubeAppearanceModal('smart', true)}"><span id="timer-smart-cube-appearance-label">黑底</span><span style="font-size: 10px; color: var(--text-muted);">▼</span></div>
+                        <div class="ui-control-right" role="button" tabindex="0" onclick="openCubeAppearanceModal('smart', true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCubeAppearanceModal('smart', true)}"><span id="timer-smart-cube-appearance-label">黑底</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div>
                     </div>
 
                     <div class="ios-setting-group custom-ui-group">
@@ -1120,7 +1126,7 @@
                             <input type="range" id="smart-cube-size-slider" min="50" max="150" value="100" oninput="updateSmartCubeSize(this.value)">
                         </div>
                     </div>
-<div class="ios-setting-group custom-ui-group"><span>蓝牙自动断开</span><div class="ui-control-right" role="button" tabindex="0" onclick="openTimerBluetoothIdleModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTimerBluetoothIdleModal();}"><span id="timer-bluetooth-idle-label">5 分钟</span><span style="font-size:10px;color:var(--text-muted)">▼</span></div></div>
+<div class="ios-setting-group custom-ui-group"><span>蓝牙自动断开</span><div class="ui-control-right" role="button" tabindex="0" onclick="openTimerBluetoothIdleModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTimerBluetoothIdleModal();}"><span id="timer-bluetooth-idle-label">5 分钟</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
 
                     <div class="ios-setting-group custom-ui-group">
                         <span>颜色：最快单次</span>
@@ -1138,7 +1144,11 @@
                         </div>
                     </div>
 
-                    <hr class="settings-divider">
+                    <div class="ios-setting-group custom-ui-group"><span>背景颜色</span><div class="ui-control-right color-wrapper"><div id="color-background-display" class="color-display-block" onclick="openColorModal('background')"></div><input type="text" id="color-background-hex" class="ios-input hex-input" onchange="updateColor('background',this.value)"></div></div>
+<div class="ios-setting-group custom-ui-group"><span>背景图片</span><button type="button" id="timer-background-import" class="btn pk-start-btn" onclick="document.getElementById('timer-background-file').click()">导入图片</button><input id="timer-background-file" type="file" accept="image/*" hidden onchange="importTimerBackground(this.files[0]);this.value=''"></div>
+<div class="ios-setting-group custom-ui-group"><span>显示背景图片</span><div id="timer-background-toggle"><span>否</span><label class="cs-switch"><input id="timer-background-enabled" type="checkbox" aria-label="显示背景图片" onchange="uiSettings.timerBackgroundEnabled=this.checked;applyTimerBackground();queueTimerOptionSave()"><span class="cs-slider"></span></label><span>是</span></div></div>
+<div class="ios-setting-group custom-ui-group"><span>背景不透明度</span><div class="ui-control-right ui-slider-wrapper"><span id="timer-background-opacity-value">100%</span><input id="timer-background-opacity" type="range" min="0" max="100" value="100" aria-label="背景不透明度" oninput="uiSettings.timerBackgroundOpacity=Number(this.value);applyTimerBackground()" onchange="queueTimerOptionSave()"></div></div>
+<hr class="settings-divider">
                     <div class="sidebar-settings-title">手势</div>
 
                     <!-- 电脑端专属手势提示 -->
@@ -1184,7 +1194,7 @@
                 <!-- 专属颜色选择弹窗 (毛玻璃) -->
                 <div id="color-picker-modal" class="edit-score-popup" onclick="closeColorModal(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()" style="max-width: 320px;">
-                        <h3 id="color-modal-title" style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择颜色</h3>
+                        <div class="timer-setting-modal-heading"><h3 id="color-modal-title">选择颜色</h3><button type="button" aria-label="关闭颜色选择" onclick="closeColorModal()">×</button></div>
 
                         <!-- 预设高级调色盘 -->
                         <div class="color-swatch-grid">
@@ -1201,9 +1211,9 @@
                         </div>
 
                         <!-- 左右并排：调色盘按钮与十六进制展示 -->
-                        <div class="edit-popup-actions" style="margin-top: 25px; display: flex; gap: 10px; align-items: center;">
+                        <div class="edit-popup-actions" style="margin-top: 25px; display: flex; gap: 10px; align-items: center;" id="color-palette-actions">
                             <!-- 核心修复：补齐了完美的 iOS 按钮样式，悬停变色，以及选完颜色自动关闭弹窗 -->
-                            <label style="flex: 1; margin: 0; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: var(--text-main); transition: all 0.2s;" onmouseover="this.style.background='rgba(148, 163, 184, 0.25)'" onmouseout="this.style.background='rgba(148, 163, 184, 0.15)'">
+                            <button type="button" id="timer-background-reset" hidden aria-label="重置背景颜色" title="重置背景颜色" onclick="resetTimerBackgroundColor()"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><label style="flex: 1; margin: 0; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: var(--text-main); transition: all 0.2s;" onmouseover="this.style.background='rgba(148, 163, 184, 0.25)'" onmouseout="this.style.background='rgba(148, 163, 184, 0.15)'">
                                 <span>调色盘</span>
                                 <input type="color" id="native-color-picker" style="position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; cursor: pointer;" oninput="applyNativeColor(this.value)" onchange="applyNativeColor(this.value); closeColorModal();">
                             </label>
@@ -1211,9 +1221,7 @@
                             <div id="custom-color-btn-text" class="ios-input hex-input" style="flex: 1; margin: 0; text-align: center; font-size: 14px; padding: 10px 0 !important; background: rgba(0,0,0,0.03); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-weight: 600; color: var(--text-main);">#000000</div>
                         </div>
 
-                        <div class="edit-popup-actions" style="margin-top: 15px;">
-                            <button class="edit-btn-cancel" style="width: 100%;" onclick="closeColorModal()">关闭</button>
-                        </div>
+                        
                     </div>
                 </div>
 
@@ -1618,9 +1626,9 @@
             <div id="history-event-tabs" style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3 style="margin: 0; font-size: 16px; color: var(--text-main);">成绩变化曲线</h3>
-                <div class="ios-segment-control">
-                    <div id="btn-type-single" class="ios-segment-btn" onclick="setChartType('single')">单次</div>
-                    <div id="btn-type-average" class="ios-segment-btn active" onclick="setChartType('average')">平均</div>
+                <div id="person-chart-switch" class="ios-segment-control" role="group" aria-label="成绩变化曲线类型">
+                    <button type="button" id="btn-type-single" class="ios-segment-btn" aria-pressed="false" onclick="setChartType('single')">单次</button>
+                    <button type="button" id="btn-type-average" class="ios-segment-btn active" aria-pressed="true" onclick="setChartType('average')">平均</button>
                 </div>
             </div>
             <div style="height: 250px; width: 100%; margin-bottom: 30px;">
@@ -1955,17 +1963,18 @@
 
     <script src="database.js?v=1.18-fto-weekly-20261004"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
-    <script src="dc_timer_import.js?v=20261020"></script>
-    <script src="main.js?v=1.46.8"></script>
-    <script src="forum.js?v=20261021-no-recovery"></script>
-    <script src="account.js?v=20261021-no-recovery"></script>
-    <script src="theme.js?v=1.45.4-mobile-surfaces"></script>
+    <script src="vendor/lz-string-1.5.0.min.js"></script>
+    <script src="dc_timer_import.js?v=1.48.2"></script>
+    <script src="main.js?v=1.48.42"></script>
+    <script src="forum.js?v=1.48.6"></script>
+    <script src="account.js?v=1.48.5"></script>
+    <script src="theme.js?v=1.48.14"></script>
 
-<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
+<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
-    <script src="timer_smart.js?v=1.45.4-clock-20261020"></script>
+    <script src="timer_smart.js?v=1.48.40"></script>
     <script src="cube_space_player.js?v=1.17-detail35"></script>
 </body>
 </html>

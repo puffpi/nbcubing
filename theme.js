@@ -36,9 +36,13 @@ function buildDarkPalette(){
  else if(rule.cssRules&&!/^@(?:-webkit-)?keyframes/i.test(rule.cssText)){const before=css;css='';walk(rule.cssRules);const inner=css;css=before+rule.cssText.slice(0,rule.cssText.indexOf('{')+1)+inner+'}';}}};
  for(const sheet of [...document.styleSheets]){try{walk(sheet.cssRules);}catch{}}overlay.textContent=css;document.head.append(overlay);
 }
+const themeInlineSeen=new WeakMap();
+function themeInlineSignature(element){return ['background','background-color','color','border-color','position','width','inset'].map(p=>element.style.getPropertyValue(p)).join('|');}
 function themeInline(root=document){
- for(const element of root.querySelectorAll('[style]')){
+ const elements=root.nodeType===1&&root.hasAttribute('style')?[root,...root.querySelectorAll('[style]')]:root.querySelectorAll('[style]');
+ for(const element of elements){
   if(element.closest('svg,.cubing-icon,.cube-appearance-swatch'))continue;
+  const signature=themeInlineSignature(element);if(themeInlineSeen.get(element)===signature)continue;themeInlineSeen.set(element,signature);
   if(element.style.position==='fixed'&&/modal|overlay|popup/.test(element.id+' '+element.className)&&(/100(vw|%)/.test(element.style.width)||element.style.inset==='0px'))element.dataset.themeBackdrop='';
   for(const [property,key] of [['background','surface'],['background-color','surface'],['color','ink'],['border-color','edge']]){const value=element.style.getPropertyValue(property);if(!value)continue;const mapped=themeColor(value,property);if(mapped!==value){element.dataset['theme'+key[0].toUpperCase()+key.slice(1)]='';const variable='--theme-'+key;if(element.style.getPropertyValue(variable)!==mapped)element.style.setProperty(variable,mapped);}}
  }
@@ -53,4 +57,14 @@ function openDisplayModeModal(){
  for(const [value,label] of [['light','浅色'],['dark','深色'],['system','跟随系统']]){const button=document.createElement('button');button.type='button';button.className='cube-appearance-option'+((localStorage.getItem('displayMode')||'light')===value?' active':'');button.textContent=label;button.onclick=()=>{localStorage.setItem('displayMode',value);applyDisplayMode();closeCubeAppearanceModal();};list.append(button);}modal.hidden=false;
 }
 buildDarkPalette();themeInline();applyDisplayMode();themeSystem.addEventListener('change',applyDisplayMode);
-let themeFrame;new MutationObserver(()=>{if(themeFrame)return;themeFrame=requestAnimationFrame(()=>{themeFrame=null;themeInline();});}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style']});
+let themeFrame;const themePending=new Set();
+new MutationObserver(records=>{
+ for(const record of records){
+  if(record.type==='attributes'){
+   const element=record.target;if(element.closest('svg,.cubing-icon,.cube-appearance-swatch')||themeInlineSeen.get(element)===themeInlineSignature(element))continue;
+   themePending.add(element);
+  }else for(const node of record.addedNodes)if(node.nodeType===1&&!node.closest('svg,.cubing-icon,.cube-appearance-swatch')&&(node.hasAttribute('style')||node.querySelector('[style]')))themePending.add(node);
+ }
+ if(themeFrame||!themePending.size)return;
+ themeFrame=requestAnimationFrame(()=>{themeFrame=null;const roots=[...themePending];themePending.clear();for(const root of roots)if(root.isConnected&&!roots.some(other=>other!==root&&other.contains(root)))themeInline(root);});
+}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style']});

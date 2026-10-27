@@ -8,3 +8,6 @@ Bundled browser dependencies (also copied into the Android APK):
 - `supabase-2.49.8.js`: Supabase JS **2.49.8**, official UMD distribution from https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js ; MIT license in `SUPABASE_LICENSE.txt`.
 
 These files are intentionally local so opening Cube Space and the monthly login form does not depend on a script CDN. Account login and cloud competitions still require network access to the configured Supabase project. No service keys are bundled.
+
+- Website DC Timer database import (1.48.2): `sql-wasm.js` and `sql-wasm.wasm`, sql.js 1.13.0, pinned distribution https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/ . Loaded only in the DC importer Worker when a database is selected; MIT license in `sql.js.LICENSE`. Source https://github.com/sql-js/sql.js/tree/v1.13.0 .
+- `lz-string-1.5.0.min.js`, lz-string 1.5.0, pinned https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js ; MIT license in `LZ_STRING_LICENSE.txt`. Large local histories are losslessly compressed; database-import compression runs in a Worker. Source https://github.com/pieroxy/lz-string .

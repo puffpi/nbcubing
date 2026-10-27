@@ -52,17 +52,7 @@ let twistyPlayerPromise = null;
 function ensureTwistyPlayer() {
     if (customElements.get('twisty-player')) return Promise.resolve();
     if (twistyPlayerPromise) return twistyPlayerPromise;
-    twistyPlayerPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = 'https://cdn.cubing.net/v0/js/cubing/twisty';
-        script.onload = resolve;
-        script.onerror = () => reject(new Error('打乱图组件加载失败'));
-        document.head.appendChild(script);
-    }).catch(error => {
-        twistyPlayerPromise = null;
-        throw error;
-    });
+    twistyPlayerPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.type='module';script.src='https://cdn.cubing.net/v0/js/cubing/twisty';const timer=setTimeout(()=>{script.remove();reject(new Error('打乱图组件加载超时'));},15000);script.onload=()=>{clearTimeout(timer);customElements.get('twisty-player')?resolve():reject(new Error('打乱图组件未初始化'));};script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('打乱图组件加载失败'));};document.head.append(script);}).catch(error=>{twistyPlayerPromise=null;throw error;});
     return twistyPlayerPromise;
 }
 
@@ -212,6 +202,8 @@ async function accountServiceFetch(input, options = {}) {
 }
 
 // ================= 新增：界面设置全局变量 =================
+let timerBackgroundImage='';
+try{timerBackgroundImage=localStorage.getItem('nbTimerBackgroundImage')||'';}catch{}
 let uiSettings = {
     homeLayout: 'modern', // 新访客默认现代首页；保留已选择的商务排版
     font: 'default',
@@ -723,6 +715,7 @@ function goBack() {
 function showPage(pageId) {
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
     const previousPage = document.querySelector('.page-container.active');
+    if (previousPage?.classList.contains('discovery-page') && previousPage.id !== pageId) window.Discovery?.leave();
     if (previousPage && previousPage.id !== pageId && (inlinePkState || pendingPkPlayerB)) cancelInlinePK(false);
     if (previousPage?.id === 'cube-explorer-page' && pageId !== previousPage.id) window.CubeExplorer?.leave();
     if (typeof forumPageChanged === 'function') forumPageChanged(pageId);
@@ -744,6 +737,7 @@ function showPage(pageId) {
         if (pageId === 'records-page') generateRecords();
     }
     if (pageId === 'cube-explorer-page') window.CubeExplorer?.enter();
+    if (page.classList.contains('discovery-page')) window.Discovery?.enter(pageId);
     if(pageId==='person-page'&&typeof restorePublicProfile==='function')restorePublicProfile();
     if (pageId === 'competition-detail-page' && (activeCompetitionWcaData || activeCompetitionWcif)) startCompetitionCountdown();
     if (pageId === 'competition-detail-page' && activeCompetitionDetail) startCompetitionAvailabilityRefresh(activeCompetitionDetail);
@@ -787,6 +781,21 @@ function cancelInlinePK(refresh = true) {
     inlinePkDirtyPages.add('ranking-page'); inlinePkDirtyPages.add('records-page');
     if (refresh && document.getElementById('ranking-page').classList.contains('active')) updateRanking();
     if (refresh && document.getElementById('records-page').classList.contains('active')) generateRecords();
+}
+
+async function openDiscovery(kind, options = {}) {
+    if (kind !== 'insight') return;
+    closeNavDropdowns();
+    try {
+        await loadOptionalScript('analysis.js?v=1.48.35', () => !!window.Discovery);
+        window.Discovery.open(kind, options);
+    } catch (error) { alert('新页面暂时无法加载，请稍后重试。'); }
+}
+
+function openTimerAnalysis(){
+    const historyKey=getTimerHistoryKey();
+    document.getElementById('timer-more-dropdown').style.display='none';
+    void openDiscovery('insight',{historyKey});
 }
 
 async function openCubeExplorer() {
@@ -2150,12 +2159,15 @@ async function initData() {
 }
 
 function setChartType(type) {
+    if (!['single','average'].includes(type)) return;
     currentChartType = type;
 
     document.querySelectorAll('#btn-type-average, #btn-type-single')
         .forEach(btn => btn.classList.remove('active'));
 
     document.getElementById(`btn-type-${type}`).classList.add('active');
+    document.getElementById('person-chart-switch').style.setProperty('--profile-index',type==='average'?1:0);
+    for(const name of ['single','average'])document.getElementById('btn-type-'+name).setAttribute('aria-pressed',String(name===type));
 
     updateChartAndTable();
 }
@@ -2424,19 +2436,13 @@ document.addEventListener('click', (e) => {
 });
 
 // 清空成绩
-function openTimerClearModal() {
-    document.getElementById('timer-more-dropdown').style.display = 'none';
-    document.getElementById('timer-clear-modal').style.display = 'flex';
-}
-function closeTimerClearModal() {
-    document.getElementById('timer-clear-modal').style.display = 'none';
-}
-function confirmTimerClear() {
-    timerHistoryData[getTimerHistoryKey()] = [];
-    recalculateSessionStats();
-    saveTimerData();
-    closeTimerClearModal();
-}
+let timerClearSelection=new Set(),timerClearCurrent='',timerClearMultiple=false;
+function timerClearProjects(){const excluded=new Set(['magic','mmagic','333ft','mbf','333mbf','333fm']);return [...eventDict.filter(e=>!excluded.has(e.id)).map(e=>({...e,key:e.id})),...timerOtherEvents.map(e=>({...e,key:e.id})),...['333','222'].map(id=>({id,key:'smart-'+id,name:'智能'+eventDict.find(e=>e.id===id).name}))];}
+function renderTimerClearProjects(){const list=document.getElementById('timer-clear-projects'),projects=timerClearProjects();projects.sort((a,b)=>a.key===timerClearCurrent?-1:b.key===timerClearCurrent?1:0);list.replaceChildren();for(const project of projects){const row=document.createElement('div');row.className='timer-clear-project';const check=document.createElement('input');check.type='checkbox';check.checked=timerClearSelection.has(project.key);check.setAttribute('aria-label',project.name);check.onchange=()=>{if(!timerClearMultiple)timerClearSelection.clear();if(check.checked)timerClearSelection.add(project.key);else timerClearSelection.delete(project.key);renderTimerClearProjects();};const hit=document.createElement('label');hit.className='timer-clear-check-area';hit.append(check);const icon=document.createElement('span');icon.className=project.iconClass?'cubing-icon '+project.iconClass:project.icon?'timer-clear-symbol':'cubing-icon event-'+project.id;if(project.icon)icon.textContent=project.icon;icon.setAttribute('aria-hidden','true');const name=document.createElement('span');name.className='timer-clear-name';name.textContent=project.name;const count=document.createElement('small');count.textContent=(timerHistoryData[project.key]?.length||0)+' 次';if(project.fullName){row.classList.add('timer-clear-fullname');row.append(hit,name,count);}else{if(project.id==='fto'){icon.className='timer-clear-symbol';icon.textContent='FTO';}row.append(hit,icon,name,count);}list.append(row);}document.getElementById('timer-clear-confirm').disabled=!timerClearSelection.size;}
+function toggleTimerClearMultiple(enabled){timerClearMultiple=enabled;document.getElementById('timer-clear-mode').dataset.multiple=String(enabled);if(!enabled)timerClearSelection=new Set([timerClearCurrent]);renderTimerClearProjects();}
+function openTimerClearModal(){document.getElementById('timer-more-dropdown').style.display='none';timerClearCurrent=getTimerHistoryKey();timerClearSelection=new Set([timerClearCurrent]);document.getElementById('timer-clear-multiple').checked=false;toggleTimerClearMultiple(false);document.getElementById('timer-clear-projects').scrollTop=0;document.getElementById('timer-clear-modal').style.display='flex';}
+function closeTimerClearModal(){document.getElementById('timer-clear-modal').style.display='none';timerClearSelection.clear();}
+function confirmTimerClear(){if(document.getElementById('timer-clear-modal').style.display==='none'||!timerClearSelection.size)return;const supported=new Set(timerClearProjects().map(p=>p.key));for(const key of timerClearSelection)if(supported.has(key))timerHistoryData[key]=[];recalculateSessionStats();saveTimerData();closeTimerClearModal();}
 
 // ================= 导入导出引擎 =================
 function openTimerExportModal() {
@@ -2472,6 +2478,7 @@ function renderTimerImportMode() {
     const dc = timerImportMode === 'dc';
     document.getElementById('timer-import-textarea').hidden = dc;
     document.getElementById('timer-import-dropzone').hidden = !dc;
+    document.getElementById('timer-import-help').hidden = !dc;
     const toggle = document.getElementById('timer-import-mode-toggle');
     toggle.checked = dc;
     document.getElementById('timer-import-external-row').dataset.external = String(dc);
@@ -2495,7 +2502,7 @@ function openTimerImportModal() {
     document.getElementById('timer-import-textarea').value = '';
     document.getElementById('timer-import-file-input').value = '';
     document.getElementById('timer-import-file-name').textContent = '将 DC Timer 文件拖到这里';
-    document.getElementById('timer-import-file-hint').textContent = '或点击选择 .txt 文件';
+    document.getElementById('timer-import-file-hint').textContent = '或选择 .txt/.db 文件';
     document.getElementById('timer-import-dropzone').classList.remove('is-dragging');
     setTimerImportStatus(''); renderTimerImportMode(); setTimerImportBusy(false);
     document.getElementById('timer-import-modal').style.display = 'flex';
@@ -2517,7 +2524,7 @@ function chooseTimerImportFile() {
 }
 function selectTimerImportFiles(files) {
     if (timerImportTask || timerImportComplete || !files?.length) return;
-    if (files.length !== 1) { setTimerImportStatus('请一次选择一个 DC Timer 文本文件。', 'error'); return; }
+    if (files.length !== 1) { setTimerImportStatus('请一次选择一个 DC Timer .txt 或 .db 文件。', 'error'); return; }
     timerImportFile = files[0];
     document.getElementById('timer-import-file-name').textContent = timerImportFile.name;
     document.getElementById('timer-import-file-hint').textContent = '已选择文件，点击“确定导入”开始识别；点击此处可更换';
@@ -2543,7 +2550,7 @@ async function confirmTimerImport() {
     const dc = timerImportMode === 'dc';
     const text = document.getElementById('timer-import-textarea').value.trim();
     if (dc ? !timerImportFile : !text) {
-        setTimerImportStatus(dc ? '请先拖入或选择一个 DC Timer 文本文件。' : '请先粘贴成绩数据。', 'error'); return;
+        setTimerImportStatus(dc ? '请先拖入或选择一个 DC Timer .txt 或 .db 文件。' : '请先粘贴成绩数据。', 'error'); return;
     }
     const task = { cancelled: false, key: timerImportHistoryKey };
     timerImportTask = task; setTimerImportBusy(true); setTimerImportStatus('载入中...', 'loading');
@@ -2554,6 +2561,29 @@ async function confirmTimerImport() {
         let imported;
         if (dc) {
             if (!window.DcTimerImport) throw new Error('导入组件尚未加载，请刷新页面后重试。');
+            if (await DcTimerImport.isDatabase(timerImportFile)) {
+                const excluded = new Set(['magic','mmagic','333ft','mbf','333mbf','333fm']);
+                const allowedEvents = [...eventDict, ...timerOtherEvents].map(e=>e.id).filter(id=>!excluded.has(id));
+                setTimerImportStatus('正在后台读取数据库并识别项目…', 'loading');
+                const result = await DcTimerImport.readDatabase(timerImportFile,{allowedEvents,isCancelled:()=>task.cancelled});
+                if(task.cancelled)return;
+                const history={...timerHistoryData};
+                for(const [key,rows] of Object.entries(result.groups)) {
+                    history[key]=[...(history[key]||[]),...rows];
+                    history[key].sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+                }
+                if(result.imported) {
+                    setTimerImportStatus('正在保存导入的成绩…','loading');
+                    const encoded=await DcTimerImport.encodeConfig(timerConfigForStorage(history,false),{isCancelled:()=>task.cancelled});
+                    if(task.cancelled)return;
+                    try{localStorage.setItem('nbTimerConfig',encoded);}catch{throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。');}
+                    timerHistoryData=history;
+                    if(document.getElementById('timer-page').classList.contains('active'))recalculateSessionStats();
+                }
+                closeTimerImportModal();
+                showTimerDatabaseImportResult(result);
+                return;
+            }
             imported = await DcTimerImport.readDcTimerFile(timerImportFile, { isCancelled: () => task.cancelled });
             // DC numbers run oldest to newest; NB Timer stores newest first.
             imported.reverse();
@@ -2570,20 +2600,35 @@ async function confirmTimerImport() {
         if (task.cancelled) return;
         if (!imported.length) throw new Error('没有找到可导入的成绩，请检查文件或粘贴内容。');
         const current = timerHistoryData[task.key] || [];
-        if (current.length + imported.length > 10000) throw new Error('导入后超过当前项目的 10000 条保存上限，请先备份并整理已有成绩。');
+        if (current.length + imported.length > 200000) throw new Error('当前项目成绩过多，请分批整理后导入。');
         const history = { ...timerHistoryData, [task.key]: [...current, ...imported] };
         // Write successfully before replacing the live list, so a full disk cannot report a false success.
         try { localStorage.setItem('nbTimerConfig', JSON.stringify(timerConfigForStorage(history))); }
         catch { throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。'); }
         timerHistoryData = history;
         recalculateSessionStats();
-        timerImportComplete = true;
-        setTimerImportStatus(`已导入 ${imported.length} 条成绩。`, 'success');
+        closeTimerImportModal();
+        showTimerDatabaseImportResult({imported:imported.length,groups:{[task.key]:imported},skipped:[]});
     } catch (error) {
         if (!task.cancelled) setTimerImportStatus(error.message || '导入失败，请检查数据后重试。', 'error');
     } finally {
         if (timerImportTask === task) { timerImportTask = null; setTimerImportBusy(false); }
     }
+}
+
+function showTimerDatabaseImportResult(result) {
+    let modal=document.getElementById('timer-db-result-modal');
+    if(!modal){
+        modal=document.createElement('div');modal.id='timer-db-result-modal';modal.className='edit-score-popup';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','timer-db-result-title');
+        modal.innerHTML='<div class="card pk-confirm-card"><h3 id="timer-db-result-title"></h3><p id="timer-db-result-summary"></p><div id="timer-db-skipped"></div><div class="edit-popup-actions"><button type="button" class="edit-btn-confirm">完成</button></div></div>';
+        modal.querySelector('button').onclick=()=>{modal.style.display='none';document.getElementById('timer-display')?.focus({preventScroll:true});};document.body.append(modal);
+    }
+    const title=result.skipped.length?(result.imported?'部分数据导入成功':'未导入任何成绩'):'导入成功';
+    document.getElementById('timer-db-result-title').textContent=title;
+    document.getElementById('timer-db-result-summary').textContent='已导入 '+result.imported+' 条成绩，自动归入 '+Object.keys(result.groups).length+' 个项目。';
+    const list=document.getElementById('timer-db-skipped');list.replaceChildren();
+    if(result.skipped.length){const label=document.createElement('p');label.textContent='以下分组未导入：';list.append(label);for(const group of result.skipped){const item=document.createElement('p');item.textContent=group.name+' · '+group.count+' 条（'+group.reason+'）';list.append(item);}}
+    modal.style.display='flex';modal.querySelector('button').focus({preventScroll:true});
 }
 
 function timerRecordDateLabel(record) {
@@ -2833,14 +2878,15 @@ function switchSidebarTab(tab) {
     document.getElementById(`btn-sidebar-${tab}`).classList.add('active');
 }
 
+let timerStatRefreshTask=0;
 function setStatType(statNum, type) {
     if (statNum === 1) stat1.type = type;
     if (statNum === 2) stat2.type = type;
     document.getElementById(`btn-stat${statNum}-ao`).classList.remove('active');
     document.getElementById(`btn-stat${statNum}-mo`).classList.remove('active');
     document.getElementById(`btn-stat${statNum}-${type}`).classList.add('active');
-    recalculateSessionStats();
-    saveTimerData(); // 核心新增
+    clearTimeout(timerStatRefreshTask);
+    timerStatRefreshTask=setTimeout(()=>{timerStatRefreshTask=0;recalculateSessionStats();queueTimerOptionSave();},220);
 }
 
 function setStatCount(statNum, count) {
@@ -3545,8 +3591,8 @@ function switchTimerTab(tabName) {
 // ================= 计时器项目选择悬浮窗逻辑 =================
 const timerOtherEvents=[
  ...[8,9,10,11,12,13].map(n=>({id:String(n).repeat(3),name:['八','九','十','十一','十二','十三'][n-8]+'阶',group:'正阶',icon:n+'×'+n})),
- {id:'mirror',name:'镜面魔方',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮魔方',group:'异形',icon:'Gear'},
- ...[4,5,6,7].map(n=>({id:'relay2-'+n,name:'2-'+n+'阶',group:'连拧',icon:'Relay'})),
+ {id:'mirror',name:'镜面',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮',group:'异形',icon:'Gear'},
+ ...[4,5,6,7].map(n=>({id:'relay2-'+n,name:'2-'+n+' 阶',group:'连拧',icon:'Relay'})),
  {id:'guildford',name:'Guildford Challenge',group:'连拧',icon:'',fullName:true},{id:'mini-guildford',name:'Mini Guildford Challenge',group:'连拧',icon:'',fullName:true}];
 let timerRelayScrambles=[],timerRelayIndex=0;
 function getTimerRelayEvents(id){
@@ -3827,7 +3873,7 @@ async function generateScramble() {
 }
 function renderTimerScramble(scramble,displayEvent){
     const relay=getTimerRelayEvents(currentTimerEvent);const navigation=document.getElementById('timer-relay-navigation');document.querySelector('#timer-tab-main .scramble-container').appendChild(navigation);navigation.hidden=!relay;
-    if(relay)document.getElementById('timer-relay-current').textContent='当前：'+(eventDict.find(e=>e.id===displayEvent)?.name||displayEvent);
+    if(relay){const current=document.getElementById('timer-relay-current'),icon=document.createElement('span'),name=document.createElement('span');icon.className='cubing-icon event-'+displayEvent;icon.setAttribute('aria-hidden','true');name.textContent=eventDict.find(e=>e.id===displayEvent)?.name||displayEvent;current.replaceChildren(icon,name);}
     document.getElementById('scramble-text').innerHTML = scramble;
     document.getElementById('timer-page').classList.toggle('long-scramble',
         ['555', '666', '777', 'minx'].includes(currentTimerEvent) || scramble.replace(/<[^>]*>/g, '').length > 260);
@@ -3835,30 +3881,23 @@ function renderTimerScramble(scramble,displayEvent){
     // 同步更新右下角打乱图
     const displayEl = document.getElementById('timer-scramble-display');
     const unsupported=timerOtherEvents.some(e=>e.id===currentTimerEvent)&&!getTimerRelayEvents(currentTimerEvent);const panel=document.getElementById('timer-scramble-draw-panel');if(panel)panel.hidden=unsupported;
-    if (displayEl&&!unsupported) {
-        // 去除换行符，保证组件能正确识别
-        let cleanScramble = scramble.replace(/<br>/g, ' ');
+    if(displayEl&&!unsupported)void updateTimerDiagram('timer-scramble-display',scramble,displayEvent);else timerDiagramJobs.get('timer-scramble-display')?.controller.abort();
+}
 
-        displayEl.setAttribute('puzzle', getCubingJsPuzzle(displayEvent));
-        displayEl.setAttribute('visualization', displayEvent === 'fto' ? 'auto' : '2D');
-        displayEl.setAttribute('alg', cleanScramble);
-
-        // 核心修复：根据当前项目，动态注入缩放比例，并附带 0.3 秒丝滑过渡动画
-        displayEl.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
-        displayEl.style.transform = `scale(${getScrambleZoom(displayEvent)})`;
-
-        // 强制组件瞬间跳转到打乱后的最终状态
-        setTimeout(() => {
-            displayEl.timestamp = "end";
-        }, 10);
-    }
+const timerDiagramJobs=new Map();
+async function updateTimerDiagram(id,scramble,event){
+ const old=timerDiagramJobs.get(id);old?.controller.abort();for(const cleanup of old?.cleanups||[])cleanup();const task={controller:new AbortController(),cleanups:[]};timerDiagramJobs.set(id,task);const initial=document.getElementById(id);if(!initial)return;const parent=initial.parentElement;let status=parent.querySelector('.timer-diagram-status');if(!status){status=document.createElement('button');status.type='button';status.className='timer-diagram-status';parent.append(status);}status.hidden=false;status.textContent='载入中...';status.disabled=true;status.onclick=()=>void updateTimerDiagram(id,scramble,event);
+ const checkCurrent=()=>{if(task.controller.signal.aborted||timerDiagramJobs.get(id)!==task)throw new DOMException('已切换打乱','AbortError');};
+ for(let attempt=0;attempt<2;attempt++){task.attempt=attempt;const check=()=>{checkCurrent();if(task.attempt!==attempt)throw new DOMException('重试已开始','AbortError');};let timer;try{
+ await Promise.race([(async()=>{await ensureTwistyPlayer();check();const existing=document.getElementById(id),player=document.createElement('twisty-player');player.id=id;player.setAttribute('control-panel','none');player.setAttribute('background','none');player.setAttribute('puzzle',getCubingJsPuzzle(event));player.setAttribute('visualization',event==='fto'?'auto':'2D');player.setAttribute('alg',String(scramble).replace(/<br\s*\/?>/gi,' '));player.style.cssText=existing.style.cssText;player.style.transform='scale('+getScrambleZoom(event)+')';player.timestamp='end';existing.replaceWith(player);const model=player.experimentalModel;if(!model)throw Error('打乱图模型尚未初始化');if(model){const parsed=await model.puzzleAlg.get();check();if(parsed.issues.errors.length)throw Error('打乱内容无法绘图');const position=await model.legacyPosition.get();check();if(event!=='fto'){const scene=await waitForEditPreviewValue(task,player.contentWrapper,()=>player.contentWrapper.querySelector('twisty-2d-scene-wrapper'));const wrapper=await waitForEditPreviewValue(task,scene.contentWrapper,()=>scene.currentTwisty2DPuzzleWrapper());const puzzle=await wrapper.twisty2DPuzzle();check();puzzle.svgWrapper.draw(position.pattern);}else{const puzzle=await player.experimentalCurrentThreeJSPuzzleObject();check();puzzle.onPositionChange(position);const vantages=Array.from(await player.experimentalCurrentVantages());await Promise.all(vantages.map(v=>v.render()));}}check();player.timestamp='end';status.hidden=true;})(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('打乱图加载超时')),18000);})]);clearTimeout(timer);for(const cleanup of task.cleanups.splice(0))cleanup();return;
+ }catch(error){clearTimeout(timer);if(task.controller.signal.aborted||timerDiagramJobs.get(id)!==task)return;for(const cleanup of task.cleanups.splice(0))cleanup();if(attempt===1){task.controller.abort();status.textContent='打乱图加载失败，点击重试';status.disabled=false;console.warn('打乱图加载失败',error);return;}}}
 }
 
 // ================= 空格键与右键监听控制 =================
 document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-    if (document.getElementById('timer-import-modal')?.style.display === 'flex') return;
+    if (document.getElementById('timer-import-modal')?.style.display === 'flex' || document.getElementById('timer-db-result-modal')?.style.display === 'flex') return;
     if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar')) return;
     if (currentTimerMode === 'smart') return;
     if (!timerScrambleReady && timerState === 'IDLE' && e.code !== 'ArrowRight') return;
@@ -3924,7 +3963,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
-    if (document.getElementById('timer-import-modal')?.style.display === 'flex') return;
+    if (document.getElementById('timer-import-modal')?.style.display === 'flex' || document.getElementById('timer-db-result-modal')?.style.display === 'flex') return;
     if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar')) return;
     if (currentTimerMode === 'smart') return;
     if (!timerScrambleReady && timerState === 'IDLE') return;
@@ -4845,7 +4884,14 @@ function loadTimerData() {
         const saved = localStorage.getItem('nbTimerConfig');
         if (saved) {
             const parsed = JSON.parse(saved);
-            storedConfig = parsed;
+            if (parsed.historyCompressed) {
+                const historyText = LZString.decompressFromUTF16(parsed.historyCompressed);
+                if (!historyText) throw new Error('本地成绩压缩数据无法读取');
+                parsed.history = JSON.parse(historyText);
+                storedConfig = { ...parsed };
+                delete storedConfig.history;
+            }
+            if (!storedConfig) storedConfig = parsed;
             if (parsed.history) timerHistoryData = parsed.history;
             if (parsed.stat1) stat1 = parsed.stat1;
             if (parsed.stat2) stat2 = parsed.stat2;
@@ -4884,7 +4930,7 @@ function loadTimerData() {
     try { applyUiSettings(); } catch(e) { console.warn("UI配置应用失败", e); }
 }
 
-function timerConfigForStorage(history = timerHistoryData) {
+function timerConfigForStorage(history = timerHistoryData, compress = true) {
     const savedHistory = {};
     for (const [key, records] of Object.entries(history)) savedHistory[key] = records.map(record => {
         // These fields are recomputed from the real solves on load. Keeping them
@@ -4893,15 +4939,17 @@ function timerConfigForStorage(history = timerHistoryData) {
             stat2Str, stat2Ms, isStat2Pb, ...saved } = record;
         return saved;
     });
-    return { history: savedHistory, stat1, stat2, uiSettings };
+    const config = { history: savedHistory, stat1, stat2, uiSettings };
+    if (compress) {
+        const text = JSON.stringify(savedHistory);
+        if (text.length > 1000000) { config.historyCompressed = LZString.compressToUTF16(text); delete config.history; }
+    }
+    return config;
 }
 function saveTimerData() {
     try {
-        for (let ev in timerHistoryData) {
-            if (timerHistoryData[ev].length > 10000) {
-                timerHistoryData[ev] = timerHistoryData[ev].slice(0, 10000);
-            }
-        }
+        // Database imports may exceed 10000 solves per event. Never silently
+        // truncate these records on the next ordinary solve/settings save.
         const dataToSave = timerConfigForStorage();
         localStorage.setItem('nbTimerConfig', JSON.stringify(dataToSave));
     } catch (e) { console.warn("本地存储已满", e); }
@@ -4909,6 +4957,8 @@ function saveTimerData() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
+    applyTimerBackground();
+    for(const key of ['promptAction','inspection','inspectionVoice']){const input=document.getElementById('nb-toggle-'+key);if(input)input.checked=!!uiSettings[key];}
     document.getElementById('home-page')?.classList.toggle('home-modern',uiSettings.homeLayout==='modern');
     const profileLayoutLabel=document.getElementById('person-layout-label');if(profileLayoutLabel)profileLayoutLabel.textContent=({classic:'经典',card:'卡片',dense:'密集'})[uiSettings.personLayout||'dense'];
     const smartCube = document.getElementById('timer-virtual-cube');
@@ -5007,6 +5057,9 @@ function applyUiSettings() {
     }
 }
 
+let timerOptionSaveTask=0;
+function queueTimerOptionSave(){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=setTimeout(()=>{timerOptionSaveTask=0;saveTimerData();},180);}
+addEventListener('pagehide',()=>{if(timerStatRefreshTask){clearTimeout(timerStatRefreshTask);timerStatRefreshTask=0;saveTimerData();}if(timerOptionSaveTask){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=0;saveTimerData();}});
 function setNbTimingOption(option, value) {
     if (option === 'inspection') {
         uiSettings.inspection = !!value;
@@ -5035,7 +5088,7 @@ function setNbTimingOption(option, value) {
         }
     }
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
 }
 
 function openNbTimingModal(kind) {
@@ -5123,7 +5176,7 @@ function updateSmartCubeSize(val) {
 function setPromptAction(val) {
     uiSettings.promptAction = val;
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
 }
 
 function updateColor(type, val) {
@@ -5131,7 +5184,7 @@ function updateColor(type, val) {
     if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) {
         if (hex.length === 7) return;
     } else {
-        if (type === 'single') uiSettings.colorSingle = hex;
+        if(type==='background')uiSettings.timerBackgroundColor=hex;else if (type === 'single') uiSettings.colorSingle = hex;
         else uiSettings.colorAvg = hex;
         applyUiSettings();
         saveTimerData();
@@ -5143,10 +5196,12 @@ let currentColorTarget = 'single';
 
 function openColorModal(type) {
     currentColorTarget = type;
-    document.getElementById('color-modal-title').innerText = type === 'single' ? '选择颜色：最快单次' : '选择颜色：最快平均';
+    document.getElementById('timer-background-reset').hidden=type!=='background';
+    document.getElementById('color-palette-actions').classList.toggle('has-background-reset',type==='background');
+    document.getElementById('color-modal-title').innerText = type==='background'?'选择背景颜色':type === 'single' ? '选择颜色：最快单次' : '选择颜色：最快平均';
 
     // 初始化同步显示当前的十六进制文本与原生调色盘底色
-    let currentColor = type === 'single' ? uiSettings.colorSingle : uiSettings.colorAvg;
+    let currentColor = type==='background'?(uiSettings.timerBackgroundColor||'#f8fafc'):type === 'single' ? uiSettings.colorSingle : uiSettings.colorAvg;
     document.getElementById('custom-color-btn-text').innerText = currentColor.toUpperCase();
     document.getElementById('native-color-picker').value = currentColor;
 
@@ -5166,7 +5221,7 @@ function closeColorModal(e) {
 // 修复：剥离了导致报错的不存在的 input 元素
 function applyQuickColor(hex) {
     document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
-    if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
+    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
     else uiSettings.colorAvg = hex;
     applyUiSettings();
     saveTimerData();
@@ -5175,7 +5230,7 @@ function applyQuickColor(hex) {
 
 function applyNativeColor(hex) {
     document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
-    if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
+    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
     else uiSettings.colorAvg = hex;
     applyUiSettings();
     saveTimerData();
@@ -9009,26 +9064,39 @@ function toggleCsTv(isOn) {
 
 // Local practice totals for the selected NB Timer event.
 const timerDailyStats={period:'day',date:null,key:null};
+let timerDailyRenderTimer=0;
+const timerDailyDateCache=new WeakMap();
+let timerDailyCachedRecords=null,timerDailyCachedLength=0;
+const timerDailyAggregateCache=new Map();
+function cancelTimerDailyRender(){clearTimeout(timerDailyRenderTimer);timerDailyRenderTimer=0;}
+function syncTimerDailyTabs(){
+    const tabs=document.querySelector('.timer-daily-tabs');tabs.dataset.period=timerDailyStats.period;
+    for(const button of tabs.querySelectorAll('button')){const active=button.dataset.period===timerDailyStats.period;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}
+}
 function timerDailyStart(date,period){return new Date(date.getFullYear(),period==='year'?0:date.getMonth(),period==='day'?date.getDate():1);}
 function timerDailyBounds(date,period){const start=timerDailyStart(date,period),end=new Date(start);if(period==='day')end.setDate(end.getDate()+1);else if(period==='month')end.setMonth(end.getMonth()+1);else end.setFullYear(end.getFullYear()+1);return {start,end};}
 function timerDailyTimestamp(value){if(typeof value!=='string')return null;const match=value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);const date=match?new Date(+match[1],+match[2]-1,+match[3],+(match[4]||0),+(match[5]||0),+(match[6]||0)):new Date(value);return Number.isFinite(date.getTime())?date:null;}
 function calculateTimerDailyStats(records,date,period){
-    const {start,end}=timerDailyBounds(date,period),size=period==='day'?24:period==='month'?new Date(start.getFullYear(),start.getMonth()+1,0).getDate():12,bins=Array(size).fill(0),times=[];let total=0;
-    for(const record of records){const timestamp=timerDailyTimestamp(record.timestamp);if(!timestamp||timestamp<start||timestamp>=end)continue;total++;bins[period==='day'?timestamp.getHours():period==='month'?timestamp.getDate()-1:timestamp.getMonth()]++;
-        if(record.penalty==='DNF'||record.smartAborted)continue;const time=Number(record.rawMs)+(record.penalty==='+2'?2000:0);if(Number.isFinite(time)&&time>=0)times.push(time);
+    const {start,end}=timerDailyBounds(date,period),size=period==='day'?24:period==='month'?new Date(start.getFullYear(),start.getMonth()+1,0).getDate():12,bins=Array(size).fill(0),startMs=+start,endMs=+end;let total=0,valid=0,sum=0,best=Infinity,worst=-Infinity;
+    for(const record of records){let cached=timerDailyDateCache.get(record);if(!cached||cached.value!==record.timestamp){const date=timerDailyTimestamp(record.timestamp);cached={value:record.timestamp,date,ms:date?+date:NaN};timerDailyDateCache.set(record,cached);}const timestamp=cached.date;if(!timestamp||cached.ms<startMs||cached.ms>=endMs)continue;total++;bins[period==='day'?timestamp.getHours():period==='month'?timestamp.getDate()-1:timestamp.getMonth()]++;
+        if(record.penalty==='DNF'||record.smartAborted)continue;const time=Number(record.rawMs)+(record.penalty==='+2'?2000:0);if(Number.isFinite(time)&&time>=0){valid++;sum+=time;best=Math.min(best,time);worst=Math.max(worst,time);}
     }
-    return {start,end,bins,total,valid:times.length,mean:times.length?times.reduce((sum,time)=>sum+time,0)/times.length:null,best:times.length?Math.min(...times):null,worst:times.length?Math.max(...times):null};
+    return {start,end,bins,total,valid,mean:valid?sum/valid:null,best:valid?best:null,worst:valid?worst:null};
 }
-function openTimerDailyStats(){document.getElementById('timer-more-dropdown').style.display='none';Object.assign(timerDailyStats,{period:'day',date:timerDailyStart(new Date(),'day'),key:getTimerHistoryKey()});document.getElementById('timer-daily-overlay').hidden=false;renderTimerDailyStats();}
-function closeTimerDailyStats(){document.getElementById('timer-daily-overlay').hidden=true;}
-function setTimerDailyPeriod(period){if(!['day','month','year'].includes(period))return;timerDailyStats.period=period;timerDailyStats.date=timerDailyStart(new Date(),period);renderTimerDailyStats();}
+function openTimerDailyStats(){cancelTimerDailyRender();timerDailyAggregateCache.clear();document.getElementById('timer-more-dropdown').style.display='none';Object.assign(timerDailyStats,{period:'day',date:timerDailyStart(new Date(),'day'),key:getTimerHistoryKey()});document.getElementById('timer-daily-overlay').hidden=false;renderTimerDailyStats();}
+function closeTimerDailyStats(){cancelTimerDailyRender();document.getElementById('timer-daily-chart').removeAttribute('aria-busy');document.getElementById('timer-daily-overlay').hidden=true;}
+function setTimerDailyPeriod(period){if(!['day','month','year'].includes(period))return;timerDailyStats.period=period;timerDailyStats.date=timerDailyStart(new Date(),period);syncTimerDailyTabs();cancelTimerDailyRender();document.getElementById('timer-daily-chart').setAttribute('aria-busy','true');timerDailyRenderTimer=setTimeout(()=>{timerDailyRenderTimer=0;if(!document.getElementById('timer-daily-overlay').hidden)renderTimerDailyStats();},220);}
 function moveTimerDailyPeriod(direction){const state=timerDailyStats,date=new Date(state.date);if(state.period==='day')date.setDate(date.getDate()+direction);else if(state.period==='month')date.setMonth(date.getMonth()+direction);else date.setFullYear(date.getFullYear()+direction);const floor=new Date(1974,0,1),ceiling=timerDailyStart(new Date(),state.period);if(date<floor||date>ceiling)return;state.date=date;renderTimerDailyStats();}
 function renderTimerDailyStats(){
+    cancelTimerDailyRender();document.getElementById('timer-daily-chart').removeAttribute('aria-busy');
     const state=timerDailyStats,floor=new Date(1974,0,1),now=timerDailyStart(new Date(),state.period);state.date=timerDailyStart(state.date||now,state.period);if(state.date<floor)state.date=floor;if(state.date>now)state.date=now;
-    const stats=calculateTimerDailyStats(timerHistoryData[state.key]||[],state.date,state.period),format=date=>date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');const last=new Date(stats.end);last.setDate(last.getDate()-1);
+    const records=timerHistoryData[state.key]||[];
+    if(timerDailyCachedRecords!==records||timerDailyCachedLength!==records.length){timerDailyAggregateCache.clear();timerDailyCachedRecords=records;timerDailyCachedLength=records.length;}
+    const cacheKey=state.period+'/'+Number(state.date);let stats=timerDailyAggregateCache.get(cacheKey);if(!stats){stats=calculateTimerDailyStats(records,state.date,state.period);if(timerDailyAggregateCache.size>=60)timerDailyAggregateCache.clear();timerDailyAggregateCache.set(cacheKey,stats);}
+    const format=date=>date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');const last=new Date(stats.end);last.setDate(last.getDate()-1);
     document.getElementById('timer-daily-range').textContent=state.period==='day'?format(stats.start):format(stats.start)+' - '+format(last);
     document.getElementById('timer-daily-prev').disabled=stats.start<=floor;document.getElementById('timer-daily-next').disabled=stats.start>=now;
-    for(const button of document.querySelectorAll('.timer-daily-tabs button')){const active=button.dataset.period===state.period;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}
+    syncTimerDailyTabs();
     document.getElementById('timer-daily-count').textContent=stats.valid+'/'+stats.total;document.getElementById('timer-daily-mean').textContent=stats.mean===null?'N/A':formatNbTimerOutput(stats.mean);document.getElementById('timer-daily-best').textContent=stats.best===null?'-':formatNbTimerOutput(stats.best);document.getElementById('timer-daily-worst').textContent=stats.worst===null?'-':formatNbTimerOutput(stats.worst);
     const ns='http://www.w3.org/2000/svg',canvasWidth=Math.max(280,document.getElementById('timer-daily-chart').clientWidth),svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 '+canvasWidth+' 248');svg.setAttribute('role','img');svg.setAttribute('aria-label','各时间段复原次数，总计 '+stats.total+' 次');let selected=null;const clearCount=()=>{svg.querySelectorAll('.daily-count-tip').forEach(node=>node.remove());svg.querySelectorAll('.daily-bar.active').forEach(node=>node.classList.remove('active'));selected=null;};svg.addEventListener('click',clearCount);
     function element(tag,attributes,text){const node=document.createElementNS(ns,tag);for(const [name,value]of Object.entries(attributes))node.setAttribute(name,value);if(text!==undefined)node.textContent=text;svg.append(node);return node;}
@@ -9040,3 +9108,8 @@ function renderTimerDailyStats(){
 }
 
 window.addEventListener('resize',()=>{if(!document.getElementById('timer-daily-overlay')?.hidden&&timerDailyStats.date)renderTimerDailyStats();});
+
+function applyTimerBackground(){const page=document.getElementById('timer-page');if(!page)return;const image=uiSettings.timerBackgroundEnabled&&timerBackgroundImage;page.classList.toggle('timer-custom-background',!!(image||uiSettings.timerBackgroundColor));page.style.setProperty('--timer-custom-color',uiSettings.timerBackgroundColor||'transparent');page.style.setProperty('--timer-custom-image',image?'url('+JSON.stringify(image)+')':'none');const opacity=Number.isFinite(uiSettings.timerBackgroundOpacity)?uiSettings.timerBackgroundOpacity:100;page.style.setProperty('--timer-background-opacity',opacity/100);const field=document.getElementById('color-background-hex');if(field)field.value=(uiSettings.timerBackgroundColor||'#f8fafc').toUpperCase();document.getElementById('color-background-display').style.background=uiSettings.timerBackgroundColor||'#f8fafc';document.getElementById('timer-background-enabled').checked=!!uiSettings.timerBackgroundEnabled;document.getElementById('timer-background-opacity').value=opacity;document.getElementById('timer-background-opacity-value').textContent=opacity+'%';}
+async function importTimerBackground(file){if(!file)return;try{if(!file.type.startsWith('image/'))throw Error('请选择图片文件');const bitmap=await createImageBitmap(file),scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const data=canvas.toDataURL('image/jpeg',.82);localStorage.setItem('nbTimerBackgroundImage',data);timerBackgroundImage=data;uiSettings.timerBackgroundEnabled=true;applyTimerBackground();queueTimerOptionSave();}catch(error){alert('背景图片导入失败：'+error.message);}}
+
+function resetTimerBackgroundColor(){delete uiSettings.timerBackgroundColor;applyTimerBackground();document.getElementById('custom-color-btn-text').textContent='#F8FAFC';document.getElementById('native-color-picker').value='#f8fafc';queueTimerOptionSave();}

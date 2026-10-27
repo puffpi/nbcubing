@@ -1,6 +1,6 @@
 {
-  "versionCode": 20,
-  "versionName": "1.46.8",
+  "versionCode": 21,
+  "versionName": "1.48.42",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "发现新版本，下载后直接覆盖安装即可保留练习记录。"
+  "notes": "新增成绩分析、DC Timer 数据库导入、计时器背景设置，改进论坛与打乱图加载。下载后覆盖安装可保留原有练习记录。"
 }

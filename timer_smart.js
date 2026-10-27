@@ -70,7 +70,7 @@ function updateTimerBluetoothContext(){
 }
 function openTimerBluetoothIdleModal(){
     document.getElementById('nb-timing-modal-title').textContent='蓝牙自动断开';const list=document.getElementById('nb-timing-options');list.replaceChildren();
-    for(const [value,label]of timerBluetoothIdleOptions){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(value===timerBluetoothIdleMinutes()?' active':'');button.style.cssText='padding:14px 15px;text-align:center;cursor:pointer';button.textContent=label;button.onclick=()=>{uiSettings.bluetoothAutoDisconnect=value;saveTimerData();updateTimerBluetoothIdleLabel();if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothContext();closeNbTimingModal();};list.append(button);}
+    for(const [value,label]of timerBluetoothIdleOptions){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(value===timerBluetoothIdleMinutes()?' active':'');button.style.cssText='padding:14px 15px;text-align:center;cursor:pointer;border:0';button.textContent=label;button.onclick=()=>{uiSettings.bluetoothAutoDisconnect=value;saveTimerData();updateTimerBluetoothIdleLabel();if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothContext();closeNbTimingModal();};list.append(button);}
     const modal=document.getElementById('nb-timing-modal');if(modal.parentElement!==document.body)document.body.append(modal);modal.classList.add('timer-setting-overlay');modal.style.display='flex';
 }
 const timerMoyuAddresses = new Map();
@@ -343,11 +343,11 @@ function applyTimerMode() {
     document.getElementById('timer-event-watermark').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-event-icon').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
-    document.getElementById('timer-event-name').textContent = item?.name || '三阶';
+    document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + (item?.name || '三阶');
     document.getElementById('timer-event-title').textContent = `${smart ? '魔域智能' : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
     document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
     const other=timerOtherEvents.find(e=>e.id===eventId);
-    for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';}
+    for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';icon.classList.toggle('timer-word-event-icon',!!other&&/[a-z]/i.test(other.icon));}
     if (smart) {
         if(timerSmartEvent!=='333')cancelTimerSmartAttempt();
         renderTimerVirtualCube();
@@ -461,6 +461,7 @@ function timerBluetoothSuccess(text){
 }
 function syncTimerSmartSolved(){
     if(!timerMoyuSession?.ready)return;
+    
     cancelTimerSmartAttempt();timerSmartPhysicalState=timerSmartSolved;setTimerLiveState(timerSmartSolved);
     timerBluetoothSuccess('复原同步成功');
 }

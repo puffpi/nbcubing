@@ -124,5 +124,99 @@
         await yieldToPage();
         return parseDcTimerTextAsync(text, options);
     }
-    return Object.freeze({ DcTimerImportError, parseDcTimerText, parseDcTimerTextAsync, decodeDcTimerBytes, readDcTimerFile });
+    // DC Timer DBHelper: sessions 0..14 have separate result tables; later
+    // sessions share resultstb.sid. Unknown practice types must never be guessed.
+    const EVENT_TYPES = Object.freeze({'-32':'333','-31':'444','-30':'555','-29':'222','-28':'333bf','-27':'333oh','-24':'minx','-23':'pyram','-22':'sq1','-21':'clock','-20':'skewb','-19':'666','-18':'777','-17':'444bf','-16':'555bf','362':'888','363':'999','364':'101010','365':'111111','517':'fto'});
+    async function parseDcTimerDatabase(bytes, SQL, options = {}) {
+        checkCancelled(options);
+        if (bytes.byteLength > MAX_BYTES || new TextDecoder().decode(bytes.slice(0,16)) !== 'SQLite format 3\u0000') throw new DcTimerImportError('未识别为有效的 SQLite 数据库文件。');
+        let db;
+        try {
+            db = new SQL.Database(bytes);
+            const tables = new Set(db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values.map(r=>r[0]) || []);
+            if (!tables.has('sessiontb')) throw new DcTimerImportError('没有找到 DC Timer 项目分组信息。');
+            const sessions = db.exec('SELECT id,name,type FROM sessiontb ORDER BY id')[0]?.values || [];
+            if (!sessions.length || sessions.length > 2000) throw new DcTimerImportError('数据库项目分组信息为空或超出支持范围。');
+            const allowed = new Set(options.allowedEvents || Object.values(EVENT_TYPES)), groups = {}, skipped = [];
+            let total = 0, imported = 0;
+            const ids = new Set();
+            for (const [id, name, type] of sessions) {
+                checkCancelled(options);
+                if (!Number.isSafeInteger(id) || id < 0 || ids.has(id)) throw new DcTimerImportError('数据库项目编号异常。');
+                ids.add(id);
+                const table = id < 15 ? (id === 0 ? 'resulttb' : 'result'+(id+1)) : 'resultstb';
+                if (!tables.has(table)) continue;
+                const where = id >= 15 ? ' WHERE sid='+id : '';
+                const count = db.exec('SELECT count(*) FROM '+table+where)[0].values[0][0];
+                if (!count) continue;
+                total += count;
+                if (total > 200000) throw new DcTimerImportError('数据库记录过多，请分批导入。');
+                const key = EVENT_TYPES[type], label = typeof name === 'string' && name.trim() ? name.trim().slice(0,160) : '未命名分组 '+id;
+                if (!key || !allowed.has(key)) { skipped.push({ name: label, count, reason: '网站暂不支持此项目' }); continue; }
+                const records = groups[key] || (groups[key] = []), statement = db.prepare('SELECT id,rest,resp,resd,scr,time,note FROM '+table+where+' ORDER BY id DESC');
+                try {
+                    while (statement.step()) {
+                        const [rowId,rawMs,resp,resd,scr,time,note] = statement.get();
+                        if (!Number.isSafeInteger(rawMs) || rawMs < 0 || rawMs > 2147483647 || ![0,1].includes(resp) || ![0,1].includes(resd)) throw new DcTimerImportError('分组「'+label+'」中有无法识别的成绩（编号 '+rowId+'），本次未写入任何数据。');
+                        records.push({rawMs,penalty:resd===0?'DNF':resp===1?'+2':'',scramble:typeof scr==='string'?scr:'',timestamp:typeof time==='string'?time:'',...(note?{note:String(note)}:{}),importSource:'dc-timer'});
+                        imported++;
+                    }
+                } finally { statement.free(); }
+                report(options,'database',total,total,imported);
+            }
+            // Report records whose shared-table session metadata was lost, too.
+            if (tables.has('resultstb')) {
+                const orphan = db.exec('SELECT sid,count(*) FROM resultstb GROUP BY sid')[0]?.values || [];
+                for (const [id,count] of orphan) if (!ids.has(id)) skipped.push({name:'未识别分组 '+id,count,reason:'缺少项目分组信息'});
+            }
+            if (!total && !skipped.length) throw new DcTimerImportError('数据库中没有可导入的成绩。');
+            for (const records of Object.values(groups)) records.sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+            return {groups,skipped,imported,total};
+        } catch (error) {
+            if (error instanceof DcTimerImportError || error.name==='AbortError') throw error;
+            throw new DcTimerImportError('数据库损坏或不是支持的 DC Timer 数据库，成绩未导入。');
+        } finally { db?.close(); }
+    }
+    function runWorker(message, options = {}, transfer = []) {
+        return new Promise((resolve,reject)=>{
+            if (typeof Worker==='undefined') { reject(new DcTimerImportError('当前浏览器不支持后台数据库导入，请使用新版浏览器。')); return; }
+            const worker = new Worker(new URL('dc_timer_import.js?v=1.48.2',document.baseURI));
+            let timer,watch;
+            const finish = (error,value) => { clearTimeout(timer);clearInterval(watch);worker.terminate();error?reject(error):resolve(value); };
+            timer=setTimeout(()=>finish(new DcTimerImportError('数据库处理超时，请检查文件后重试。')),90000);
+            watch=setInterval(()=>{if(options.isCancelled?.())finish(Object.assign(new Error('已取消导入。'),{name:'AbortError'}));},100);
+            worker.onmessage=event=>{if(event.data.error)finish(new DcTimerImportError(event.data.error));else finish(null,event.data.result);};
+            worker.onerror=()=>finish(new DcTimerImportError('数据库组件加载失败，请刷新页面后重试。'));
+            worker.postMessage(message,transfer);
+        });
+    }
+    async function readDatabase(file, options = {}) {
+        if (!file || file.size > MAX_BYTES) throw new DcTimerImportError('数据库文件过大（上限 32 MB）。');
+        const buffer=await file.arrayBuffer();checkCancelled(options);
+        return runWorker({action:'database',buffer,allowedEvents:options.allowedEvents},options,[buffer]);
+    }
+    async function isDatabase(file) {
+        if (/\.db$/i.test(file.name||'')) return true;
+        const bytes=await file.slice(0,16).arrayBuffer();return new TextDecoder().decode(bytes)==='SQLite format 3\u0000';
+    }
+    const encodeConfig = (config,options={}) => runWorker({action:'encode',config},options);
+    return Object.freeze({ DcTimerImportError, parseDcTimerText, parseDcTimerTextAsync, decodeDcTimerBytes, readDcTimerFile,parseDcTimerDatabase,readDatabase,isDatabase,encodeConfig,EVENT_TYPES });
 });
+
+// The same file is the dedicated worker entry; SQLite/WASM is loaded only here.
+if (typeof self!=='undefined' && typeof document==='undefined' && typeof importScripts==='function') {
+    self.onmessage=async event=>{
+        try {
+            if(event.data.action==='encode') {
+                importScripts('vendor/lz-string-1.5.0.min.js');
+                const config=event.data.config,history=JSON.stringify(config.history);
+                if(history.length>1000000){config.historyCompressed=LZString.compressToUTF16(history);delete config.history;}
+                self.postMessage({result:JSON.stringify(config)});return;
+            }
+            importScripts('vendor/sql-wasm.js');
+            const SQL=await initSqlJs({locateFile:file=>new URL('vendor/'+file,self.location.href).href});
+            const result=await self.DcTimerImport.parseDcTimerDatabase(new Uint8Array(event.data.buffer),SQL,{allowedEvents:event.data.allowedEvents});
+            self.postMessage({result});
+        } catch(error) { self.postMessage({error:error.message||'数据库读取失败。'}); }
+    };
+}
