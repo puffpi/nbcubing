@@ -2152,6 +2152,7 @@ async function initData() {
         const resWca = await fetch('wca_data.json?v=' + dailyVersion);
         if (!resWca.ok) throw new Error(`选手数据请求失败：HTTP ${resWca.status}`);
         allCubersData = await resWca.json();
+        await finishStartupAnimationCycle();
         isDataReady = true;
         if (loader) loader.style.display = 'none';
         preloadTimerDiagram();
@@ -9246,3 +9247,15 @@ function fitNavDropdown(item) {
 }
 window.addEventListener('resize',()=>document.querySelectorAll('.nav-menu-item.dropdown-open').forEach(fitNavDropdown));
 window.visualViewport?.addEventListener('resize',()=>document.querySelectorAll('.nav-menu-item.dropdown-open').forEach(fitNavDropdown));
+
+function finishStartupAnimationCycle() {
+ const mosaic=document.querySelector('#global-loading .startup-mosaic');
+ if(!mosaic)return Promise.resolve();
+ return new Promise(resolve=>{
+  let fallback;
+  const done=()=>{clearTimeout(fallback);mosaic.removeEventListener('animationiteration',onCycle);resolve();};
+  const onCycle=e=>{if(e.target===mosaic&&e.animationName==='startup-cycle')done();};
+  mosaic.addEventListener('animationiteration',onCycle);
+  fallback=setTimeout(done,3000);
+ });
+}

@@ -5482,3 +5482,129 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 .dropdown-content { transition-property:opacity,transform; }
 
 #online-website-entry[hidden] { display:none !important; }
+
+#home-page .home-footer.author-credit, #settings-page .author-credit { font-family:inherit; font-size:13px; font-weight:400; letter-spacing:normal; line-height:1.6; }
+
+/* Website-only startup animation preview: two complete cycles before entry. */
+#global-loading { gap:28px; }
+.startup-mosaic { width:132px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; animation:startup-cycle 2.8s linear infinite; }
+.startup-mosaic i { display:block; aspect-ratio:1; border-radius:9px; background:#9fbfdd; opacity:0; animation-duration:2.8s; animation-iteration-count:infinite; animation-timing-function:linear; }
+.startup-mosaic i:nth-child(2),.startup-mosaic i:nth-child(4) { background:#4d7fae; }
+.startup-mosaic i:nth-child(5) { background:#254f78; }
+.startup-mosaic i:nth-child(9) { background:#dfaf66; }
+.startup-caption { display:flex; align-items:center; gap:5px; font-family:inherit; font-size:14px; font-weight:400; color:var(--text-muted); letter-spacing:1px; }
+.startup-dots { display:inline-flex; align-items:center; gap:4px; height:20px; }
+.startup-dots i { width:3px; height:3px; border-radius:50%; background:currentColor; animation:startup-dot 1.2s ease-in-out infinite; }
+.startup-dots i:nth-child(2) { animation-delay:.15s; }
+.startup-dots i:nth-child(3) { animation-delay:.3s; }
+@keyframes startup-cycle { from{opacity:1}to{opacity:1} }
+@keyframes startup-dot { 0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)} }
+
+.startup-mosaic i:nth-child(1){animation-name:startup-tile-0;}
+@keyframes startup-tile-0{
+ 0%,24.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 35%{opacity:1;transform:translateY(3px) scale(1)}
+ 41%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(2){animation-name:startup-tile-1;}
+@keyframes startup-tile-1{
+ 0%,28.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 39%{opacity:1;transform:translateY(3px) scale(1)}
+ 45%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(3){animation-name:startup-tile-2;}
+@keyframes startup-tile-2{
+ 0%,32.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 43%{opacity:1;transform:translateY(3px) scale(1)}
+ 49%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(4){animation-name:startup-tile-3;}
+@keyframes startup-tile-3{
+ 0%,12.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 23%{opacity:1;transform:translateY(3px) scale(1)}
+ 29%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(5){animation-name:startup-tile-4;}
+@keyframes startup-tile-4{
+ 0%,16.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 27%{opacity:1;transform:translateY(3px) scale(1)}
+ 33%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(6){animation-name:startup-tile-5;}
+@keyframes startup-tile-5{
+ 0%,20.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 31%{opacity:1;transform:translateY(3px) scale(1)}
+ 37%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(7){animation-name:startup-tile-6;}
+@keyframes startup-tile-6{
+ 0%,0.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 11%{opacity:1;transform:translateY(3px) scale(1)}
+ 17%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(8){animation-name:startup-tile-7;}
+@keyframes startup-tile-7{
+ 0%,4.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 15%{opacity:1;transform:translateY(3px) scale(1)}
+ 21%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+.startup-mosaic i:nth-child(9){animation-name:startup-tile-8;}
+@keyframes startup-tile-8{
+ 0%,8.01%{opacity:0;transform:translateY(-58px) scale(.94)}
+ 19%{opacity:1;transform:translateY(3px) scale(1)}
+ 25%{opacity:1;transform:translateY(0) scale(1)}
+ 82%{opacity:1;transform:translateY(0)}
+ 94%,100%{opacity:0;transform:translateY(0)}
+}
+
+@media(prefers-reduced-motion:reduce){
+ .startup-mosaic i { animation:none;opacity:1;transform:none; }
+ .startup-dots i { animation:none;opacity:.65; }
+}
+
+#global-loading:has(.startup-mosaic) { background:var(--bg-color) !important; }
+
+/* Quieter launch composition: upward focus, soft atmosphere, anchored signature. */
+#global-loading:has(.startup-mosaic) {
+ isolation:isolate; padding-bottom:7vh; box-sizing:border-box; gap:24px;
+ background:radial-gradient(ellipse 260px 220px at 50% 43%,rgba(159,191,221,.11),transparent 80%),var(--bg-color) !important;
+}
+.startup-mosaic { width:112px; gap:7px; }
+.startup-mosaic i { border-radius:8px; }
+.startup-signature { position:absolute; bottom:max(28px,env(safe-area-inset-bottom)); left:0; right:0; color:var(--text-muted); font-size:10px; font-weight:500; letter-spacing:2.5px; line-height:1.6; opacity:.65; }
+@media(max-height:500px){#global-loading:has(.startup-mosaic){padding-bottom:0;gap:16px}.startup-signature{bottom:14px}}
+
+/* Shared understated signature typography. */
+.startup-signature { font-size:12px; }
+#home-page .home-footer.author-credit, #settings-page .author-credit {
+ font-family:inherit; font-size:12px !important; font-weight:500; letter-spacing:2.5px; line-height:1.6; color:var(--text-muted); text-align:center;
+}
+#home-page .home-footer.author-credit { justify-content:center; }
+#home-page .home-footer.author-credit > span { opacity:.65; }
+#settings-page .author-credit { letter-spacing:1.5px; }
+
+#settings-page .author-credit { letter-spacing:2.5px; }

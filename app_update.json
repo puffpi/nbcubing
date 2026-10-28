@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "1.50.2",
+  "versionCode": 30,
+  "versionName": "1.50.10",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "首页加载完成后自动检查更新；选择稍后后完整七天内不再自动提醒，重启及后台清理不影响，期满检查最新版本。"
+  "notes": "导入背景图片优先使用系统照片选择器，旧设备回退到图片选择；其他文件导入保持原方式。"
 }

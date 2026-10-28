@@ -1,0 +1,81 @@
+.formula-favorite-row,.formula-variant-shell { position:relative; min-width:0; }
+.formula-favorite-row .formula-case-card { box-sizing:border-box; padding-right:64px; }
+.formula-variant-shell .formula-variant { box-sizing:border-box; padding-right:60px; }
+.formula-favorite-star { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:0; border-radius:10px; background:transparent; color:#e4ac16; cursor:pointer; padding:9px; transition:none; }
+.formula-favorite-star svg { width:22px; height:22px; stroke:currentColor; stroke-width:1.8; stroke-linejoin:round; fill:none; }
+.formula-favorite-star[aria-pressed="true"] svg { fill:currentColor; }
+.formula-favorite-status { text-align:center; min-height:22px; }
+.formula-favorite-variant { display:block; font:400 14px 'Segoe UI',sans-serif; color:var(--text-muted); margin-bottom:5px; }
+@media(max-width:600px) {
+ .formula-favorite-row .formula-case-card { padding-left:12px; padding-right:48px; }
+ .formula-favorite-star { right:4px; width:36px; height:40px; padding:7px; }
+ .formula-variant-shell .formula-variant { grid-template-columns:60px minmax(0,1fr); gap:10px; padding-left:14px; padding-right:50px; }
+}
+
+/* Favorites shares the personal-page back-to-top geometry, with a filled warm surface. */
+body:has(.formula-page.active:not(#formula-favorites-page)) #formula-favorites-float { display:flex; }
+#formula-favorites-float { color:#e4ac16; background:#fff4cf; border-color:rgba(199,148,24,.48); box-shadow:0 2px 8px rgba(92,70,20,.10); transition:background .2s,border-color .2s,box-shadow .2s; }
+#formula-favorites-float:hover { background:#ffedac; border-color:rgba(199,148,24,.72); box-shadow:0 4px 10px rgba(92,70,20,.14); }
+#formula-favorites-float:focus-visible { outline:2px solid #c79418; outline-offset:3px; }
+.formula-favorite-row { --favorite-size:20px; --favorite-inset:20px; }
+.formula-variant-shell { --favorite-size:17px; --favorite-inset:22px; }
+.formula-favorite-star { box-sizing:border-box; width:40px; height:40px; right:calc(var(--favorite-inset) - (40px - var(--favorite-size))/2); padding:0; }
+.formula-favorite-star svg { width:var(--favorite-size); height:var(--favorite-size); }
+#formula-replay { display:flex; align-items:center; justify-content:center; padding:0; }
+@media(max-width:600px) {
+ .formula-favorite-row { --favorite-inset:12px; }
+ .formula-variant-shell { --favorite-inset:14px; }
+}
+html[data-theme="dark"] #formula-favorites-float { background:#3b3320; border-color:#74603a; color:#f1c448; }
+html[data-theme="dark"] #formula-favorites-float:hover { background:#4a3d22; border-color:#a58949; }
+
+/* Match all three star-center distances to half the actual card height. */
+.formula-favorite-row { --favorite-size:26px; }
+.formula-variant-shell { --favorite-size:24px; }
+.formula-favorite-star { right:calc(var(--favorite-center,32px) - 20px); }
+.formula-variant-shell .formula-variant { padding-right:82px; }
+.formula-favorite-row .formula-case-card { padding-right:100px; }
+.formula-variant strong { font-family:inherit; font-weight:500; }
+/* Empty feedback must not create an extra gap above favorites. */
+#formula-favorites-page .formula-favorite-status:empty { display:none; }
+@media(max-width:600px) {
+ .formula-favorite-row { --favorite-size:22px; }
+ .formula-variant-shell { --favorite-size:22px; }
+ .formula-favorite-row .formula-case-card { grid-template-columns:80px minmax(0,1fr); gap:8px 12px; padding:14px 46px 14px 12px; }
+ .formula-favorite-row .formula-case-label { grid-column:1 / -1; padding-right:0; }
+ .formula-favorite-row .formula-case-diagram { grid-column:1; grid-row:2; width:80px; }
+ .formula-favorite-row .formula-case-alg { grid-column:2; grid-row:2; }
+ .formula-favorite-row .formula-favorite-star,.formula-variant-shell .formula-favorite-star { right:4px; }
+ .formula-variant-shell .formula-variant { padding-right:48px; }
+}
+
+.formula-variant-shell { --formula-label-gap:22px; --formula-label-width:20px; }
+.formula-variant-shell .formula-variant { position:relative; grid-template-columns:minmax(0,1fr); padding-left:calc(2 * var(--formula-label-gap) + var(--formula-label-width)); }
+.formula-variant-shell .formula-variant strong { position:absolute; left:var(--formula-label-gap); top:50%; transform:translateY(-50%); display:grid; place-items:center; width:var(--formula-label-width); height:24px; font-size:18px; line-height:1; font-weight:500; }
+@media(max-width:600px) { .formula-variant-shell { --formula-label-gap:16px; } }
+
+/* Optical correction for the circled-number glyph, independent of card wrapping. */
+.formula-variant-shell .formula-variant strong { transform:translateY(calc(-50% + 1px)); }
+@media(min-width:900px) {
+ #formula-detail-page .formula-detail-top { max-width:560px; gap:20px; margin:0 auto 20px; }
+ #formula-detail-page #formula-variants { max-width:560px; }
+ #formula-detail-page #formula-detail-image { width:210px; max-width:none; }
+ #formula-detail-page #formula-detail-cube { position:absolute; width:290px; height:290px; max-width:none; left:50%; top:50%; transform:translate(-50%,-50%); }
+ #formula-detail-page .formula-cube-controls { right:10px; top:10px; gap:8px; }
+ #formula-detail-page .formula-cube-controls button { width:36px; height:36px; font-size:12px; }
+ #formula-detail-page #formula-replay svg { width:20px; height:20px; }
+}
+
+/* Near-white glass is limited to the diagram and model panels. */
+#formula-detail-page :is(.formula-detail-diagram,.formula-detail-cube-wrap) {
+ background:rgba(255,255,255,.68);
+ border:1px solid rgba(203,213,225,.60);
+ backdrop-filter:blur(12px) saturate(1.12);
+ -webkit-backdrop-filter:blur(12px) saturate(1.12);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 2px 8px rgba(39,58,83,.045);
+}
+html[data-theme="dark"] #formula-detail-page :is(.formula-detail-diagram,.formula-detail-cube-wrap) {
+ background:rgba(36,36,39,.68);
+ border-color:rgba(153,153,163,.26);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 2px 8px rgba(0,0,0,.08);
+}
