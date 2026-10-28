@@ -564,7 +564,7 @@ function csApplyPadSize() {
 }
 function csOpenSettings() {
     csReleasePointer(); hideInteractCards();
-    document.getElementById('cs-avatar-gender').value = csPlayer.settings.gender;
+    csSetSettingsGender(csPlayer.settings.gender);
     for (const key of ['orbitSensitivity', 'playerSensitivity']) {
         const input = document.getElementById(`cs-setting-${key}`);
         input.value = csPlayer.settings[key]; input.nextElementSibling.value = `${Number(input.value).toFixed(1)}×`;
@@ -574,6 +574,12 @@ function csOpenSettings() {
     padInput.nextElementSibling.value = `${padInput.value}%`;
     document.getElementById('cs-settings-error').textContent = '';
     document.getElementById('cs-settings-modal').style.display = 'flex';
+}
+function csSetSettingsGender(value) {
+    document.getElementById('cs-avatar-gender').value=value;
+    const control=document.getElementById('cs-gender-segment');
+    control.style.setProperty('--index',value==='female'?1:0);
+    control.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.gender===value)));
 }
 function csCloseSettings() { document.getElementById('cs-settings-modal').style.display = 'none'; }
 function csSaveSettings() {
@@ -634,7 +640,7 @@ function csInitDialogs() {
         const card = modal.firstElementChild, heading = card.querySelector('h3');
         heading.removeAttribute('id'); heading.textContent = title;
         const body = document.createElement('div'); body.innerHTML = content; heading.after(body);
-        const buttons = card.querySelectorAll('button');
+        const buttons = card.lastElementChild.querySelectorAll('button');
         buttons[0].setAttribute('onclick', cancel); buttons[1].setAttribute('onclick', confirm);
         buttons[1].textContent = confirmLabel; page.appendChild(modal);
         modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-label', title); modal.setAttribute('aria-modal', 'true');
@@ -643,20 +649,19 @@ function csInitDialogs() {
     create('cs-exit-modal', '是否退出魔方空间？', '<p style="font-size:14px;color:var(--text-muted);line-height:1.8">退出后改动信息将自动保存</p><p id="cs-exit-error" role="status"></p>', 'csCancelExit()', 'csConfirmExit()', '确定');
     const settings = create('cs-settings-modal', '魔方空间设置', `
         <div class="cs-settings-fields">
-            <label for="cs-avatar-gender">主角性别</label>
-            <select id="cs-avatar-gender" class="cs-input"><option value="male">男</option><option value="female">女</option></select>
-            <div style="font-weight:700;margin-top:16px">视角灵敏度</div>
+            <span class="cs-setting-label" id="cs-gender-label">主角性别</span><input type="hidden" id="cs-avatar-gender" value="male"><div class="cs-gender-segment" id="cs-gender-segment" role="group" aria-labelledby="cs-gender-label"><span class="cs-gender-thumb" aria-hidden="true"></span><button type="button" data-gender="male" aria-pressed="true" onclick="csSetSettingsGender('male')">男</button><button type="button" data-gender="female" aria-pressed="false" onclick="csSetSettingsGender('female')">女</button></div>
+            <div class="cs-setting-heading">视角灵敏度</div>
             <label for="cs-setting-orbitSensitivity">观察者模式 / 编辑模式</label>
             <div class="cs-setting-range"><input id="cs-setting-orbitSensitivity" type="range" min="0.3" max="2.5" step="0.1" oninput="this.nextElementSibling.value=Number(this.value).toFixed(1)+'×'"><output></output></div>
             <label for="cs-setting-playerSensitivity">玩家模式</label>
             <div class="cs-setting-range"><input id="cs-setting-playerSensitivity" type="range" min="0.3" max="2.5" step="0.1" oninput="this.nextElementSibling.value=Number(this.value).toFixed(1)+'×'"><output></output></div>
-            <div style="font-size:12px;color:var(--text-muted)">适用于鼠标转头和手机滑动视角</div>
+            <div class="cs-setting-hint">适用于鼠标转头和手机滑动视角</div>
             <label for="cs-setting-padSize">方向键大小</label>
             <div class="cs-setting-range"><input id="cs-setting-padSize" type="range" min="50" max="150" step="1" value="100" oninput="this.nextElementSibling.value=this.value+'%'"><output>100%</output></div>
             <p id="cs-settings-error" role="status"></p>
         </div>`, 'csCloseSettings()', 'csSaveSettings()', '保存');
     csBindSettingRanges(settings);
-    settings.querySelector('button').textContent = '退出';
+    settings.firstElementChild.lastElementChild.querySelector('button').textContent = '退出';
 }
 csInitDialogs();
 

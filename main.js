@@ -462,6 +462,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.closeNavDropdowns();
             if (shouldOpen) {
                 this.classList.add('dropdown-open');
+                fitNavDropdown(this);
                 rotateNavArrow(this);
             }
         });
@@ -527,7 +528,7 @@ function preloadFormulaViewer() {
     if (formulaViewerPromise) return formulaViewerPromise;
     formulaViewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'formulas/formula_viewer.js?v=1.46.8';
+        script.src = 'formulas/formula_viewer.js?v=1.49.14';
         script.onload = () => window.FormulaViewer ? resolve(window.FormulaViewer) : reject(new Error('公式图示组件缺失'));
         script.onerror = () => reject(new Error('公式图示组件加载失败'));
         document.body.appendChild(script);
@@ -537,6 +538,7 @@ function preloadFormulaViewer() {
 
 function openFormulaLibrary() {
     navigateTo('formula-page', true);
+    window.FormulaFavorites?.refresh();
 }
 function openCfopMethod() {
     navigateTo('formula-method-page', true);
@@ -553,6 +555,12 @@ const collCategoryTitles = {
 };
 const isCollCategory = type => Object.hasOwn(collCategoryTitles, type);
 const formulaDiagramType = type => isCollCategory(type) ? 'coll' : type;
+const formulaDiagramCache = new Map();
+function formulaCaseDiagram(type, item) {
+    const key = type + ':' + item.alg;
+    if (!formulaDiagramCache.has(key)) formulaDiagramCache.set(key, window.FormulaViewer.diagram(item.alg, formulaDiagramType(type)));
+    return formulaDiagramCache.get(key);
+}
 const formulaDataFor = type => isCollCategory(type) ? preloadCollData() : preloadCfopData();
 
 async function openFormulaCategory(type) {
@@ -585,14 +593,15 @@ async function openFormulaCategory(type) {
             label.textContent = isCollCategory(type) ? `COLL ${titles[type].replace(' Case', '')} ${item.name}` : `${titles[type]} ${item.name}`;
             const diagram = document.createElement('div');
             diagram.className = 'formula-case-diagram';
-            diagram.innerHTML = viewer.diagram(item.alg, formulaDiagramType(type));
+            diagram.innerHTML = formulaCaseDiagram(type, item);
             const alg = document.createElement('div');
             alg.className = 'formula-case-alg';
             alg.textContent = item.alg;
             card.append(label, diagram, alg);
-            fragment.appendChild(card);
+            fragment.appendChild(window.FormulaFavorites ? FormulaFavorites.decorate(card, type, item.name) : card);
         });
         list.replaceChildren(fragment);
+        window.FormulaFavorites?.refresh();
     } catch (error) {
         console.warn('公式加载失败', error);
         list.textContent = '公式加载失败，请稍后重试';
@@ -612,13 +621,16 @@ async function openFormulaCase(type, name) {
     const algorithms = item.algs?.length ? item.algs : [item.alg];
     const speeds = [1, 1.25, 1.5, 2, 0.5, 0.75];
     const speedLabels = ['1.0×', '1.25×', '1.5×', '2.0×', '0.5×', '0.75×'];
-    let speedIndex = 0;
+    let savedSpeed = 1;
+    try { savedSpeed = Number(localStorage.getItem('formulaPlaybackSpeed')) || 1; } catch {}
+    let speedIndex = Math.max(0, speeds.indexOf(savedSpeed));
     let currentAlgorithm = algorithms[0];
     const speedButton = document.getElementById('formula-speed');
-    speedButton.textContent = speedLabels[0];
+    speedButton.textContent = speedLabels[speedIndex];
     document.getElementById('formula-replay').onclick = () => formulaDetailCube?.play(currentAlgorithm, speeds[speedIndex]);
     speedButton.onclick = () => {
         speedIndex = (speedIndex + 1) % speeds.length;
+        try { localStorage.setItem('formulaPlaybackSpeed', String(speeds[speedIndex])); } catch {}
         speedButton.textContent = speedLabels[speedIndex];
         formulaDetailCube?.play(currentAlgorithm, speeds[speedIndex]);
     };
@@ -627,7 +639,8 @@ async function openFormulaCase(type, name) {
         row.type = 'button';
         row.className = 'formula-variant';
         const label = document.createElement('strong');
-        label.textContent = `公式 ${index + 1}`;
+        label.textContent = String.fromCodePoint(0x2460 + index);
+        label.setAttribute('aria-label', `公式 ${index + 1}`);
         const moves = document.createElement('span');
         moves.textContent = algorithm;
         row.append(label, moves);
@@ -638,14 +651,15 @@ async function openFormulaCase(type, name) {
             document.getElementById('formula-detail-image').innerHTML = viewer.diagram(algorithm, formulaDiagramType(type));
             formulaDetailCube?.play(algorithm, speeds[speedIndex]);
         };
-        variants.appendChild(row);
+        variants.appendChild(window.FormulaFavorites ? FormulaFavorites.variant(row, type, name, index) : row);
     });
     navigateTo('formula-detail-page', true);
     const cubeContainer = document.getElementById('formula-detail-cube');
     formulaDetailCube?.dispose();
     formulaDetailCube = null;
     cubeContainer.textContent = '正在加载魔方模型…';
-    variants.firstElementChild?.click();
+    variants.querySelector('.formula-variant')?.click();
+    window.FormulaFavorites?.refresh();
     try {
         await ensureThreeCore();
         if (request !== formulaCaseRequest || !document.getElementById('formula-detail-page').classList.contains('active')) return;
@@ -3548,14 +3562,59 @@ function deleteEditScore() {
     saveTimerData(); // 核心新增：删除后存档
 }
 
+function editActionFeedback(button, success) {
+    if (!button) return;
+    clearTimeout(button.feedbackTimer);
+    button.dataset.feedback = success ? 'success' : 'error';
+    button.feedbackTimer = setTimeout(() => delete button.dataset.feedback, 1400);
+}
+
+async function copyEditText(text, button) {
+    try {
+        await navigator.clipboard.writeText(text);
+        editActionFeedback(button, true);
+    } catch (error) {
+        editActionFeedback(button, false);
+    }
+}
+
 function copyEditScramble() {
-    const text = document.getElementById('edit-scramble').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.querySelector('.edit-btn-copy');
-        const oldText = btn.innerText;
-        btn.innerText = '✔️ 已复制';
-        setTimeout(() => btn.innerText = oldText, 1500);
-    });
+    return copyEditText(document.getElementById('edit-scramble').innerText,
+        document.getElementById('edit-copy-scramble'));
+}
+
+async function createEditScoreImage() {
+    const source=document.querySelector('.edit-score-content');
+    const width=Math.max(320,Math.round(source.getBoundingClientRect().width));
+    const canvas=document.createElement('canvas'),scale=2,ctx=canvas.getContext('2d');
+    const lines=[],text=document.getElementById('edit-scramble').innerText;
+    ctx.font='500 13px Consolas, monospace';
+    let line='';
+    for(const word of text.split(/\s+/)){if(ctx.measureText(line+' '+word).width>width-48&&line){lines.push(line);line=word;}else line+=(line?' ':'')+word;}
+    if(line)lines.push(line);
+    const findSvg=node=>{if(node.querySelector?.('svg'))return node.querySelector('svg');for(const child of node.querySelectorAll?.('*')||[]){if(child.shadowRoot){const result=findSvg(child.shadowRoot);if(result)return result;}}return null;};
+    const svg=findSvg(document.getElementById('edit-scramble-preview'));
+    canvas.width=width*scale;canvas.height=(160+lines.length*19+(svg?220:0))*scale;
+    ctx.scale(scale,scale);ctx.fillStyle='#fff';ctx.fillRect(0,0,width,canvas.height/scale);
+    ctx.textAlign='center';let y=30;
+    for(const [id,size,color] of [['edit-index',13,'#94a3b8'],['edit-time',40,'#334155'],['edit-timestamp',13,'#94a3b8']]){
+      ctx.font=(id==='edit-time'?'700 ':'500 ')+size+'px sans-serif';ctx.fillStyle=color;ctx.fillText(document.getElementById(id).innerText,width/2,y);y+=id==='edit-index'?48:32;
+    }
+    ctx.font='500 13px Consolas, monospace';ctx.fillStyle='#334155';
+    for(const l of lines){ctx.fillText(l,width/2,y);y+=19;}
+    if(svg){const copy=svg.cloneNode(true);copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml'}));try{const img=new Image();img.src=url;await img.decode();ctx.drawImage(img,24,y+8,width-48,190);}finally{URL.revokeObjectURL(url);}}
+    return new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+}
+async function shareEditScore() {
+    const button=document.getElementById('edit-share-solve');
+    button.disabled=true;
+    try {
+      const blob=await createEditScoreImage();if(!blob)throw Error('图片生成失败');
+      const file=new File([blob],'NB-Timer-solve.png',{type:'image/png'});
+      if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({files:[file],title:'NB Timer'});}
+      else {const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+    } catch(error){if(error.name!=='AbortError')alert('成绩图片生成失败，请重试');}
+    finally{button.disabled=false;}
 }
 
 // 移动端切换 (新增设置选项卡与子视图双重丝滑联动)
@@ -3612,6 +3671,7 @@ let timerTempEvent = '333';
 function initTimer() {
     ensureTwistyPlayer().catch(error => console.warn(error));
     loadTimerData();
+    restoreTimerProject();
     applyTimerMode();
 
     if (!timerHistoryData[getTimerHistoryKey()]) {
@@ -3661,6 +3721,7 @@ function renderTimerEventGrid() {
 }
 
 function confirmTimerEvent() {
+    saveTimerProject(timerTempMode,timerTempEvent,timerTempSmartEvent);
     if (timerTempMode === 'smart') {
         currentTimerMode = 'smart';
         timerSmartEvent = timerTempSmartEvent;
@@ -3886,11 +3947,11 @@ function renderTimerScramble(scramble,displayEvent){
 
 const timerDiagramJobs=new Map();
 async function updateTimerDiagram(id,scramble,event){
- const old=timerDiagramJobs.get(id);old?.controller.abort();for(const cleanup of old?.cleanups||[])cleanup();const task={controller:new AbortController(),cleanups:[]};timerDiagramJobs.set(id,task);const initial=document.getElementById(id);if(!initial)return;const parent=initial.parentElement;let status=parent.querySelector('.timer-diagram-status');if(!status){status=document.createElement('button');status.type='button';status.className='timer-diagram-status';parent.append(status);}status.hidden=false;status.textContent='载入中...';status.disabled=true;status.onclick=()=>void updateTimerDiagram(id,scramble,event);
+ const old=timerDiagramJobs.get(id);old?.controller.abort();for(const cleanup of old?.cleanups||[])cleanup();const task={controller:new AbortController(),cleanups:[]};timerDiagramJobs.set(id,task);const initial=document.getElementById(id);if(!initial)return;const parent=initial.parentElement;let status=parent.querySelector('.timer-diagram-status');if(!status){status=document.createElement('button');status.type='button';status.className='timer-diagram-status';parent.append(status);}status.hidden=false;status.replaceChildren(Object.assign(document.createElement('span'),{className:'timer-diagram-spinner'}));status.setAttribute('aria-label','Loading');status.disabled=true;status.onclick=()=>void updateTimerDiagram(id,scramble,event);
  const checkCurrent=()=>{if(task.controller.signal.aborted||timerDiagramJobs.get(id)!==task)throw new DOMException('已切换打乱','AbortError');};
  for(let attempt=0;attempt<2;attempt++){task.attempt=attempt;const check=()=>{checkCurrent();if(task.attempt!==attempt)throw new DOMException('重试已开始','AbortError');};let timer;try{
  await Promise.race([(async()=>{await ensureTwistyPlayer();check();const existing=document.getElementById(id),player=document.createElement('twisty-player');player.id=id;player.setAttribute('control-panel','none');player.setAttribute('background','none');player.setAttribute('puzzle',getCubingJsPuzzle(event));player.setAttribute('visualization',event==='fto'?'auto':'2D');player.setAttribute('alg',String(scramble).replace(/<br\s*\/?>/gi,' '));player.style.cssText=existing.style.cssText;player.style.transform='scale('+getScrambleZoom(event)+')';player.timestamp='end';existing.replaceWith(player);const model=player.experimentalModel;if(!model)throw Error('打乱图模型尚未初始化');if(model){const parsed=await model.puzzleAlg.get();check();if(parsed.issues.errors.length)throw Error('打乱内容无法绘图');const position=await model.legacyPosition.get();check();if(event!=='fto'){const scene=await waitForEditPreviewValue(task,player.contentWrapper,()=>player.contentWrapper.querySelector('twisty-2d-scene-wrapper'));const wrapper=await waitForEditPreviewValue(task,scene.contentWrapper,()=>scene.currentTwisty2DPuzzleWrapper());const puzzle=await wrapper.twisty2DPuzzle();check();puzzle.svgWrapper.draw(position.pattern);}else{const puzzle=await player.experimentalCurrentThreeJSPuzzleObject();check();puzzle.onPositionChange(position);const vantages=Array.from(await player.experimentalCurrentVantages());await Promise.all(vantages.map(v=>v.render()));}}check();player.timestamp='end';status.hidden=true;})(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('打乱图加载超时')),18000);})]);clearTimeout(timer);for(const cleanup of task.cleanups.splice(0))cleanup();return;
- }catch(error){clearTimeout(timer);if(task.controller.signal.aborted||timerDiagramJobs.get(id)!==task)return;for(const cleanup of task.cleanups.splice(0))cleanup();if(attempt===1){task.controller.abort();status.textContent='打乱图加载失败，点击重试';status.disabled=false;console.warn('打乱图加载失败',error);return;}}}
+ }catch(error){clearTimeout(timer);if(task.controller.signal.aborted||timerDiagramJobs.get(id)!==task)return;for(const cleanup of task.cleanups.splice(0))cleanup();if(attempt===1){task.controller.abort();status.removeAttribute('aria-label');status.textContent='打乱图加载失败，点击重试';status.disabled=false;console.warn('打乱图加载失败',error);return;}}}
 }
 
 // ================= 空格键与右键监听控制 =================
@@ -5228,12 +5289,21 @@ function applyQuickColor(hex) {
     closeColorModal();
 }
 
+let nativeColorPreviewFrame = 0;
 function applyNativeColor(hex) {
     document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
-    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
-    else uiSettings.colorAvg = hex;
-    applyUiSettings();
-    saveTimerData();
+    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;
+    else if(currentColorTarget==='single')uiSettings.colorSingle=hex;
+    else uiSettings.colorAvg=hex;
+    if (!nativeColorPreviewFrame) nativeColorPreviewFrame = requestAnimationFrame(() => {
+        nativeColorPreviewFrame = 0;
+        if(currentColorTarget==='background') applyTimerBackground();
+        else applyUiSettings();
+    });
+}
+function commitNativeColor(hex) {
+    applyNativeColor(hex);
+    queueTimerOptionSave();
 }
 
 // ================= 新增：3D 首页排版与交互逻辑 =================
@@ -7828,7 +7898,7 @@ function updateCsPanelState() {
     const dock = document.getElementById('cs-main-dock');
 
     if (isCsExpanded) {
-        panel.style.height = '115px'; panel.style.opacity = '1'; panel.style.pointerEvents = 'auto';
+        panel.style.height = 'var(--cs-panel-height, 82px)'; panel.style.opacity = '1'; panel.style.pointerEvents = 'auto';
         arrow.style.transform = 'rotate(0deg)';
         dock.classList.remove('collapsed');
         populateCsPanel();
@@ -7895,7 +7965,7 @@ function populateCsPanel() {
             let name = evObj ? evObj.name.split('（')[0] : evId;
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<span class="cubing-icon event-${evId}" style="font-size: 32px;"></span><span style="font-size: 14px; font-weight:bold;">${name}</span>`;
+            btn.innerHTML = `<span class="cubing-icon event-${evId}" style="font-size: 32px;"></span><span class="cs-item-label">${name}</span>`;
             btn.onclick = () => { addObjToSpace(evId, 'cube'); };
             content.appendChild(btn);
         });
@@ -7908,7 +7978,7 @@ function populateCsPanel() {
         mcs.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span class="cs-item-label">${item.name}</span>`;
             btn.onclick = () => { addObjToSpace(item.id, 'mc'); };
             content.appendChild(btn);
         });
@@ -7929,7 +7999,7 @@ function populateCsPanel() {
         smarts.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span class="cs-item-label">${item.name}</span>`;
             btn.onclick = () => { addObjToSpace(item.id, 'smart'); };
             content.appendChild(btn);
         });
@@ -7942,7 +8012,7 @@ function populateCsPanel() {
         scenes.forEach(item => {
             let btn = document.createElement('div');
             btn.className = 'cs-item-btn';
-            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span style="font-size: 14px; font-weight:bold;">${item.name}</span>`;
+            btn.innerHTML = `<img src="${createPixelIcon(item.id)}" style="width:32px; height:32px; image-rendering:pixelated; border-radius:4px;"><span class="cs-item-label">${item.name}</span>`;
             btn.onclick = () => { changeFloorTexture(item.id); };
             content.appendChild(btn);
         });
@@ -8919,10 +8989,9 @@ function addObjToSpace(id, type, restoreData = null) {
 // ==================== 卡片参数联动 ====================
 function setCsTransformMode(mode) {
     csTransformCtrl.setMode(mode);
-    document.getElementById('cs-btn-translate').style.background = mode === 'translate' ? 'var(--primary-color)' : '#f1f5f9';
-    document.getElementById('cs-btn-translate').style.color = mode === 'translate' ? 'white' : 'var(--text-main)';
-    document.getElementById('cs-btn-rotate').style.background = mode === 'rotate' ? 'var(--primary-color)' : '#f1f5f9';
-    document.getElementById('cs-btn-rotate').style.color = mode === 'rotate' ? 'white' : 'var(--text-main)';
+    document.getElementById('cs-transform-segment').style.setProperty('--index', mode === 'rotate' ? 1 : 0);
+    document.getElementById('cs-btn-translate').setAttribute('aria-pressed', String(mode === 'translate'));
+    document.getElementById('cs-btn-rotate').setAttribute('aria-pressed', String(mode === 'rotate'));
 }
 
 function updateInfoCardValues() {
@@ -9109,7 +9178,71 @@ function renderTimerDailyStats(){
 
 window.addEventListener('resize',()=>{if(!document.getElementById('timer-daily-overlay')?.hidden&&timerDailyStats.date)renderTimerDailyStats();});
 
-function applyTimerBackground(){const page=document.getElementById('timer-page');if(!page)return;const image=uiSettings.timerBackgroundEnabled&&timerBackgroundImage;page.classList.toggle('timer-custom-background',!!(image||uiSettings.timerBackgroundColor));page.style.setProperty('--timer-custom-color',uiSettings.timerBackgroundColor||'transparent');page.style.setProperty('--timer-custom-image',image?'url('+JSON.stringify(image)+')':'none');const opacity=Number.isFinite(uiSettings.timerBackgroundOpacity)?uiSettings.timerBackgroundOpacity:100;page.style.setProperty('--timer-background-opacity',opacity/100);const field=document.getElementById('color-background-hex');if(field)field.value=(uiSettings.timerBackgroundColor||'#f8fafc').toUpperCase();document.getElementById('color-background-display').style.background=uiSettings.timerBackgroundColor||'#f8fafc';document.getElementById('timer-background-enabled').checked=!!uiSettings.timerBackgroundEnabled;document.getElementById('timer-background-opacity').value=opacity;document.getElementById('timer-background-opacity-value').textContent=opacity+'%';}
+function applyTimerBackground(){syncTimerContrastButton();if(uiSettings.timerAutoContrast)requestAnimationFrame(()=>adaptTimerTextToBackground());const page=document.getElementById('timer-page');if(!page)return;const image=uiSettings.timerBackgroundEnabled&&timerBackgroundImage;page.classList.toggle('timer-custom-background',!!(image||uiSettings.timerBackgroundColor));page.style.setProperty('--timer-custom-color',uiSettings.timerBackgroundColor||'transparent');page.style.setProperty('--timer-custom-image',image?'url('+JSON.stringify(image)+')':'none');const opacity=Number.isFinite(uiSettings.timerBackgroundOpacity)?uiSettings.timerBackgroundOpacity:100;page.style.setProperty('--timer-background-opacity',opacity/100);const blur=Math.max(0,Math.min(30,Number(uiSettings.timerBackgroundBlur)||0));page.style.setProperty('--timer-background-blur',blur+'px');document.getElementById('timer-background-blur').value=blur;document.getElementById('timer-background-blur-value').textContent=blur+'px';const field=document.getElementById('color-background-hex');if(field)field.value=(uiSettings.timerBackgroundColor||'#f8fafc').toUpperCase();document.getElementById('color-background-display').style.background=uiSettings.timerBackgroundColor||'#f8fafc';document.getElementById('timer-background-enabled').checked=!!uiSettings.timerBackgroundEnabled;document.getElementById('timer-background-opacity').value=opacity;document.getElementById('timer-background-opacity-value').textContent=opacity+'%';}
 async function importTimerBackground(file){if(!file)return;try{if(!file.type.startsWith('image/'))throw Error('请选择图片文件');const bitmap=await createImageBitmap(file),scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const data=canvas.toDataURL('image/jpeg',.82);localStorage.setItem('nbTimerBackgroundImage',data);timerBackgroundImage=data;uiSettings.timerBackgroundEnabled=true;applyTimerBackground();queueTimerOptionSave();}catch(error){alert('背景图片导入失败：'+error.message);}}
 
 function resetTimerBackgroundColor(){delete uiSettings.timerBackgroundColor;applyTimerBackground();document.getElementById('custom-color-btn-text').textContent='#F8FAFC';document.getElementById('native-color-picker').value='#f8fafc';queueTimerOptionSave();}
+
+let timerContrastTask=0;
+async function adaptTimerTextToBackground() {
+ const task=++timerContrastTask,page=document.getElementById('timer-page'),base=getComputedStyle(document.documentElement);
+ const hasBackground=!!(uiSettings.timerBackgroundColor||(uiSettings.timerBackgroundEnabled&&timerBackgroundImage));
+ if(!hasBackground||(uiSettings.timerBackgroundOpacity??100)===0){page.classList.remove('timer-auto-contrast');page.style.removeProperty('--timer-contrast-overlay');return;}
+
+ page.style.setProperty('--timer-control-main',base.getPropertyValue('--text-main'));
+ page.style.setProperty('--timer-control-muted',base.getPropertyValue('--text-muted'));
+ const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ ctx.fillStyle=base.getPropertyValue('--bg-color');ctx.fillRect(0,0,64,64);ctx.globalAlpha=(uiSettings.timerBackgroundOpacity??100)/100;
+ if(uiSettings.timerBackgroundColor){ctx.fillStyle=uiSettings.timerBackgroundColor;ctx.fillRect(0,0,64,64);}
+ if(uiSettings.timerBackgroundEnabled&&timerBackgroundImage){const img=new Image();img.src=timerBackgroundImage;await img.decode();if(task!==timerContrastTask)return;const scale=Math.max(64/img.width,64/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(64-w)/2,(64-h)/2,w,h);}
+ const data=ctx.getImageData(0,0,64,64).data;
+ const luminance=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+ const contrast=(a,b)=>(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+ const defaultMain=base.getPropertyValue('--text-main').trim(),defaultMuted=base.getPropertyValue('--text-muted').trim();
+ const parseHex=hex=>[0,1,2].map(i=>parseInt(hex.replace('#','').slice(i*2,i*2+2),16));
+ const pixels=[];for(let i=0;i<data.length;i+=4)pixels.push(luminance([data[i],data[i+1],data[i+2]]));
+ const score=hex=>{const l=luminance(parseHex(hex)),ratios=pixels.map(p=>contrast(p,l)).sort((a,b)=>a-b);return ratios[Math.floor(ratios.length*.15)];};
+ // Preserve the existing palette whenever it is already readable.
+ const main=score(defaultMain)>=4.5?defaultMain:score('#ffffff')>score('#17212f')?'#ffffff':'#17212f';
+ const muted=main===defaultMain?defaultMuted:main==='#ffffff'?'#ffffff':'#17212f';
+ page.style.setProperty('--timer-contrast-overlay',score(main)<4.5?(main==='#ffffff'?'rgba(0,0,0,.38)':'rgba(255,255,255,.45)'):'transparent');
+
+ page.style.setProperty('--timer-adaptive-main',main);
+ page.style.setProperty('--timer-adaptive-muted',muted);
+ page.classList.add('timer-auto-contrast');uiSettings.timerAutoContrast=true;syncTimerContrastButton();queueTimerOptionSave();
+}
+function resetTimerTextContrast(){++timerContrastTask;document.getElementById('timer-page').classList.remove('timer-auto-contrast');document.getElementById('timer-page').style.removeProperty('--timer-contrast-overlay');delete uiSettings.timerAutoContrast;syncTimerContrastButton();queueTimerOptionSave();}
+
+function saveTimerProject(mode,event,smartEvent) {
+ try{localStorage.setItem('nbTimerLastProject',JSON.stringify({mode,event,smartEvent}));}catch(e){}
+}
+function restoreTimerProject() {
+ try{
+ const saved=JSON.parse(localStorage.getItem('nbTimerLastProject')||'null');if(!saved)return;
+ if(!['wca','normal','other','smart'].includes(saved.mode))return;
+ const valid=eventDict.some(e=>e.id===saved.event)||timerOtherEvents.some(e=>e.id===saved.event);
+ if(!valid)return;
+ currentTimerEvent=saved.event;currentTimerMode=saved.mode;
+ if(['222','333'].includes(saved.smartEvent))timerSmartEvent=saved.smartEvent;
+ }catch(e){}
+}
+
+function syncTimerContrastButton(){
+ const button=document.getElementById('timer-font-contrast-adapt');
+ if(button){button.textContent=uiSettings.timerAutoContrast?'取消适应':'适应背景';button.setAttribute('aria-pressed',String(!!uiSettings.timerAutoContrast));}
+}
+async function toggleTimerTextContrast(){
+ if(uiSettings.timerAutoContrast){resetTimerTextContrast();return;}
+ await adaptTimerTextToBackground();
+ syncTimerContrastButton();
+}
+
+function fitNavDropdown(item) {
+ const menu=item.querySelector('.dropdown-content');if(!menu)return;
+ menu.style.translate='0px';const rect=menu.getBoundingClientRect(),viewport=window.visualViewport;
+ const left=(viewport?.offsetLeft||0)+8,right=(viewport?.offsetLeft||0)+(viewport?.width||innerWidth)-8;
+ let shift=rect.right>right?right-rect.right:0;if(rect.left+shift<left)shift=left-rect.left;
+ menu.style.translate=shift+'px';
+}
+window.addEventListener('resize',()=>document.querySelectorAll('.nav-menu-item.dropdown-open').forEach(fitNavDropdown));
+window.visualViewport?.addEventListener('resize',()=>document.querySelectorAll('.nav-menu-item.dropdown-open').forEach(fitNavDropdown));

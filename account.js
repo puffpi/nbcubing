@@ -73,6 +73,7 @@ async function refreshAccountOnce(revision) {
     const wca=accountEl('setting-wcaid');if(wca)wca.textContent=profile?.wca_id || '未登录';
     const email=accountEl('setting-email');if(email)email.textContent=profile ? (profile.email || '未填写') : '未登录';
     if(typeof loadAccountDashboard==='function' && accountEl('account-page').classList.contains('active')) loadAccountDashboard();
+    window.dispatchEvent(new Event('account-identity-changed'));
     return profile;
 }
 async function accountRequest(action,fields) {

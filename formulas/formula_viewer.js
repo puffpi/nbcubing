@@ -112,26 +112,59 @@
         const at=caseState(algorithm);
         let content='';
         if(type==='f2l') {
-            // A taller, balanced isometric projection keeps the cube readable
-            // at both list and detail sizes while retaining accurate stickers.
-            content+='<polygon points="80,10 150,50 80,90 10,50" fill="#263242"/>';
-            content+='<polygon points="10,50 80,90 80,158 10,118" fill="#263242"/>';
-            content+='<polygon points="80,90 150,50 150,118 80,158" fill="#263242"/>';
-            content+=gridFace('U',[80,10],[23.33,13.33],[-23.33,13.33],at,.035,.65);
-            content+=gridFace('F',[10,50],[23.33,13.33],[0,22.67],at,.035,.65);
-            content+=gridFace('R',[80,90],[23.33,-13.33],[0,22.67],at,.035,.65);
-            return `<svg viewBox="0 0 160 168" role="img" aria-label="F2L 案例三面图">${content}</svg>`;
+            // Same XYZ rotation, perspective and rounded sticker masks as mountCube.
+            const sx=Math.sin(.45),cx=Math.cos(.45),sy=Math.sin(-.55),cy=Math.cos(-.55);
+            const rotate=([x,y,z])=>{const px=cy*x+sy*z,pz=-sy*x+cy*z;return [px,cx*y-sx*pz,sx*y+cx*pz];};
+            const raw=p=>{const [x,y,z]=rotate(p),k=11.2/(11.2-z);return [x*k,-y*k];};
+            const corners=[];for(const x of [-1.5,1.5])for(const y of [-1.5,1.5])for(const z of [-1.5,1.5])corners.push(raw([x,y,z]));
+            const xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+            const scale=Math.min(194/(xmax-xmin),194/(ymax-ymin));
+            const project=p=>{const [x,y]=raw(p);return [(110+(x-(xmin+xmax)/2)*scale).toFixed(2),(115+(y-(ymin+ymax)/2)*scale).toFixed(2)];};
+            const point=(face,row,col,u,w)=>{const p=faceletPosition(face,row+w,col+u),axis=NORMALS[face].findIndex(n=>n!==0);p[axis]=NORMALS[face][axis]*1.503;return project(p).join(' ');};
+            const sticker=(face,row,col,size,color)=>{
+                const h=size/2,r=.27,tl=row===1&&col===1||row===1&&col===2||row===2&&col===1?r:0,
+                    tr=row===1&&col===1||row===1&&col===0||row===2&&col===1?r:0,
+                    br=row===1&&col===1||row===1&&col===0||row===0&&col===1?r:0,
+                    bl=row===1&&col===1||row===1&&col===2||row===0&&col===1?r:0;
+                const p=(u,w)=>point(face,row,col,u,w);
+                return '<path d="M '+p(-h+tl,-h)+' L '+p(h-tr,-h)+' Q '+p(h,-h)+' '+p(h,-h+tr)+' L '+p(h,h-br)+' Q '+p(h,h)+' '+p(h-br,h)+' L '+p(-h+bl,h)+' Q '+p(-h,h)+' '+p(-h,h-bl)+' L '+p(-h,-h+tl)+' Q '+p(-h,-h)+' '+p(-h+tl,-h)+' Z" fill="'+color+'"/>';
+            };
+            content='';
+            for(const face of ['U','F','R']){
+                const facePoints=[[-.5,-.5],[-.5,2.5],[2.5,2.5],[2.5,-.5]].map(([row,col])=>point(face,row,col,0,0)).join(',');
+                content+='<polygon points="'+facePoints+'" fill="#19212c" stroke="#263244" stroke-width=".8" stroke-linejoin="round"/>';
+                for(let row=0;row<3;row++)for(let col=0;col<3;col++)content+=sticker(face,row,col,.945,at(face,row,col));
+            }
+            return '<svg viewBox="0 0 220 230" role="img" aria-label="F2L 案例三面图">'+content+'</svg>';
         }
         const show=color=>type==='oll' && color!==COLORS.U ? '#b9c3d1' : color;
-        content+=gridFace('U',[24,22],[24,0],[0,24],(face,row,col)=>show(at(face,row,col)));
-        for(let i=0;i<3;i++) {
-            content+=polygon([[24+i*24,13],[47+i*24,13],[47+i*24,20],[24+i*24,20]],show(at('B',0,2-i)));
-            content+=polygon([[24+i*24,96],[47+i*24,96],[47+i*24,103],[24+i*24,103]],show(at('F',0,i)));
-            content+=polygon([[14,22+i*24],[21,22+i*24],[21,45+i*24],[14,45+i*24]],show(at('L',0,i)));
-            content+=polygon([[97,22+i*24],[104,22+i*24],[104,45+i*24],[97,45+i*24]],show(at('R',0,2-i)));
+        // One shared 24-unit grid aligns every top sticker with its side-color strip.
+        const origin=24,pitch=24,inset=.6,size=pitch-2*inset;
+        const tile=(x,y,w,h,color,radii)=>{
+            const [tl,tr,br,bl]=radii;
+            return '<path d="M '+(x+tl)+' '+y+' H '+(x+w-tr)+' Q '+(x+w)+' '+y+' '+(x+w)+' '+(y+tr)+' V '+(y+h-br)+' Q '+(x+w)+' '+(y+h)+' '+(x+w-br)+' '+(y+h)+' H '+(x+bl)+' Q '+x+' '+(y+h)+' '+x+' '+(y+h-bl)+' V '+(y+tl)+' Q '+x+' '+y+' '+(x+tl)+' '+y+' Z" fill="'+color+'"/>';
+        };
+        content='<rect x="24" y="24" width="72" height="72" rx="2.2" fill="#19212c"/>';
+        for(let row=0;row<3;row++)for(let col=0;col<3;col++){
+            const round=[2.2,2.2,2.2,2.2];
+            if(row===1&&col===1)round.fill(6.4);
+            else if(row===0&&col===1){round[2]=6.4;round[3]=6.4;}
+            else if(row===2&&col===1){round[0]=6.4;round[1]=6.4;}
+            else if(row===1&&col===0){round[1]=6.4;round[2]=6.4;}
+            else if(row===1&&col===2){round[0]=6.4;round[3]=6.4;}
+            content+=tile(origin+col*pitch+inset,origin+row*pitch+inset,size,size,show(at('U',row,col)),round);
         }
-        return `<svg viewBox="0 0 118 115" role="img" aria-label="${type.toUpperCase()} 顶层案例图">${content}</svg>`;
+        for(const [x,y,w,h] of [[24,12,72,8],[24,100,72,8],[12,24,8,72],[100,24,8,72]])content+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="2.2" fill="#19212c"/>';
+        for(let i=0;i<3;i++){
+            const offset=origin+i*pitch+inset,round=[1.8,1.8,1.8,1.8];
+            content+=tile(offset,12+inset,size,8-2*inset,show(at('B',0,2-i)),round);
+            content+=tile(offset,100+inset,size,8-2*inset,show(at('F',0,i)),round);
+            content+=tile(12+inset,offset,8-2*inset,size,show(at('L',0,i)),round);
+            content+=tile(100+inset,offset,8-2*inset,size,show(at('R',0,2-i)),round);
+        }
+        return '<svg viewBox="0 0 120 120" role="img" aria-label="'+type.toUpperCase()+' 顶层案例图">'+content+'</svg>';
     }
+
     function mountCube(container, appearance='black', options={}) {
         if(mounted) mounted.dispose();
         if(!window.THREE) { container.textContent='魔方模型暂不可用'; return; }

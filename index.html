@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.48.42">
+    <link rel="stylesheet" href="style.css?v=1.50.0">
     <link rel="stylesheet" href="cube_explorer.css?v=1.46.8">
+    <link rel="stylesheet" href="play.css?v=1.50.0">
     <link rel="stylesheet" href="analysis.css?v=1.48.40">
 </head>
 <body>
@@ -109,6 +110,7 @@
                 <div class="dropdown-content">
                     <a onclick="openAccountPage()" id="account-nav-entry">登录</a>
                     <a onclick="navigateTo('settings-page', true)">设置</a>
+                    <a href="https://puffpi.github.io/nbcubing/" id="online-website-entry" onclick="if(window.NBApp){event.preventDefault();location.href='nbcubing://website';}">在线网站</a>
                 </div>
             </div>
         </div>
@@ -138,8 +140,8 @@
                 <div class="modern-timer-shell"><button class="modern-feature modern-timer" type="button" onclick="openModernTimer('wca')"><span class="modern-eyebrow">NB TIMER</span><span class="modern-kicker">计时器 · 智能魔方</span><span class="modern-timer-art" aria-hidden="true">0.00</span></button></div>
                 <button class="modern-feature modern-challenge" type="button" onclick="initChallenge(); navigateTo('challenge-page');"><span class="modern-eyebrow">NB CHALLENGE</span><span class="modern-kicker">面对面 · PK</span><svg class="modern-swords" viewBox="0 0 120 100" aria-hidden="true"><g transform="translate(60 50) rotate(40)"><g class="modern-sword modern-sword-a"><path d="M0-47 5-39V17H-5V-39Z" /><path class="sword-facet" d="M0-47 5-39V17H0Z" /><path class="sword-guard" d="M-15 16 0 18 15 16 16 20 0 22-16 20Z M-4 40H4L5 44 0 47-5 44Z" /><path class="sword-grip" d="M-3 22H3L2.5 40H-2.5Z" /><path class="sword-binding" d="m-2.8 26 5.6 2m-5.4 3 5.2 2m-5 3 4.8 2" /></g></g><g transform="translate(60 50) rotate(-40)"><g class="modern-sword modern-sword-b"><path d="M0-47 5-39V17H-5V-39Z" /><path class="sword-facet" d="M0-47 5-39V17H0Z" /><path class="sword-guard" d="M-15 16 0 18 15 16 16 20 0 22-16 20Z M-4 40H4L5 44 0 47-5 44Z" /><path class="sword-grip" d="M-3 22H3L2.5 40H-2.5Z" /><path class="sword-binding" d="m-2.8 26 5.6 2m-5.4 3 5.2 2m-5 3 4.8 2" /></g></g></svg></button>
                 
-                <button class="modern-feature modern-monthly" type="button" onclick="initMonthly()"><span class="modern-eyebrow">MONTHLY CHALLENGE</span><span class="modern-kicker">巅峰月赛</span><span class="modern-month-period" id="modern-month-period" aria-hidden="true"></span><span class="modern-monthly-art" aria-hidden="true"><svg viewBox="0 0 120 80"><path d="M49 28 29 54 M71 28 91 54 M38 68 H82" /></svg><i class="cubing-icon event-333"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-333bf"></i></span></button>
-                <button class="modern-feature modern-space" type="button" onclick="openCubeSpace()"><span class="modern-eyebrow">CUBE SPACE</span><span class="modern-kicker">魔方空间</span><span class="modern-space-stage" aria-hidden="true"><svg class="modern-space-plane" viewBox="0 0 120 88"><path class="space-cube-top" d="m60 14 24 14-24 14-24-14Z" /><path class="space-cube-outline" d="m60 14 24 14v28L60 70 36 56V28Z M36 28l24 14 24-14 M60 42v28" /><path class="space-cube-hidden" d="M60 14v28 M36 56l24-14 24 14" /><path class="space-cube-axes" d="M60 8V2 M30 59l-9 5 M90 59l9 5" /></svg></span></button>
+                <button class="modern-feature modern-monthly" type="button" onclick="initMonthly()"><span class="modern-eyebrow">MONTHLY CHALLENGE</span><span class="modern-kicker">巅峰月赛</span><span class="modern-month-period" id="modern-month-period" aria-hidden="true"></span><span class="modern-monthly-art" aria-hidden="true"><span class="monthly-orbit"><svg viewBox="0 0 120 80"><path class="monthly-link monthly-link-a" d="M49 28 29 54"/><path class="monthly-link monthly-link-b" d="M38 68 H82"/><path class="monthly-link monthly-link-c" d="M91 54 71 28"/></svg><i class="cubing-icon event-333"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-333bf"></i></span></span></button>
+                <button class="modern-feature modern-space" type="button" onclick="openCubeSpace()"><span class="modern-eyebrow">CUBE SPACE</span><span class="modern-kicker">魔方空间</span><span class="modern-space-stage" aria-hidden="true"><svg class="modern-space-plane" viewBox="0 0 120 88"><path class="space-cube-top" d="m60 14 24 14-24 14-24-14Z" /><path class="space-cube-outline" d="m60 14 24 14v28L60 70 36 56V28Z M36 28l24 14 24-14 M60 42v28" /><path class="space-cube-hidden" d="M60 14v28 M36 56l24-14 24 14" /><g class="space-cube-axes"><path class="space-axis-z" d="M60 8V2"/><path class="space-axis-x" d="M30 59l-9 5"/><path class="space-axis-y" d="M90 59l9 5"/></g></svg></span></button>
                 
             </section>
 
@@ -345,13 +347,16 @@
             <div class="formula-detail-cube-wrap">
                 <div id="formula-detail-cube" aria-label="可拖动旋转的三阶魔方公式演示"></div>
                 <div class="formula-cube-controls">
-                    <button id="formula-replay" type="button" aria-label="重播当前公式" title="重播当前公式">↻</button>
+                    <button id="formula-replay" type="button" aria-label="重播当前公式" title="重播当前公式"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <button id="formula-speed" type="button" aria-label="调整演示速度" title="调整演示速度">1.0×</button>
                 </div>
             </div>
         </div>
+        <p class="formula-favorite-status" role="status"></p>
         <div id="formula-variants" class="formula-variants"></div>
     </div>
+
+    <section id="formula-favorites-page" class="page-container formula-page"><div class="page-header formula-header"><button onclick="goBack()">返回上一页</button><div><h2>我的收藏</h2></div></div><p class="formula-favorite-status" role="status"></p><div id="formula-favorites-list" class="formula-case-list"></div></section>
 
     <!-- =========================================
          全局设置页面
@@ -424,7 +429,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.48.42</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.50.0</span>
             </div>
         </div>
         <p style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; border-top: 1px solid var(--border-color); margin: 20px auto 0; max-width: 700px;">作者：b站@泡芙老师k3</p>
@@ -979,7 +984,10 @@
                                 <div class="ios-segment-btn" id="edit-pen-plus2" onclick="setEditPenalty('+2')">+2</div>
                                 <div class="ios-segment-btn" id="edit-pen-dnf" onclick="setEditPenalty('DNF')">DNF</div>
                             </div>
-                            <button class="edit-btn-copy" onclick="copyEditScramble()">复制打乱</button>
+                            <div class="edit-share-actions">
+                                <button type="button" class="edit-btn-copy" id="edit-copy-scramble" onclick="copyEditScramble()" aria-label="Copy scramble" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button>
+                                <button type="button" class="edit-btn-copy" id="edit-share-solve" onclick="shareEditScore()" aria-label="Share solve" title="Share"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M6 11H4v10h16V11h-2"/></svg></button>
+                            </div>
                         </div>
 
                         <!-- 底部三操作按钮 -->
@@ -1146,8 +1154,10 @@
 
                     <div class="ios-setting-group custom-ui-group"><span>背景颜色</span><div class="ui-control-right color-wrapper"><div id="color-background-display" class="color-display-block" onclick="openColorModal('background')"></div><input type="text" id="color-background-hex" class="ios-input hex-input" onchange="updateColor('background',this.value)"></div></div>
 <div class="ios-setting-group custom-ui-group"><span>背景图片</span><button type="button" id="timer-background-import" class="btn pk-start-btn" onclick="document.getElementById('timer-background-file').click()">导入图片</button><input id="timer-background-file" type="file" accept="image/*" hidden onchange="importTimerBackground(this.files[0]);this.value=''"></div>
+<div class="ios-setting-group custom-ui-group" id="timer-background-adapt-row"><span>全局字体颜色适应背景</span><div id="timer-background-adapt-actions"><button type="button" id="timer-font-contrast-reset" class="btn pk-start-btn" aria-label="重置字体颜色" title="重置字体颜色" onclick="resetTimerTextContrast()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="timer-font-contrast-adapt" class="btn pk-start-btn" onclick="toggleTimerTextContrast()">适应背景</button></div></div>
 <div class="ios-setting-group custom-ui-group"><span>显示背景图片</span><div id="timer-background-toggle"><span>否</span><label class="cs-switch"><input id="timer-background-enabled" type="checkbox" aria-label="显示背景图片" onchange="uiSettings.timerBackgroundEnabled=this.checked;applyTimerBackground();queueTimerOptionSave()"><span class="cs-slider"></span></label><span>是</span></div></div>
 <div class="ios-setting-group custom-ui-group"><span>背景不透明度</span><div class="ui-control-right ui-slider-wrapper"><span id="timer-background-opacity-value">100%</span><input id="timer-background-opacity" type="range" min="0" max="100" value="100" aria-label="背景不透明度" oninput="uiSettings.timerBackgroundOpacity=Number(this.value);applyTimerBackground()" onchange="queueTimerOptionSave()"></div></div>
+<div class="ios-setting-group custom-ui-group"><span>背景模糊度</span><div class="ui-control-right ui-slider-wrapper"><span id="timer-background-blur-value">0px</span><input id="timer-background-blur" type="range" min="0" max="30" step="1" value="0" aria-label="背景模糊度" oninput="uiSettings.timerBackgroundBlur=Number(this.value);applyTimerBackground()" onchange="queueTimerOptionSave()"></div></div>
 <hr class="settings-divider">
                     <div class="sidebar-settings-title">手势</div>
 
@@ -1215,7 +1225,7 @@
                             <!-- 核心修复：补齐了完美的 iOS 按钮样式，悬停变色，以及选完颜色自动关闭弹窗 -->
                             <button type="button" id="timer-background-reset" hidden aria-label="重置背景颜色" title="重置背景颜色" onclick="resetTimerBackgroundColor()"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><label style="flex: 1; margin: 0; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: var(--text-main); transition: all 0.2s;" onmouseover="this.style.background='rgba(148, 163, 184, 0.25)'" onmouseout="this.style.background='rgba(148, 163, 184, 0.15)'">
                                 <span>调色盘</span>
-                                <input type="color" id="native-color-picker" style="position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; cursor: pointer;" oninput="applyNativeColor(this.value)" onchange="applyNativeColor(this.value); closeColorModal();">
+                                <input type="color" id="native-color-picker" style="position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; cursor: pointer;" oninput="applyNativeColor(this.value)" onchange="commitNativeColor(this.value); closeColorModal();">
                             </label>
 
                             <div id="custom-color-btn-text" class="ios-input hex-input" style="flex: 1; margin: 0; text-align: center; font-size: 14px; padding: 10px 0 !important; background: rgba(0,0,0,0.03); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-weight: 600; color: var(--text-main);">#000000</div>
@@ -1653,6 +1663,7 @@
         </div>
     </div>
 
+    <button id="formula-favorites-float" type="button" aria-label="我的收藏" title="我的收藏" onclick="FormulaFavorites.open()"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.55 4.45 1.07 6.28L12 17.37l-5.62 2.96 1.07-6.28L2.9 9.6l6.3-.9Z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
     <button id="person-back-top" type="button" aria-label="返回个人页面顶部" title="返回顶部" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m5 14 7-7 7 7" />
@@ -1750,14 +1761,14 @@
         <div id="cube-space-canvas" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; outline: none;"></div>
         <div id="cs-crosshair" aria-hidden="true"></div>
         <div id="cs-player-pad" aria-label="玩家移动控制">
-            <button data-key="KeyW" aria-label="前进">▲</button>
-            <button data-key="KeyA" aria-label="向左">◀</button>
-            <button data-key="Space" aria-label="跳跃"><span class="cs-jump-symbol" aria-hidden="true"></span></button>
-            <button data-key="KeyD" aria-label="向右">▶</button>
-            <button data-key="KeyS" aria-label="后退">▼</button>
+            <button class="cs-feedback-btn" data-key="KeyW" aria-label="前进">▲</button>
+            <button class="cs-feedback-btn" data-key="KeyA" aria-label="向左">◀</button>
+            <button class="cs-feedback-btn" data-key="Space" aria-label="跳跃"><span class="cs-jump-symbol" aria-hidden="true"></span></button>
+            <button class="cs-feedback-btn" data-key="KeyD" aria-label="向右">▶</button>
+            <button class="cs-feedback-btn" data-key="KeyS" aria-label="后退">▼</button>
         </div>
 
-        <button onclick="exitCubeSpace()" class="btn btn-outline" style="position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-color: var(--border-color); color: var(--text-main); border-radius: 12px; padding: 8px 16px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">退出空间</button>
+        <button id="cs-exit-space" onclick="exitCubeSpace()" class="cs-feedback-btn btn btn-outline" style="position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-color: var(--border-color); color: var(--text-main); border-radius: 12px; padding: 8px 16px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">退出空间</button>
 
         <div id="cube-space-hint" style="position: absolute; top: 25px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 6px 16px; border-radius: 20px; font-size: 13px; color: var(--text-muted); font-weight: 600; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
             观察者模式：左键旋转 / 右键平移 / 滚轮缩放
@@ -1773,7 +1784,7 @@
             <div id="cs-mode-edit" class="cs-mode-btn" onclick="setCubeSpaceMode('edit')" title="编辑模式">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             </div>
-            <button id="cs-mode-player" class="cs-mode-btn" onclick="setCubeSpaceMode('player')" title="玩家模式" aria-label="玩家模式">
+            <button id="cs-mode-player" class="cs-feedback-btn cs-mode-btn" onclick="setCubeSpaceMode('player')" title="玩家模式" aria-label="玩家模式">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="4" r="2.5"/><path d="M8 21l2-7V9m6 12l-2-7V9M5 13l5-5h4l5 5M10 14h4"/></svg>
             </button>
             <div id="cs-action-undo" class="cs-mode-btn disabled" onclick="undoCsAction()" title="撤回操作">
@@ -1781,7 +1792,7 @@
             </div>
             <div id="cs-action-clear" class="cs-mode-btn" onclick="clearCubeSpace()" title="清空全部"><span style="font-size: 20px;">🗑️</span></div>
 
-            <button id="cs-action-settings" class="cs-mode-btn" onclick="csOpenSettings()" title="魔方空间设置" aria-label="魔方空间设置" style="border:0;background:transparent;padding:0;flex-shrink:0">
+            <button id="cs-action-settings" class="cs-feedback-btn cs-mode-btn" onclick="csOpenSettings()" title="魔方空间设置" aria-label="魔方空间设置" style="border:0;background:transparent;padding:0;flex-shrink:0">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="#f1f5f9"/><circle cx="16" cy="12" r="2" fill="#f1f5f9"/><circle cx="10" cy="18" r="2" fill="#f1f5f9"/></svg>
             </button>
             <div id="cs-action-manual" class="cs-mode-btn" onclick="document.getElementById('cs-manual-modal').style.display='flex'" title="说明书">
@@ -1790,9 +1801,10 @@
         </div>
 
         <div id="cs-info-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 240px;">
-            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                <button id="cs-btn-translate" onclick="setCsTransformMode('translate')" style="flex:1; padding:6px; font-size:13px; font-weight:bold; border-radius:8px; cursor:pointer; background:var(--primary-color); color:white; border:none;">平移</button>
-                <button id="cs-btn-rotate" onclick="setCsTransformMode('rotate')" style="flex:1; padding:6px; font-size:13px; font-weight:bold; border-radius:8px; cursor:pointer; background:#f1f5f9; color:var(--text-main); border:none;">旋转</button>
+            <div id="cs-transform-segment" class="cs-transform-segment" role="group" aria-label="物件操作方式">
+                <span class="cs-transform-thumb" aria-hidden="true"></span>
+                <button type="button" id="cs-btn-translate" aria-pressed="true" onclick="setCsTransformMode('translate')">平移</button>
+                <button type="button" id="cs-btn-rotate" aria-pressed="false" onclick="setCsTransformMode('rotate')">旋转</button>
             </div>
 
             <div style="display: grid; grid-template-columns: 35px 1fr 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 10px;">
@@ -1817,14 +1829,14 @@
             </div>
 
             <!-- 核心升级：一键无缝删除（直接调用删除函数，抛弃确认弹窗） -->
-            <button onclick="executeDeleteCsObject()" style="width: 100%; padding: 8px; background: #f8fafc; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">删除该物件</button>
+            <button class="cs-feedback-btn" onclick="executeDeleteCsObject()" style="width: 100%; padding: 8px; background: #f8fafc; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">删除该物件</button>
         </div>
 
         <!-- 各种系统弹窗 -->
         <div id="cs-alert-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3000; justify-content: center; align-items: center;">
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 <h3 id="cs-alert-text" style="margin-top:0; font-size:16px; color: var(--text-main); line-height: 1.5;">提示内容</h3>
-                <button onclick="document.getElementById('cs-alert-modal').style.display='none'" class="btn" style="width: 100%; margin-top: 20px; padding: 10px;">我知道了</button>
+                <button onclick="document.getElementById('cs-alert-modal').style.display='none'" class="cs-feedback-btn cs-action-primary btn" style="width: 100%; margin-top: 20px; padding: 10px;">我知道了</button>
             </div>
         </div>
 
@@ -1833,8 +1845,8 @@
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 <h3 id="cs-delete-title" style="margin-top:0; font-size:17px; color: var(--text-main);">确定要清空空间里的所有物件吗？</h3>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
-                    <button onclick="document.getElementById('cs-delete-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
-                    <button onclick="confirmClearCubeSpace()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
+                    <button class="cs-feedback-btn" onclick="document.getElementById('cs-delete-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
+                    <button class="cs-feedback-btn cs-action-primary" onclick="confirmClearCubeSpace()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
                 </div>
             </div>
         </div>
@@ -1844,8 +1856,8 @@
             <div style="background: #ffffff; padding: 24px; border-radius: 16px; text-align: center; width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 <h3 style="margin-top:0; font-size:17px; color: var(--text-main);">是否恢复出厂设置</h3>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
-                    <button onclick="closeResetCsModal()" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
-                    <button onclick="confirmCsReset()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
+                    <button class="cs-feedback-btn" onclick="closeResetCsModal()" style="flex:1; padding:10px; border-radius:8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">取消</button>
+                    <button class="cs-feedback-btn cs-action-primary" onclick="confirmCsReset()" style="flex:1; padding:10px; border-radius:8px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600;">确认</button>
                 </div>
             </div>
         </div>
@@ -1853,20 +1865,20 @@
         <!-- 核心美化：说明书弹窗去除了圆点与下划线 -->
         <div id="cs-manual-modal" style="display:none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.4); z-index: 3000; justify-content: center; align-items: center;">
             <div class="cs-manual-card" style="background: #ffffff; padding: 24px 28px; border-radius: 16px; width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;">
-                <button type="button" class="cs-manual-close" onclick="document.getElementById('cs-manual-modal').style.display='none'" aria-label="关闭说明书">
+                <button type="button" class="cs-feedback-btn cs-manual-close" onclick="document.getElementById('cs-manual-modal').style.display='none'" aria-label="关闭说明书">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
                 <div class="cs-manual-scroll">
-                <div style="font-size: 14px; color: var(--text-main); font-weight: 600; line-height: 1.8; text-align: left; margin-top: 5px;">
-                    <div style="margin-bottom: 8px; font-size: 15px; font-weight: 800;">在观察模式下：</div>
-                    <div style="color: var(--text-muted); margin-bottom: 6px;">点击音响可通过卡片播放音乐</div>
-                    <div style="color: var(--text-muted);">点击消息盒子可通过卡片播报资讯</div>
-                    <div style="margin: 12px 0 8px; font-size: 15px; font-weight: 800;">在玩家模式下：</div>
-                    <div style="color: var(--text-muted);">电脑：WASD 移动，空格跳跃，鼠标转头，瞄准后点击互动。Esc 释放鼠标，便于切换模式。</div>
-                    <div style="color: var(--text-muted); margin-top: 6px;">手机：左侧方向键移动，中间跳跃；滑动画面转头，轻点物件互动。空间自动采用横屏布局。</div>
+                <div class="cs-manual-copy">
+                    <h4>在观察模式下</h4>
+                    <p>点击音响可通过卡片播放音乐。</p>
+                    <p>点击消息盒子可通过卡片播报资讯。</p>
+                    <h4>在玩家模式下</h4>
+                    <p>电脑：WASD 移动，空格跳跃，鼠标转头，瞄准后点击互动。Esc 释放鼠标，便于切换模式。</p>
+                    <p>手机：左侧方向键移动，中间跳跃；滑动画面转头，轻点物件互动。空间自动采用横屏布局。</p>
                 </div>
                 <div style="text-align: center; margin-top: 24px;">
-                    <button type="button" class="cs-manual-reset" onclick="showResetCsModal()">恢复出厂设置</button>
+                    <button type="button" class="cs-feedback-btn cs-manual-reset btn pk-start-btn" onclick="showResetCsModal()">恢复出厂设置</button>
                 </div>
                 </div>
             </div>
@@ -1884,7 +1896,7 @@
                 <input type="range" id="cs-lamp-slider-soft" min="1" max="15" value="1" style="flex: 1; margin-left: 8px; accent-color: var(--primary-color);" oninput="updateCsLampSoftness(this.value)">
             </div>
             <!-- 新增：恢复默认设置按钮 -->
-            <button onclick="resetCsLampDefaults()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">恢复默认设置</button>
+            <button class="cs-feedback-btn" onclick="resetCsLampDefaults()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">恢复默认设置</button>
         </div>
 
         <!-- 新增：电脑屏幕控制卡片 -->
@@ -1915,10 +1927,10 @@
                 <input type="range" id="cs-speaker-vol" min="0" max="100" value="60" style="flex: 1; margin: 0 8px; accent-color: var(--primary-color);" oninput="updateCsSpeakerVol(this.value)">
             </div>
             <div style="display: flex; justify-content: space-between; width: 100%; gap: 6px; margin-top: 4px;">
-                <button onclick="prevCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">上一首</button>
-                <button onclick="nextCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">下一首</button>
+                <button class="cs-feedback-btn" onclick="prevCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">上一首</button>
+                <button class="cs-feedback-btn" onclick="nextCsBgm()" style="flex:1; padding: 6px 0; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">下一首</button>
             </div>
-            <button onclick="replayCsSpeaker()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">重新播放</button>
+            <button class="cs-feedback-btn" onclick="replayCsSpeaker()" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: #f8fafc; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s;">重新播放</button>
         </div>
 
         <div id="cs-msg-card" style="display: none; position: absolute; z-index: 15; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 10px 14px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.8); width: 140px; flex-direction: column; gap: 10px; align-items: center;">
@@ -1965,9 +1977,9 @@
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.48.42"></script>
+    <script src="main.js?v=1.50.0"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.48.5"></script>
+    <script src="account.js?v=1.50.0"></script>
     <script src="theme.js?v=1.48.14"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
@@ -1975,6 +1987,7 @@
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
     <script src="timer_smart.js?v=1.48.40"></script>
-    <script src="cube_space_player.js?v=1.17-detail35"></script>
+    <script src="cube_space_player.js?v=1.50.0"></script>
+    <script src="formula_favorites.js?v=1.50.0"></script>
 </body>
 </html>
