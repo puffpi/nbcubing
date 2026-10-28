@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "1.50.1",
+  "versionCode": 26,
+  "versionName": "1.50.2",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "修复在线网站入口，仅App显示并使用系统浏览器打开；选手与资讯数据联网更新、本机缓存及离线回退。"
+  "notes": "首页加载完成后自动检查更新；选择稍后后完整七天内不再自动提醒，重启及后台清理不影响，期满检查最新版本。"
 }
