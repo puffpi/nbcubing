@@ -263,7 +263,7 @@ function openCubeAppearanceModal(target, fromTimer = false) {
         button.append(swatch, name);
         button.onclick = () => {
             uiSettings[`${cubeAppearanceTarget}CubeAppearance`] = option.id;
-            saveTimerData();
+            queueTimerOptionSave();
             applyUiSettings();
             closeCubeAppearanceModal();
         };
@@ -292,7 +292,7 @@ function openSmartCubeLogoModal() {
         button.append(preview, name);
         button.onclick = () => {
             uiSettings.smartCubeLogo = option.id;
-            saveTimerData();
+            queueTimerOptionSave();
             applyUiSettings();
             closeCubeAppearanceModal();
         };
@@ -2591,7 +2591,7 @@ async function confirmTimerImport() {
                     setTimerImportStatus('正在保存导入的成绩…','loading');
                     const encoded=await DcTimerImport.encodeConfig(timerConfigForStorage(history,false),{isCancelled:()=>task.cancelled});
                     if(task.cancelled)return;
-                    try{localStorage.setItem('nbTimerConfig',encoded);}catch{throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。');}
+                    try{localStorage.setItem('nbTimerConfig',encoded);localStorage.removeItem('nbTimerOptions');}catch{throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。');}
                     timerHistoryData=history;
                     if(document.getElementById('timer-page').classList.contains('active'))recalculateSessionStats();
                 }
@@ -2618,7 +2618,7 @@ async function confirmTimerImport() {
         if (current.length + imported.length > 200000) throw new Error('当前项目成绩过多，请分批整理后导入。');
         const history = { ...timerHistoryData, [task.key]: [...current, ...imported] };
         // Write successfully before replacing the live list, so a full disk cannot report a false success.
-        try { localStorage.setItem('nbTimerConfig', JSON.stringify(timerConfigForStorage(history))); }
+        try { localStorage.setItem('nbTimerConfig', JSON.stringify(timerConfigForStorage(history)));localStorage.removeItem('nbTimerOptions'); }
         catch { throw new Error('本机存储空间不足，成绩未导入。请先导出备份并释放空间后重试。'); }
         timerHistoryData = history;
         recalculateSessionStats();
@@ -2910,7 +2910,7 @@ function setStatCount(statNum, count) {
     if (statNum === 1) stat1.count = val;
     if (statNum === 2) stat2.count = val;
     recalculateSessionStats();
-    saveTimerData(); // 核心新增
+    queueTimerOptionSave();
 }
 
 function calculateStat(slice, type, count) {
@@ -2960,10 +2960,16 @@ function calculateTimerRecordStats(records, index, best) {
         if (record[`isStat${number}Pb`]) best[`stat${number}`] = value.ms;
     }
 }
-function recalculateSessionStats() {
+function recalculateSessionStats(reuse=false) {
     const key = getTimerHistoryKey(), records = timerHistoryData[key] || [];
     const settings = `${key}/${stat1.type}/${stat1.count}/${stat2.type}/${stat2.count}/${uiSettings.nbPrecision}`;
     const previous = timerSessionStatsCache.get(records);
+    if(reuse&&previous&&previous.settings===settings&&previous.length===records.length&&previous.head===records[0]){
+        currentSessionBestMs=previous.best.single;currentSessionBestStat1Ms=previous.best.stat1;currentSessionBestStat2Ms=previous.best.stat2;
+        document.getElementById('header-stat1').textContent=stat1.type+stat1.count;
+        document.getElementById('header-stat2').textContent=stat2.type+stat2.count;
+        renderTimerHistory();return;
+    }
     // A newly completed solve changes only the newest average windows. Older
     // windows and historical PB flags keep the same values after a prepend.
     const prepended = previous && previous.settings === settings && records.length === previous.length + 1 && records[1] === previous.head;
@@ -3679,7 +3685,7 @@ function initTimer() {
         timerHistoryData[getTimerHistoryKey()] = [];
     }
 
-    try { recalculateSessionStats(); } catch(e) {}
+    try { recalculateSessionStats(true); } catch(e) {}
     try { generateScramble(); } catch(e) {}
     switchTimerTab('main');
 }
@@ -3728,7 +3734,7 @@ function confirmTimerEvent() {
         timerSmartEvent = timerTempSmartEvent;
         applyTimerMode();
         if (!timerHistoryData[getTimerHistoryKey()]) timerHistoryData[getTimerHistoryKey()] = [];
-        recalculateSessionStats();
+        recalculateSessionStats(true);
         closeTimerEventPopup();
         return;
     }
@@ -3751,7 +3757,7 @@ function confirmTimerEvent() {
         generateScramble();
     }
     applyTimerMode();
-    recalculateSessionStats();
+    recalculateSessionStats(true);
     closeTimerEventPopup();
 }
 
@@ -4940,7 +4946,10 @@ document.addEventListener('keyup', (e) => {
 });
 
 // ================= 本地数据持久化引擎 =================
-function loadTimerData() {
+let timerDataLoaded=false;
+function loadTimerData(force=false) {
+    if(timerDataLoaded&&!force)return;
+    timerDataLoaded=true;
     let storedConfig = null;
     try {
         const saved = localStorage.getItem('nbTimerConfig');
@@ -4976,8 +4985,10 @@ function loadTimerData() {
             document.getElementById(`btn-stat1-${stat1.type}`).classList.add('active');
             document.getElementById(`btn-stat2-${stat2.type}`).classList.add('active');
         }
-    } catch (e) { console.warn("读取本地历史数据失败", e); }
+    } catch (e) { timerDataLoaded=false;console.warn("读取本地历史数据失败", e); }
 
+    try{const options=JSON.parse(localStorage.getItem('nbTimerOptions')||'null');if(options){uiSettings={...uiSettings,...options.uiSettings};if(options.stat1)stat1=options.stat1;if(options.stat2)stat2=options.stat2;}}catch(error){console.warn('设置缓存读取失败',error);}
+    for(const n of [1,2]){const stat=n===1?stat1:stat2;document.getElementById(`input-stat${n}-count`).value=stat.count;for(const type of ['ao','mo'])document.getElementById(`btn-stat${n}-${type}`).classList.toggle('active',stat.type===type);}
     // Reset previous homepage choices once. A later manual business choice stays saved.
     if (uiSettings.modernHomeMigration !== 1) {
         uiSettings.homeLayout = 'modern';
@@ -5014,6 +5025,7 @@ function saveTimerData() {
         // truncate these records on the next ordinary solve/settings save.
         const dataToSave = timerConfigForStorage();
         localStorage.setItem('nbTimerConfig', JSON.stringify(dataToSave));
+        localStorage.removeItem('nbTimerOptions');
     } catch (e) { console.warn("本地存储已满", e); }
 }
 
@@ -5120,8 +5132,9 @@ function applyUiSettings() {
 }
 
 let timerOptionSaveTask=0;
-function queueTimerOptionSave(){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=setTimeout(()=>{timerOptionSaveTask=0;saveTimerData();},180);}
-addEventListener('pagehide',()=>{if(timerStatRefreshTask){clearTimeout(timerStatRefreshTask);timerStatRefreshTask=0;saveTimerData();}if(timerOptionSaveTask){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=0;saveTimerData();}});
+function saveTimerOptionsOnly(){try{localStorage.setItem('nbTimerOptions',JSON.stringify({uiSettings,stat1,stat2}));}catch(error){console.warn('设置保存失败',error);}}
+function queueTimerOptionSave(){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=setTimeout(()=>{timerOptionSaveTask=0;saveTimerOptionsOnly();},180);}
+addEventListener('pagehide',()=>{if(timerStatRefreshTask){clearTimeout(timerStatRefreshTask);timerStatRefreshTask=0;saveTimerData();}if(timerOptionSaveTask){clearTimeout(timerOptionSaveTask);timerOptionSaveTask=0;saveTimerOptionsOnly();}});
 function setNbTimingOption(option, value) {
     if (option === 'inspection') {
         uiSettings.inspection = !!value;
@@ -5201,7 +5214,7 @@ function openFontModal() {
         btn.innerHTML = `<span style="font-family: ${f.family}; font-size: 16px;">${f.name}</span>`;
         btn.onclick = () => {
             uiSettings.font = f.id;
-            saveTimerData();
+            queueTimerOptionSave();
             applyUiSettings();
             closeFontModal();
         };
@@ -5218,20 +5231,20 @@ function closeFontModal(e) {
 function updateFontSize(val) {
     uiSettings.fontSize = parseInt(val);
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
 }
 
 // 👇 核心新增：控制打乱字体的函数 👇
 function updateScrambleSize(val) {
     uiSettings.scrambleSize = parseInt(val);
     applyUiSettings();
-    saveTimerData(); // 自动保存到本地，下次打开仍然生效
+    queueTimerOptionSave(); // 自动保存到本地，下次打开仍然生效
 }
 
 function updateSmartCubeSize(val) {
     uiSettings.smartCubeSize = parseInt(val, 10);
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
 }
 
 // 👇 核心新增：控制提示选项的函数 👇
@@ -5249,7 +5262,7 @@ function updateColor(type, val) {
         if(type==='background')uiSettings.timerBackgroundColor=hex;else if (type === 'single') uiSettings.colorSingle = hex;
         else uiSettings.colorAvg = hex;
         applyUiSettings();
-        saveTimerData();
+        queueTimerOptionSave();
     }
 }
 
@@ -5269,7 +5282,7 @@ function openColorModal(type) {
 
     const popup = document.getElementById('color-picker-modal');
     popup.classList.remove('popup-fade-out');
-    popup.style.display = 'flex';
+    showNbTimerSettingOverlay(popup);
 }
 
 function closeColorModal(e) {
@@ -5286,7 +5299,7 @@ function applyQuickColor(hex) {
     if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
     else uiSettings.colorAvg = hex;
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
     closeColorModal();
 }
 
@@ -5312,7 +5325,7 @@ function setHomeLayout(layout) {
     if (!['business','modern'].includes(layout)) return;
     uiSettings.homeLayout = layout;
     applyUiSettings();
-    saveTimerData();
+    queueTimerOptionSave();
     // 如果当前正在主页，则瞬间切换排版
     const activePage = document.querySelector('.page-container.active');
     if (activePage && activePage.id === 'home-page') {
@@ -5335,14 +5348,14 @@ function openModernTimer(mode){
 // ================= 用户名与 WCA ID 保存引擎 =================
 function saveUsername(val) {
     uiSettings.username = val.trim();
-    saveTimerData();
+    queueTimerOptionSave();
     if (typeof updateAccountNickname === 'function') updateAccountNickname(val);
 }
 
 function saveWcaId(val) {
     if (typeof accountProfile !== 'undefined' && accountProfile) val = accountProfile.wca_id;
     uiSettings.wcaId = val.trim().toUpperCase();
-    saveTimerData();
+    queueTimerOptionSave();
     // 失去焦点时自动变成大写并刷新显示
     let wcaEl = document.getElementById('setting-wcaid');
     if (wcaEl) wcaEl.textContent = uiSettings.wcaId;

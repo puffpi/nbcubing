@@ -5689,3 +5689,27 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
 .timer-sidebar:has(> :is(#edit-score-popup,#avg-score-popup,#avg-details-popup)[style*="display: flex"]) > :not(.edit-score-popup){
  filter:blur(2px);pointer-events:none;
 }
+
+/* Align the usable row width with the header and reserve room for long indices. */
+#sidebar-view-history{--timer-history-side:3px;}
+#timer-history-list{padding:0;}
+#sidebar-view-history .timer-history-header{padding-left:5px;padding-right:5px;align-items:center;}
+#timer-page :is(.timer-history-item,.timer-history-header) .col-id{width:16%;font-variant-numeric:tabular-nums;}
+#timer-page :is(.timer-history-item,.timer-history-header) :is(.col-time,.col-stat){width:28%;}
+#timer-page .sidebar-header-row > .btn-more{background:rgba(255,255,255,.45)!important;border:1px solid rgba(71,85,105,.55)!important;color:var(--primary-color)!important;box-shadow:0 2px 8px rgba(0,0,0,.04);border-radius:9px;font-size:13px;font-weight:500;}
+#timer-page.timer-auto-contrast .sidebar-header-row > .btn-more{color:var(--text-main)!important;border-color:currentColor!important;}
+#timer-page.timer-auto-contrast #timer-more-dropdown{background:rgba(60,70,85,.25);border-color:var(--text-main);color:var(--text-main);}
+#timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:var(--text-main)!important;}
+/* Setting pickers use the same single-pass foreground blur as score dialogs. */
+.cube-appearance-overlay.timer-settings-context,.edit-score-popup.timer-setting-overlay{
+ animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
+}
+body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
+body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(2px);pointer-events:none;}
+
+#timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item:hover{background:color-mix(in srgb,currentColor 12%,transparent);}
+
+/* 1.50.20: More dialogs use the same single content blur as settings. */
+:is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay){animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);}
+body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
+body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(2px);pointer-events:none;}

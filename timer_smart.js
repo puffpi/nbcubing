@@ -70,7 +70,7 @@ function updateTimerBluetoothContext(){
 }
 function openTimerBluetoothIdleModal(){
     document.getElementById('nb-timing-modal-title').textContent='蓝牙自动断开';const list=document.getElementById('nb-timing-options');list.replaceChildren();
-    for(const [value,label]of timerBluetoothIdleOptions){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(value===timerBluetoothIdleMinutes()?' active':'');button.style.cssText='padding:14px 15px;text-align:center;cursor:pointer;border:0';button.textContent=label;button.onclick=()=>{uiSettings.bluetoothAutoDisconnect=value;saveTimerData();updateTimerBluetoothIdleLabel();if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothContext();closeNbTimingModal();};list.append(button);}
+    for(const [value,label]of timerBluetoothIdleOptions){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(value===timerBluetoothIdleMinutes()?' active':'');button.style.cssText='padding:14px 15px;text-align:center;cursor:pointer;border:0';button.textContent=label;button.onclick=()=>{uiSettings.bluetoothAutoDisconnect=value;queueTimerOptionSave();updateTimerBluetoothIdleLabel();if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothContext();closeNbTimingModal();};list.append(button);}
     const modal=document.getElementById('nb-timing-modal');if(modal.parentElement!==document.body)document.body.append(modal);modal.classList.add('timer-setting-overlay');modal.style.display='flex';
 }
 const timerMoyuAddresses = new Map();
