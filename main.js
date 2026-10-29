@@ -2149,13 +2149,15 @@ async function initData() {
     const loader = document.getElementById('global-loading');
     try {
         const dailyVersion = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+        await finishStartupAnimationCycle();
+        if(loader)loader.style.display='none';
+        if(!document.querySelector('.page-container.active'))goHome();
         const resWca = await fetch('wca_data.json?v=' + dailyVersion);
         if (!resWca.ok) throw new Error(`选手数据请求失败：HTTP ${resWca.status}`);
         allCubersData = await resWca.json();
-        await finishStartupAnimationCycle();
         isDataReady = true;
         if (loader) loader.style.display = 'none';
-        preloadTimerDiagram();
+        // Diagram resources load on entering the timer.
 
         // 👇 核心新增：初始化纪录页面的项目图标 👇
         initRecordsTabs();
@@ -3630,7 +3632,7 @@ function switchTimerTab(tabName) {
     if (timerState !== 'IDLE') return;
     if (document.getElementById('timer-event-popup')?.style.display === 'flex') return;
 
-    if (window.innerWidth > 768) return;
+    if (!matchMedia('(max-width:768px), (pointer:coarse) and (max-width:1400px)').matches) return;
 
     // 移除所有大 Tab 和底部按钮的激活状态
     document.getElementById('timer-tab-main').classList.remove('active-tab');
@@ -3727,7 +3729,24 @@ function renderTimerEventGrid() {
     });
 }
 
+const timerProjectScrambles=new Map();
+function rememberTimerProjectScramble(){
+ if(currentTimerMode!=='smart'&&timerScrambleReady&&!getTimerRelayEvents(currentTimerEvent)){
+ const text=document.getElementById('scramble-text').innerText;
+ if(text)timerProjectScrambles.set(currentTimerEvent,text);
+ }
+}
 function confirmTimerEvent() {
+    const popup=document.getElementById('timer-event-popup');
+    popup.style.display='none';popup.classList.remove('popup-fade-out');
+    const selection=[timerTempMode,timerTempEvent,timerTempSmartEvent];
+    requestAnimationFrame(()=>setTimeout(()=>{
+      [timerTempMode,timerTempEvent,timerTempSmartEvent]=selection;
+      applyTimerEventSelection();
+    },0));
+}
+function applyTimerEventSelection() {
+    rememberTimerProjectScramble();
     saveTimerProject(timerTempMode,timerTempEvent,timerTempSmartEvent);
     if (timerTempMode === 'smart') {
         currentTimerMode = 'smart';
@@ -3754,7 +3773,9 @@ function confirmTimerEvent() {
             timerHistoryData[getTimerHistoryKey()] = [];
         }
 
-        generateScramble();
+        const previousScramble=timerProjectScrambles.get(currentTimerEvent);
+        if(previousScramble){++timerScrambleRequest;timerScrambleReady=true;renderTimerScramble(previousScramble,currentTimerEvent);}
+        else generateScramble();
     }
     applyTimerMode();
     recalculateSessionStats(true);
@@ -4947,15 +4968,15 @@ document.addEventListener('keyup', (e) => {
 
 // ================= 本地数据持久化引擎 =================
 let timerDataLoaded=false;
-function loadTimerData(force=false) {
+function loadTimerData(force=false,settingsOnly=false) {
     if(timerDataLoaded&&!force)return;
-    timerDataLoaded=true;
+    if(!settingsOnly)timerDataLoaded=true;
     let storedConfig = null;
     try {
         const saved = localStorage.getItem('nbTimerConfig');
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed.historyCompressed) {
+            if (parsed.historyCompressed && !settingsOnly) {
                 const historyText = LZString.decompressFromUTF16(parsed.historyCompressed);
                 if (!historyText) throw new Error('本地成绩压缩数据无法读取');
                 parsed.history = JSON.parse(historyText);
@@ -4963,7 +4984,7 @@ function loadTimerData(force=false) {
                 delete storedConfig.history;
             }
             if (!storedConfig) storedConfig = parsed;
-            if (parsed.history) timerHistoryData = parsed.history;
+            if (parsed.history && !settingsOnly) timerHistoryData = parsed.history;
             if (parsed.stat1) stat1 = parsed.stat1;
             if (parsed.stat2) stat2 = parsed.stat2;
             if (parsed.uiSettings) uiSettings = { ...uiSettings, ...parsed.uiSettings };
@@ -5019,7 +5040,8 @@ function timerConfigForStorage(history = timerHistoryData, compress = true) {
     }
     return config;
 }
-function saveTimerData() {
+function saveTimerDataSync() {
+    if(!timerDataLoaded){console.warn("成绩尚未成功载入，阻止覆盖本地历史");return;}
     try {
         // Database imports may exceed 10000 solves per event. Never silently
         // truncate these records on the next ordinary solve/settings save.
@@ -9200,6 +9222,7 @@ async function importTimerBackground(file){if(!file)return;try{if(!file.type.sta
 function resetTimerBackgroundColor(){delete uiSettings.timerBackgroundColor;applyTimerBackground();document.getElementById('custom-color-btn-text').textContent='#F8FAFC';document.getElementById('native-color-picker').value='#f8fafc';queueTimerOptionSave();}
 
 let timerContrastTask=0;
+let timerDecodedBackground=null,timerDecodedBackgroundSource=null;
 async function adaptTimerTextToBackground() {
  const task=++timerContrastTask,page=document.getElementById('timer-page'),base=getComputedStyle(document.documentElement);
  const hasBackground=!!(uiSettings.timerBackgroundColor||(uiSettings.timerBackgroundEnabled&&timerBackgroundImage));
@@ -9210,7 +9233,7 @@ async function adaptTimerTextToBackground() {
  const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;const ctx=canvas.getContext('2d',{willReadFrequently:true});
  ctx.fillStyle=base.getPropertyValue('--bg-color');ctx.fillRect(0,0,64,64);ctx.globalAlpha=(uiSettings.timerBackgroundOpacity??100)/100;
  if(uiSettings.timerBackgroundColor){ctx.fillStyle=uiSettings.timerBackgroundColor;ctx.fillRect(0,0,64,64);}
- if(uiSettings.timerBackgroundEnabled&&timerBackgroundImage){const img=new Image();img.src=timerBackgroundImage;await img.decode();if(task!==timerContrastTask)return;const scale=Math.max(64/img.width,64/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(64-w)/2,(64-h)/2,w,h);}
+ if(uiSettings.timerBackgroundEnabled&&timerBackgroundImage){const source=timerBackgroundImage;if(timerDecodedBackgroundSource!==source){timerDecodedBackgroundSource=source;const image=new Image();image.src=source;timerDecodedBackground=image.decode().then(()=>image);}const img=await timerDecodedBackground;if(task!==timerContrastTask)return;const scale=Math.max(64/img.width,64/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(64-w)/2,(64-h)/2,w,h);}
  const data=ctx.getImageData(0,0,64,64).data;
  const luminance=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
  const contrast=(a,b)=>(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
@@ -9324,3 +9347,37 @@ function lockPagePickerBackground(dialog){
  };
  dialog.releasePageLock=release;dialog.onclose=release;
 }
+
+function updateTimerScrambleRoom(){
+ const page=document.getElementById('timer-page'),text=document.getElementById('scramble-text'),display=document.getElementById('timer-display');
+ if(!page?.classList.contains('active')||!text||!display)return;
+ const room=Math.max(40,display.getBoundingClientRect().top-text.getBoundingClientRect().top-14);
+ page.style.setProperty('--timer-scramble-room',room+'px');
+}
+const timerBoundsObserver=new ResizeObserver(()=>requestAnimationFrame(updateTimerScrambleRoom));
+for(const id of ['timer-display','timer-main-area','scramble-text']){const el=document.getElementById(id);if(el)timerBoundsObserver.observe(el);}
+addEventListener('resize',updateTimerScrambleRoom);
+
+// Keep timer overlays outside transformed mobile tab containers.
+["timer-event-popup","nb-manual-modal","nb-delete-last-modal","nb-edit-last-modal","edit-score-popup","avg-score-popup","avg-details-popup"].forEach(id=>{const modal=document.getElementById(id);if(modal){document.body.append(modal);modal.classList.add('timer-screen-overlay');}});
+
+let timerStorageWorker=null,timerStorageRevision=0,timerStoragePending=false;
+function saveTimerData(){
+ if(!timerDataLoaded){saveTimerOptionsOnly();return;}
+ const revision=++timerStorageRevision;timerStoragePending=true;
+ // Settings remain small and durable even while the history worker is busy.
+ saveTimerOptionsOnly();
+ try{
+  if(!timerStorageWorker){
+   timerStorageWorker=new Worker('timer_storage_worker.js?v=1.51.0');
+   timerStorageWorker.onmessage=({data})=>{
+    if(data.revision!==timerStorageRevision)return;
+    try{localStorage.setItem('nbTimerConfig',data.text);timerStoragePending=false;}
+    catch(error){console.warn('成绩保存失败',error);}
+   };
+   timerStorageWorker.onerror=()=>{timerStorageWorker?.terminate();timerStorageWorker=null;if(timerStoragePending){saveTimerDataSync();timerStoragePending=false;}};
+  }
+  timerStorageWorker.postMessage({revision,config:timerConfigForStorage(timerHistoryData,false)});
+ }catch(error){saveTimerDataSync();timerStoragePending=false;}
+}
+addEventListener('pagehide',()=>{if(timerStoragePending){++timerStorageRevision;saveTimerDataSync();timerStoragePending=false;}});

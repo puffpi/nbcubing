@@ -1,6 +1,6 @@
 {
-  "versionCode": 33,
-  "versionName": "1.50.20",
+  "versionCode": 36,
+  "versionName": "1.51.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "优化大量成绩的分组切换及设置保存性能；修复手机弹窗背景镜像，统一单层模糊；优化更多按钮、背景适应颜色与成绩序号列宽。"
+  "notes": "减淡顶部返回按钮光晕，使其与首页图标边缘颜色更协调。"
 }

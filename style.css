@@ -790,7 +790,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 #timer-history-scrollbar .timer-history-scroll-thumb { position: absolute; top: 0; left: 50%; margin-left: -2px; width: 4px; border-radius: 4px; background: #94a3b8; touch-action: none !important; }
 #timer-history-scrollbar:hover .timer-history-scroll-thumb, #timer-history-scrollbar.is-dragging .timer-history-scroll-thumb { background: #64748b; }
 #timer-history-scrollbar:focus-visible { outline: 1px solid var(--border-color); outline-offset: 1px; }
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #sidebar-view-history { --timer-history-side: 9px; }
     #timer-history-list, #timer-history-list * { touch-action: pan-y !important; }
 }
@@ -1006,7 +1006,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     font-size: 13px;
 }
 #edit-score-popup .edit-popup-actions button { min-width: 0; }
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #edit-score-popup .edit-score-content {
         max-height: calc(100dvh - 185px); padding: 14px 16px;
     }
@@ -1177,7 +1177,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* 手机端适配：缩小图幅，并往上移动避开底部导航栏 */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .timer-scramble-draw-panel {
         right: 8px;
         bottom: 80px;
@@ -1357,7 +1357,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     font-family: var(--timer-font) !important;
     font-size: calc(clamp(60px, 20vw, 95px) * var(--timer-font-scale)) !important;
 }
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .timer-display {
         font-size: calc(clamp(60px, 20vw, 85px) * var(--timer-font-scale)) !important;
     }
@@ -1370,7 +1370,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 /* =========================================
    7. 移动端响应式布局 (Tab 单页模式)
    ========================================= */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .desktop-sidebar-nav {
         display: none !important;
     }
@@ -1770,7 +1770,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .chal-event-item:hover { background: rgba(0,0,0,0.08); }
 .chal-event-item.active { background: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #challenge-page.active {
         position: fixed; inset: 0; z-index: 2000; display: flex;
         flex-direction: column; background: #f8fafc; padding: 0;
@@ -1928,7 +1928,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     overflow: hidden; /* 强制干掉整个页面的外层滚动条 */
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .search-page-fixed.active {
         position: fixed; inset: 0; width: 100vw; height: 100dvh;
         padding: 12px; margin: 0; box-sizing: border-box;
@@ -2164,7 +2164,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* 手机端响应式排版：开关左右对齐，图标换行靠左 */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .records-controls-container {
         flex-direction: column;
     }
@@ -2928,7 +2928,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 }
 
 /* 3. 手机端顶部菜单微调：防止小屏手机右侧依然拥挤 */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .nav-menu-item {
         padding: 8px !important;
         font-size: 14px !important;
@@ -2939,7 +2939,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 }
 
 /* 4. 近期赛事（首页）：手机端改为 2 行横向滑动 */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #recent-comps-grid {
         display: grid !important;
         /* 强制两行等高 */
@@ -2984,7 +2984,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     }
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     /* 2. 压缩导航栏两端的全局留白 */
     .global-nav-header {
         padding-left: 12px !important;
@@ -3002,7 +3002,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
    移动端终极修复：全屏布局恢复、组件防遮挡与菜单隐身
    ========================================= */
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     /* 1. 完美恢复手机端 Timer 的沉浸式全屏布局 */
     #timer-page.active, #monthly-timer-page.active {
         position: fixed !important;
@@ -3102,7 +3102,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     top: 0 !important;
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .timer-page-header {
         display: none !important;
     }
@@ -3190,7 +3190,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 #timer-page .timer-main.smart-cube-mode #scramble-text,
 #timer-page .timer-main.smart-cube-mode .desktop-prompt,
 #timer-page .timer-main.smart-cube-mode .mobile-prompt { display: none !important; }
-@media (min-width: 769px) {
+@media (min-width: 769px) and (pointer: fine) {
   #timer-page.active, #monthly-timer-page.active, #challenge-page.active { height: 100dvh !important; box-sizing: border-box; padding-top: 28px !important; padding-bottom: 25px !important; overflow: hidden !important; overscroll-behavior: contain; animation: none !important; }
   #timer-page.active .timer-layout, #monthly-timer-page.active .timer-layout, #challenge-page.active .challenge-wrapper { height: calc(100dvh - 125px) !important; min-height: 0 !important; }
   #challenge-page.active .challenge-wrapper { box-sizing: border-box; }
@@ -3292,7 +3292,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 .timer-bluetooth-devices button { text-align: left; border: 1px solid #dce5ef; background: #f6f8fb; padding: 10px 12px; border-radius: 10px; color: var(--text-main); cursor: pointer; }
 .timer-bluetooth-devices button:hover { border-color: #7aa4d0; background: #edf5fe; }
 .timer-bluetooth-rescan { border: 0; background: transparent; color: #2875bd; font-weight: 700; cursor: pointer; padding: 4px 0; }
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
   .timer-event-actions .edit-btn-confirm { flex-basis: 76px; width: 76px; }
   .timer-mode-choice { flex-basis: 170px; }
   .timer-mode-choice button { padding: 9px 0; font-size: 11px; }
@@ -3303,7 +3303,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
   .timer-virtual-cube { --cube-side: calc(136px * var(--smart-cube-scale, 1)); --cube-half: calc(68px * var(--smart-cube-scale, 1)); width: calc(188px * var(--smart-cube-scale, 1)); height: calc(188px * var(--smart-cube-scale, 1)); }
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     .dropdown-content {
         min-width: 112px !important;
         padding: 4px !important;
@@ -3514,9 +3514,9 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 @media (max-width: 700px) { .forum-topic-grid { grid-template-columns: 1fr; } .forum-composer-fields { grid-template-columns: 90px minmax(0, 1fr) 60px; gap: 8px; } .forum-composer-fields label:first-child { width: auto; } #forum-comment-form { bottom: max(8px, env(safe-area-inset-bottom)); padding: 10px; } .forum-comment-reply { margin-left: 16px; padding-left: 10px; } }
 
 /* =========================================
-   手机端专属响应式修复区 (max-width: 768px)
+   手机端专属响应式修复区 ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px)))
    ========================================= */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
 
     /* 1. 修复成绩查询与 PK 页面被锁死无法滑动，并隐藏滚动条 */
     .search-page-fixed.active {
@@ -3560,7 +3560,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 }
 
 /* Keep the mobile timer readout centered while long WCA scrambles stay above it. */
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #timer-page.active .timer-main:not(.smart-cube-mode) .timer-prompt-text { display: none !important; }
     #timer-page.active .timer-main:not(.smart-cube-mode) #timer-display {
         position: absolute; top: calc(50% + 8px); left: 50%; transform: translate(-50%, -50%); margin: 0;
@@ -3601,7 +3601,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 }
 #timer-event-watermark, #monthly-event-watermark { display: none !important; }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #timer-bottom-event-icon { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; line-height: 1; }
     #timer-event-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
     #timer-event-grid .chal-event-item { height: 82px; min-height: 82px; }
@@ -3622,7 +3622,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     }
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #timer-page.active.long-scramble #scramble-text,
     #monthly-timer-page.active.long-scramble #monthly-scramble-text {
         max-height: calc(209px * var(--scramble-font-scale, 1)); overflow-y: auto;
@@ -3631,14 +3631,14 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     #timer-page.active.long-scramble #scramble-text::-webkit-scrollbar,
     #monthly-timer-page.active.long-scramble #monthly-scramble-text::-webkit-scrollbar { display: none; }
 }
-@media (max-width: 768px) and (max-height: 700px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) and (max-height: 700px) {
     #timer-page.active.long-scramble #scramble-text,
     #monthly-timer-page.active.long-scramble #monthly-scramble-text {
         max-height: calc(167px * var(--scramble-font-scale, 1));
     }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (pointer: fine) {
     #timer-page.active .scramble-container,
     #monthly-timer-page.active .scramble-container { padding-left: 32px; padding-right: 32px; top: 24px !important; }
     #timer-page.active:not(.smart-cube-page) #timer-event-title { display: block !important; margin-bottom: 12px; }
@@ -3683,7 +3683,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     border-left: 10px solid transparent; border-right: 10px solid transparent;
     border-top: 13px solid #e2e8f0; pointer-events: none;
 }
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #monthly-timer-page.active #monthly-stats-panel,
     #monthly-timer-page.active #monthly-scramble-outer-wrapper { bottom: -1px !important; }
     #challenge-page.active .challenge-scramble {
@@ -3856,7 +3856,7 @@ body:has(#person-page.active) #person-back-top { display: flex; }
     border-width: 6px 6px 0; border-style: solid; border-color: rgba(15, 23, 42, 0.75) transparent transparent transparent;
 }
 
-@media (max-width: 768px) {
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     /* 强行抹除手机端顶部的冗长提示文字 */
     #cube-space-hint {
         display: none !important;
@@ -5687,7 +5687,7 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
 }
 .timer-sidebar:has(> :is(#edit-score-popup,#avg-score-popup,#avg-details-popup)[style*="display: flex"]) > :not(.edit-score-popup){
- filter:blur(2px);pointer-events:none;
+ filter:blur(1px);pointer-events:none;
 }
 
 /* Align the usable row width with the header and reserve room for long indices. */
@@ -5705,11 +5705,59 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
  animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
 }
 body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
-body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(2px);pointer-events:none;}
+body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
 
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item:hover{background:color-mix(in srgb,currentColor 12%,transparent);}
 
 /* 1.50.20: More dialogs use the same single content blur as settings. */
 :is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay){animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);}
 body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
-body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(2px);pointer-events:none;}
+body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
+
+/* 1.50.21 touch timer */
+@media(max-width:768px),(pointer:coarse) and (max-width:1400px){
+#timer-page.active #timer-display:not(.nb-status-text){font-size:calc(clamp(60px,20vw,85px) * var(--timer-font-scale,1))!important;}
+#timer-page.active .timer-main:not(.smart-cube-mode) #scramble-text{font-size:calc(18px * var(--scramble-font-scale,1))!important;max-height:var(--timer-scramble-room,35vh)!important;overflow-y:auto;scrollbar-width:none;}
+}
+#timer-page.timer-auto-contrast .timer-bluetooth-devices{--text-main:var(--timer-control-main);--text-muted:var(--timer-control-muted);}
+#timer-page.timer-auto-contrast #timer-bluetooth-status{color:var(--text-main)!important;}
+
+#timer-page.timer-auto-contrast .timer-battery-body{color:var(--text-main);}
+#timer-page.timer-auto-contrast .timer-battery-body i{background:var(--cube-battery-color,#3c9570);}
+#timer-page.timer-auto-contrast .timer-battery-percent{color:var(--cube-battery-color,#3c9570);}
+
+/* 1.50.22: remove the second clipping boundary and viewport-contained overlays. */
+@media(max-width:768px),(pointer:coarse) and (max-width:1400px){
+#timer-page.active .timer-main:not(.smart-cube-mode) .scramble-container{max-height:none!important;overflow:visible!important;}
+#timer-page.timer-custom-background .timer-sidebar,#timer-page.timer-custom-background .timer-main{border-radius:0!important;}
+#timer-page.timer-custom-background .timer-main::before{clip-path:none!important;border-radius:0!important;}
+}
+.timer-screen-overlay{position:fixed!important;inset:0!important;width:100%!important;height:100dvh!important;border-radius:0!important;animation:none!important;transform:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:transparent!important;}
+body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="display: flex"],#nb-delete-last-modal[style*="display: flex"],#nb-edit-last-modal[style*="display: flex"],#edit-score-popup[style*="display: flex"],#avg-score-popup[style*="display: flex"],#avg-details-popup[style*="display: flex"]) #timer-page .timer-sidebar > :not(.edit-score-popup),
+body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="display: flex"],#nb-delete-last-modal[style*="display: flex"],#nb-edit-last-modal[style*="display: flex"],#edit-score-popup[style*="display: flex"],#avg-score-popup[style*="display: flex"],#avg-details-popup[style*="display: flex"]) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
+#timer-bluetooth-icon.disconnected::after{box-shadow:none;}
+
+/* 1.50.23: opaque menu and preserve score-card margins after portaling. */
+#timer-page #timer-more-dropdown,#timer-page.timer-auto-contrast #timer-more-dropdown{background:#fff!important;color:#334155!important;border-color:#e2e8f0!important;backdrop-filter:none;-webkit-backdrop-filter:none;}
+#timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:#334155!important;}
+html[data-theme=dark] #timer-page #timer-more-dropdown,html[data-theme=dark] #timer-page.timer-auto-contrast #timer-more-dropdown{background:#24272d!important;color:#f1f5f9!important;border-color:#454a52!important;}
+html[data-theme=dark] #timer-page #timer-more-dropdown .timer-more-item{color:#f1f5f9!important;}
+:is(#edit-score-popup,#avg-score-popup,#avg-details-popup) > .edit-score-content{width:calc(100% - 64px);max-width:450px;box-sizing:border-box;}
+@media(min-width:769px) and (pointer:fine){:is(#edit-score-popup,#avg-score-popup,#avg-details-popup) > .edit-score-content{max-width:340px;}}
+
+/* 1.50.24: denser score-card scramble, unchanged card width. */
+#edit-score-popup #edit-scramble{line-height:1.25;letter-spacing:-.025em;word-spacing:-.08em;}
+
+/* 1.50.26 */
+.nav-logo .nav-app-icon{display:block;width:38px;height:38px;object-fit:contain;border-radius:10px;}
+#timer-page .timer-history-item .col-id{font-family:inherit;font-size:inherit;font-weight:600;}
+#nb-manual-modal,#nb-delete-last-modal,#nb-edit-last-modal,
+#timer-event-popup,#edit-score-popup,#avg-score-popup,#avg-details-popup,
+.timer-setting-overlay,#cube-appearance-modal.timer-settings-context,
+#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay{
+background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+.smart-result-overlay,.smart-analysis-overlay,.smart-delete-overlay{background:transparent!important;backdrop-filter:blur(1px)!important;-webkit-backdrop-filter:blur(1px)!important;}
+#timer-page .timer-history-item:has(.col-time.timer-pb-single) .col-id{font-weight:800;}
+/* Navigation matches the upright app icon palette. */
+.global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#eef4f9,#f8fafc)!important;}.global-nav-header .nav-back-button svg{stroke:#4d7fae;}html[data-theme=dark] .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#29435c,#202b38)!important;}html[data-theme=dark] .global-nav-header .nav-back-button svg{stroke:#9fbfdd;}
