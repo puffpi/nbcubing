@@ -1,6 +1,6 @@
 {
-  "versionCode": 30,
-  "versionName": "1.50.10",
+  "versionCode": 32,
+  "versionName": "1.50.18",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "导入背景图片优先使用系统照片选择器，旧设备回退到图片选择；其他文件导入保持原方式。"
+  "notes": "修复启动文字偏移和手机空间卡片滑条、导航栏；优化页码选择弹窗及背景滚动锁，支持资讯、赛事和逐次明细跳页；背景模糊度改百分比细调。"
 }

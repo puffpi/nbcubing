@@ -801,7 +801,7 @@ async function openDiscovery(kind, options = {}) {
     if (kind !== 'insight') return;
     closeNavDropdowns();
     try {
-        await loadOptionalScript('analysis.js?v=1.48.35', () => !!window.Discovery);
+        await loadOptionalScript('analysis.js?v=1.50.16', () => !!window.Discovery);
         window.Discovery.open(kind, options);
     } catch (error) { alert('新页面暂时无法加载，请稍后重试。'); }
 }
@@ -7289,7 +7289,7 @@ function paintCompetitionList(){
         values.forEach((value,index)=>{const cell=document.createElement('td');if(index===1){const link=document.createElement('button');link.type='button';link.className='competition-name-link';link.textContent=value;link.onclick=()=>openCompetitionDetail(comp);cell.append(link);}else cell.textContent=value;row.append(cell);if(index===1){const statusCell=document.createElement('td'),badge=document.createElement('span'),status=competitionStatus(comp);badge.className=`comp-status-tag ${status.className}`;badge.textContent=status.text;statusCell.append(badge);row.append(statusCell);}});grid.append(row);
     }
     if(!data.length){const row=grid.insertRow(),cell=row.insertCell();cell.colSpan=6;cell.textContent='没有符合条件的比赛。';cell.className='competition-empty';}
-    document.querySelector('#comps-page .pagination-controls').innerHTML=renderPaginationHTML(window.currentCompsPage,data.length,window.COMPS_PER_PAGE,'goToCompsPage');
+    const pager=document.querySelector('#comps-page .pagination-controls');pager.classList.add('news-compact-pagination');pager.innerHTML=renderCompactPager(window.currentCompsPage,Math.max(1,Math.ceil(data.length/window.COMPS_PER_PAGE)),'goToCompsPage','openCompsPagePicker');
     return data;
 }
 async function renderCompsPage(){
@@ -7328,7 +7328,9 @@ function renderNewsPage() {
     pageData.forEach(news => list.appendChild(createNewsCard(news, true)));
 
     const controlsWrap = document.querySelector('#news-page .pagination-controls');
-    controlsWrap.innerHTML = renderPaginationHTML(window.currentNewsPage, window.allNewsData.length, window.NEWS_PER_PAGE, 'goToNewsPage');
+    const total=Math.max(1,Math.ceil(window.allNewsData.length/window.NEWS_PER_PAGE)),current=window.currentNewsPage;
+    controlsWrap.classList.add('news-compact-pagination');
+    controlsWrap.innerHTML='<button class="page-btn" onclick="goToNewsPage(1)" '+(current===1?'disabled':'')+'>首页</button><button class="page-btn" onclick="goToNewsPage('+(current-1)+')" '+(current===1?'disabled':'')+'>上一页</button><button class="page-btn news-current-page" onclick="openNewsPagePicker()" aria-label="选择资讯页码">'+current+' / '+total+'</button><button class="page-btn" onclick="goToNewsPage('+(current+1)+')" '+(current===total?'disabled':'')+'>下一页</button><button class="page-btn" onclick="goToNewsPage('+total+')" '+(current===total?'disabled':'')+'>末页</button>';
 }
 
 // ---------------- 2. 资讯引擎 ----------------
@@ -9179,7 +9181,7 @@ function renderTimerDailyStats(){
 
 window.addEventListener('resize',()=>{if(!document.getElementById('timer-daily-overlay')?.hidden&&timerDailyStats.date)renderTimerDailyStats();});
 
-function applyTimerBackground(){syncTimerContrastButton();if(uiSettings.timerAutoContrast)requestAnimationFrame(()=>adaptTimerTextToBackground());const page=document.getElementById('timer-page');if(!page)return;const image=uiSettings.timerBackgroundEnabled&&timerBackgroundImage;page.classList.toggle('timer-custom-background',!!(image||uiSettings.timerBackgroundColor));page.style.setProperty('--timer-custom-color',uiSettings.timerBackgroundColor||'transparent');page.style.setProperty('--timer-custom-image',image?'url('+JSON.stringify(image)+')':'none');const opacity=Number.isFinite(uiSettings.timerBackgroundOpacity)?uiSettings.timerBackgroundOpacity:100;page.style.setProperty('--timer-background-opacity',opacity/100);const blur=Math.max(0,Math.min(30,Number(uiSettings.timerBackgroundBlur)||0));page.style.setProperty('--timer-background-blur',blur+'px');document.getElementById('timer-background-blur').value=blur;document.getElementById('timer-background-blur-value').textContent=blur+'px';const field=document.getElementById('color-background-hex');if(field)field.value=(uiSettings.timerBackgroundColor||'#f8fafc').toUpperCase();document.getElementById('color-background-display').style.background=uiSettings.timerBackgroundColor||'#f8fafc';document.getElementById('timer-background-enabled').checked=!!uiSettings.timerBackgroundEnabled;document.getElementById('timer-background-opacity').value=opacity;document.getElementById('timer-background-opacity-value').textContent=opacity+'%';}
+function applyTimerBackground(){syncTimerContrastButton();if(uiSettings.timerAutoContrast)requestAnimationFrame(()=>adaptTimerTextToBackground());const page=document.getElementById('timer-page');if(!page)return;const image=uiSettings.timerBackgroundEnabled&&timerBackgroundImage;page.classList.toggle('timer-custom-background',!!(image||uiSettings.timerBackgroundColor));page.style.setProperty('--timer-custom-color',uiSettings.timerBackgroundColor||'transparent');page.style.setProperty('--timer-custom-image',image?'url('+JSON.stringify(image)+')':'none');const opacity=Number.isFinite(uiSettings.timerBackgroundOpacity)?uiSettings.timerBackgroundOpacity:100;page.style.setProperty('--timer-background-opacity',opacity/100);const blur=Math.max(0,Math.min(30,Number(uiSettings.timerBackgroundBlur)||0));page.style.setProperty('--timer-background-blur',blur+'px');const blurPercent=Math.round(Math.sqrt(blur/30)*100);document.getElementById('timer-background-blur').value=blurPercent;document.getElementById('timer-background-blur-value').textContent=blurPercent+'%';const field=document.getElementById('color-background-hex');if(field)field.value=(uiSettings.timerBackgroundColor||'#f8fafc').toUpperCase();document.getElementById('color-background-display').style.background=uiSettings.timerBackgroundColor||'#f8fafc';document.getElementById('timer-background-enabled').checked=!!uiSettings.timerBackgroundEnabled;document.getElementById('timer-background-opacity').value=opacity;document.getElementById('timer-background-opacity-value').textContent=opacity+'%';}
 async function importTimerBackground(file){if(!file)return;try{if(!file.type.startsWith('image/'))throw Error('请选择图片文件');const bitmap=await createImageBitmap(file),scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const data=canvas.toDataURL('image/jpeg',.82);localStorage.setItem('nbTimerBackgroundImage',data);timerBackgroundImage=data;uiSettings.timerBackgroundEnabled=true;applyTimerBackground();queueTimerOptionSave();}catch(error){alert('背景图片导入失败：'+error.message);}}
 
 function resetTimerBackgroundColor(){delete uiSettings.timerBackgroundColor;applyTimerBackground();document.getElementById('custom-color-btn-text').textContent='#F8FAFC';document.getElementById('native-color-picker').value='#f8fafc';queueTimerOptionSave();}
@@ -9258,4 +9260,54 @@ function finishStartupAnimationCycle() {
   mosaic.addEventListener('animationiteration',onCycle);
   fallback=setTimeout(done,3000);
  });
+}
+
+function openCompsPagePicker(){openNewsPagePicker('comps');}
+function openNewsPagePicker(kind='news'){
+ const competitions=kind==='comps';
+ const total=competitions?Math.max(1,Math.ceil(filteredCompetitionList().length/window.COMPS_PER_PAGE)):Math.max(1,Math.ceil(window.allNewsData.length/window.NEWS_PER_PAGE));
+ const current=competitions?window.currentCompsPage:window.currentNewsPage;
+ openSharedPagePicker(total,current,competitions?goToCompsPage:goToNewsPage);
+}
+function openSharedPagePicker(total,current,onJump){
+ let dialog=document.getElementById('news-page-picker');
+ if(!dialog){dialog=document.createElement('dialog');dialog.id='news-page-picker';dialog.className='news-page-picker';document.body.append(dialog);}
+ dialog.innerHTML='<div class="news-picker-heading"><h3>前往页码</h3><button type="button" aria-label="关闭">×</button></div><form><label for="news-page-input">输入页码（1–'+total+'）</label><div class="news-picker-input"><input id="news-page-input" type="number" min="1" max="'+total+'" step="1" required value="'+current+'"><button class="btn" type="submit">前往</button></div></form><div class="news-picker-pages" aria-label="快捷页码"></div>';
+ dialog.querySelector('.news-picker-heading button').onclick=()=>dialog.close();
+ const jump=n=>{dialog.close();onJump(n);};
+ dialog.querySelector('form').onsubmit=e=>{e.preventDefault();const input=dialog.querySelector('input');if(input.reportValidity())jump(Number(input.value));};
+ const grid=dialog.querySelector('.news-picker-pages'),fragment=document.createDocumentFragment();
+ for(let n=1;n<=total;n++){const b=document.createElement('button');b.type='button';b.textContent=n;b.className='page-btn';if(n===current){b.classList.add('active');b.setAttribute('aria-current','page');}b.onclick=()=>jump(n);fragment.append(b);}
+ grid.append(fragment);
+ dialog.showModal();
+ lockPagePickerBackground(dialog);
+}
+
+function renderCompactPager(current,total,handler,picker){
+ return '<button class="page-btn" onclick="'+handler+'(1)" '+(current===1?'disabled':'')+'>首页</button><button class="page-btn" onclick="'+handler+'('+(current-1)+')" '+(current===1?'disabled':'')+'>上一页</button><button class="page-btn news-current-page" onclick="'+picker+'()" aria-label="选择页码">'+current+' / '+total+'</button><button class="page-btn" onclick="'+handler+'('+(current+1)+')" '+(current===total?'disabled':'')+'>下一页</button><button class="page-btn" onclick="'+handler+'('+total+')" '+(current===total?'disabled':'')+'>末页</button>';
+}
+
+function lockPagePickerBackground(dialog){
+ if(dialog.releasePageLock)dialog.releasePageLock();
+ const x=scrollX,y=scrollY,body=document.body,html=document.documentElement;
+ const properties=['position','top','left','right','width','overflow'];
+ const saved=properties.map(key=>[key,body.style.getPropertyValue(key),body.style.getPropertyPriority(key)]);
+ const htmlOverflow=html.style.overflow;
+ body.style.position='fixed';body.style.top=-y+'px';body.style.left=-x+'px';body.style.right='0';body.style.width='100%';body.style.overflow='hidden';html.style.overflow='hidden';
+ const preventOutside=e=>{if(!dialog.contains(e.target))e.preventDefault();};
+ document.addEventListener('touchmove',preventOutside,{passive:false});
+ document.addEventListener('wheel',preventOutside,{passive:false});
+ let pressedOutside=false;
+ const outside=e=>{const r=dialog.getBoundingClientRect();return e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;};
+ dialog.onpointerdown=e=>{pressedOutside=e.target===dialog&&outside(e);};
+ dialog.onclick=e=>{if(pressedOutside&&e.target===dialog&&outside(e))dialog.close();pressedOutside=false;};
+ const release=()=>{
+  if(dialog.releasePageLock!==release)return;
+  dialog.releasePageLock=null;
+  for(const [key,value,priority]of saved){if(value)body.style.setProperty(key,value,priority);else body.style.removeProperty(key);}
+  html.style.overflow=htmlOverflow;
+  document.removeEventListener('touchmove',preventOutside);document.removeEventListener('wheel',preventOutside);
+  window.scrollTo(x,y);
+ };
+ dialog.releasePageLock=release;dialog.onclose=release;
 }

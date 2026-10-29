@@ -5608,3 +5608,84 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 #settings-page .author-credit { letter-spacing:1.5px; }
 
 #settings-page .author-credit { letter-spacing:2.5px; }
+
+/* Identical launch layout in standalone startup and full page. */
+#global-loading:has(.startup-mosaic){position:fixed!important;inset:0!important;width:100%!important;height:100%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;}
+#global-loading .startup-caption{justify-content:center;flex-shrink:0;}
+#global-loading .startup-signature{text-align:center;box-sizing:border-box;width:100%;margin:0;padding:0;}
+/* Native range inputs must be allowed to shrink below intrinsic width. */
+#cube-space-page :is(#cs-speaker-card,#cs-lamp-card) input[type="range"]{min-width:0;width:0;flex:1 1 0!important;max-width:100%;box-sizing:border-box;}
+#cube-space-page :is(#cs-speaker-card,#cs-lamp-card) > div{min-width:0;max-width:100%;box-sizing:border-box;}
+/* The object picker is compact in portrait and CSS-rotated landscape too. */
+#cube-space-page { --cs-panel-height:82px!important; }
+#cube-space-page #cs-panel-content{padding:8px 16px!important;gap:12px!important;}
+#cube-space-page .cs-item-btn{height:62px;gap:5px;padding:5px 10px;}
+#cube-space-page .cs-item-btn .cubing-icon{font-size:26px!important;}
+#cube-space-page .cs-item-btn > :first-child{top:4px;}
+#cube-space-page .cs-item-btn .cs-item-label{font-size:13px;font-weight:500;bottom:4px;line-height:18px;height:18px;}
+:is(#news-page,#comps-page) .news-compact-pagination{display:flex;justify-content:center;align-items:center;gap:6px;max-width:100%;flex-wrap:nowrap;}
+:is(#news-page,#comps-page) .news-compact-pagination .page-btn{min-width:0;white-space:nowrap;padding:8px 9px;font-size:13px;flex:0 1 auto;}
+.news-page-picker{box-sizing:border-box;width:min(380px,calc(100vw - 32px));max-height:85dvh;padding:22px;border:1px solid var(--border-color);border-radius:18px;background:var(--bg-color);color:var(--text-main);font-family:inherit;}
+.news-page-picker::backdrop{background:rgba(20,30,45,.4);}
+.news-picker-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.news-picker-heading h3{margin:0;font-size:17px;}
+.news-picker-heading button{border:0;background:none;box-shadow:none;color:var(--text-muted);font-size:26px;line-height:1;cursor:pointer;}
+.news-page-picker label{font-size:14px;color:var(--text-muted);}
+.news-picker-input{display:flex;gap:10px;margin:10px 0 18px;}
+.news-picker-input input{min-width:0;flex:1;padding:8px;border:1px solid var(--border-color);border-radius:9px;background:var(--bg-color);color:var(--text-main);font:inherit;}
+.news-picker-pages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;max-height:40dvh;overflow-y:auto;overscroll-behavior:contain;}
+.news-picker-pages .page-btn{min-width:0;padding:8px 0;font:inherit;font-size:14px;}
+@media(max-width:360px){:is(#news-page,#comps-page) .news-compact-pagination{gap:4px;}:is(#news-page,#comps-page) .news-compact-pagination .page-btn{padding:8px 6px;font-size:12px;}}
+
+#cube-space-page :is(#cs-lamp-card,#cs-speaker-card) > div > span { flex-shrink:0; white-space:nowrap; }
+
+/* Consistent, slightly tighter space-dialog rhythm. */
+#cube-space-page #cs-settings-modal > div,
+#cube-space-page #cs-manual-modal > .cs-manual-card { padding:20px !important; }
+#cube-space-page #cs-settings-modal > div > h3 { margin:0 0 12px !important; }
+#cube-space-page .cs-settings-fields,
+#cube-space-page .cs-manual-copy { line-height:1.55; }
+#cube-space-page .cs-settings-fields label,
+#cube-space-page .cs-setting-label { margin-top:8px; }
+#cube-space-page .cs-settings-fields > .cs-setting-label:first-child { margin-top:0; }
+#cube-space-page .cs-setting-heading { margin-top:14px; }
+#cube-space-page .cs-setting-heading + label { margin-top:6px; }
+#cube-space-page .cs-setting-hint { margin-top:3px; }
+#cube-space-page #cs-settings-error:empty { margin:0; }
+#cube-space-page #cs-settings-modal > div > div:last-child { margin-top:14px !important; flex-shrink:0; }
+#cube-space-page #cs-manual-modal .cs-manual-scroll { padding-top:14px; padding-bottom:2px; flex:1 1 auto; }
+#cube-space-page .cs-manual-copy h4 { margin:12px 0 6px; line-height:1.55; }
+#cube-space-page .cs-manual-copy h4:first-child { margin-top:0; }
+#cube-space-page .cs-manual-copy p { margin:0 0 6px; }
+#cube-space-page .cs-manual-scroll > div:last-child { margin-top:14px !important; padding-bottom:2px; }
+
+/* A compact page picker with five visible shortcut rows. */
+.news-page-picker{width:min(340px,calc(100vw - 32px));padding:20px;max-height:calc(100dvh - 32px);}
+.news-picker-heading{margin-bottom:12px;}
+.news-picker-input{margin:8px 0 14px;gap:8px;}
+.news-picker-input input,.news-picker-input .btn,.news-picker-pages .page-btn{
+ box-sizing:border-box;height:34px;min-height:34px;padding:0 8px;line-height:32px;font-family:inherit;font-size:14px;
+}
+.news-picker-input .btn{padding:0 16px;}
+.news-picker-pages{gap:8px;max-height:min(202px,calc(100dvh - 200px));grid-auto-rows:34px;}
+@media(max-width:600px){.news-page-picker{width:min(340px,calc(100vw - 40px));padding:20px;}.news-picker-pages{max-height:min(160px,calc(100dvh - 200px));}}
+
+@media(max-width:600px){.news-picker-pages{max-height:min(202px,calc(100dvh - 200px));}}
+
+/* Reuse the lab source-picker's soft blurred backdrop. */
+.news-page-picker::backdrop{background:#dfe8ef35;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
+/* Keep backdrop sampling stable: never scale the translucent overlay itself. */
+#edit-score-popup,#avg-score-popup,#avg-details-popup{
+ animation:none!important;transform:none!important;will-change:auto;
+ background:rgba(248,250,252,.15);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+}
+
+.news-page-picker{background:#fff;}
+html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
+/* Blur the underlying content once instead of sampling it through a backdrop layer. */
+#edit-score-popup,#avg-score-popup,#avg-details-popup{
+ backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
+}
+.timer-sidebar:has(> :is(#edit-score-popup,#avg-score-popup,#avg-details-popup)[style*="display: flex"]) > :not(.edit-score-popup){
+ filter:blur(2px);pointer-events:none;
+}

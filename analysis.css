@@ -197,3 +197,10 @@ html[data-theme=dark] .discovery-page #d-lab-change .d-count-label{fill:#a6adb5;
 .discovery-page .d-average-row>input{font-family:inherit;font-size:14px;font-weight:500;line-height:20px;}
 .discovery-page #d-lab-source:after{content:none;}
 .discovery-page #d-lab-source .setting-chevron-wrap{display:flex;align-items:center;justify-content:center;flex:none;width:16px;height:20px;margin-left:3px;}
+
+#d-lab-page[role="button"]{cursor:pointer;}#d-lab-page[role="button"]:focus-visible{outline:2px solid var(--text-muted);outline-offset:3px;border-radius:3px;}
+
+/* Dialog width includes padding; align mobile cards with the source picker. */
+.discovery-page .d-dialog{box-sizing:border-box;}
+@media(max-width:600px){.discovery-page .d-dialog{width:340px;max-width:calc(100vw - 32px);margin:auto;}}
+#d-lab-dialog > button[data-action="apply"]{display:block;margin-left:auto;}
