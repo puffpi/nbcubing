@@ -3,12 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style id="startup-critical">
+/* Reserve launch geometry before any animation or external stylesheet. */
+#global-loading{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:9999;display:flex;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:24px!important;margin:0!important;padding:0!important;box-sizing:border-box;text-align:center;background:var(--bg-color,#f8fafc)!important;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;}
+#global-loading .startup-mosaic{width:112px;height:112px;min-height:112px;flex:0 0 112px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:7px;}
+#global-loading .startup-caption{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;font-size:14px;line-height:21px;font-weight:400;letter-spacing:1px;color:var(--text-muted,#94a3b8);}
+#global-loading .startup-dots{display:inline-flex;align-items:center;gap:4px;height:20px;}
+#global-loading .startup-dots i{width:3px;height:3px;border-radius:50%;background:currentColor;}
+#global-loading .startup-signature{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:0;right:0;width:100%;margin:0;padding:0;box-sizing:border-box;text-align:center;font-size:12px;font-weight:500;letter-spacing:2.5px;line-height:1.6;color:var(--text-muted,#94a3b8);opacity:.65;}
+@media(max-height:500px){#global-loading{gap:16px!important;}#global-loading .startup-signature{bottom:14px;}}
+</style>
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.52.0">
+    <link rel="stylesheet" href="style.css?v=1.53.0">
     <link rel="stylesheet" href="cube_explorer.css?v=1.46.8">
-    <link rel="stylesheet" href="formulas/formula_pages.css?v=1.52.0">
-    <link rel="stylesheet" href="analysis.css?v=1.52.0">
+    <link rel="stylesheet" href="formulas/formula_pages.css?v=1.53.0">
+    <link rel="stylesheet" href="analysis.css?v=1.53.0">
 </head>
 <body>
 
@@ -430,7 +440,7 @@
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.52.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.53.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -1091,6 +1101,7 @@
                     <div class="sidebar-settings-title">计时</div>
                     <div class="ios-setting-group custom-ui-group"><span>使用 WCA 观察</span><div class="nb-settings-toggle" style="width:100px;margin:0;display:flex"><span>否</span><label class="cs-switch"><input type="checkbox" id="nb-toggle-inspection" aria-label="使用 WCA 观察" onchange="setNbTimingOption('inspection',this.checked)"><span class="cs-slider"></span></label><span>是</span><span class="nb-settings-pill-thumb" aria-hidden="true"></span><div class="ios-segment-btn active" id="btn-inspection-no" onclick="setNbTimingOption('inspection', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-yes" onclick="setNbTimingOption('inspection', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>观察语音提示</span><div class="nb-settings-toggle" style="width:100px;margin:0;display:flex"><span>否</span><label class="cs-switch"><input type="checkbox" id="nb-toggle-inspectionVoice" aria-label="观察语音提示" onchange="setNbTimingOption('inspectionVoice',this.checked)"><span class="cs-slider"></span></label><span>是</span><span class="nb-settings-pill-thumb" aria-hidden="true"></span><div class="ios-segment-btn active" id="btn-inspection-voice-no" onclick="setNbTimingOption('inspectionVoice', false)" style="flex:1;text-align:center;padding:5px 0">否</div><div class="ios-segment-btn" id="btn-inspection-voice-yes" onclick="setNbTimingOption('inspectionVoice', true)" style="flex:1;text-align:center;padding:5px 0">是</div></div></div>
+<div class="ios-setting-group custom-ui-group"><span>语速</span><div class="ui-control-right ui-slider-wrapper" id="inspection-voice-rate-control"><span id="inspection-voice-rate-value">1.0×</span><input type="range" id="inspection-voice-rate" aria-label="观察语音语速" min="0.5" max="2" step="0.1" value="1" oninput="setInspectionVoiceRate(this.value)"></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01 秒</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
 
@@ -1157,7 +1168,7 @@
                     <div class="ios-setting-group custom-ui-group"><span>背景颜色</span><div class="ui-control-right color-wrapper"><div id="color-background-display" class="color-display-block" onclick="openColorModal('background')"></div><input type="text" id="color-background-hex" class="ios-input hex-input" onchange="updateColor('background',this.value)"></div></div>
 <div class="ios-setting-group custom-ui-group"><span>背景图片</span><button type="button" id="timer-background-import" class="btn pk-start-btn" onclick="document.getElementById('timer-background-file').click()">导入图片</button><input id="timer-background-file" type="file" accept="image/*" hidden onchange="importTimerBackground(this.files[0]);this.value=''"></div>
 <div class="ios-setting-group custom-ui-group" id="timer-background-adapt-row"><span>全局字体颜色适应背景</span><div id="timer-background-adapt-actions"><button type="button" id="timer-font-contrast-reset" class="btn pk-start-btn" aria-label="重置字体颜色" title="重置字体颜色" onclick="resetTimerTextContrast()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" id="timer-font-contrast-adapt" class="btn pk-start-btn" onclick="toggleTimerTextContrast()">适应背景</button></div></div>
-<div class="ios-setting-group custom-ui-group"><span>显示背景图片</span><div id="timer-background-toggle"><span>否</span><label class="cs-switch"><input id="timer-background-enabled" type="checkbox" aria-label="显示背景图片" onchange="uiSettings.timerBackgroundEnabled=this.checked;applyTimerBackground();queueTimerOptionSave()"><span class="cs-slider"></span></label><span>是</span></div></div>
+<div class="ios-setting-group custom-ui-group"><span>全局字体颜色</span><div class="ui-control-right color-wrapper"><div id="color-font-display" class="color-display-block" onclick="openColorModal('font')"></div><input type="text" id="color-font-hex" class="ios-input hex-input" onchange="updateColor('font',this.value)"></div></div><div class="ios-setting-group custom-ui-group"><span>显示背景图片</span><div id="timer-background-toggle"><span>否</span><label class="cs-switch"><input id="timer-background-enabled" type="checkbox" aria-label="显示背景图片" onchange="uiSettings.timerBackgroundEnabled=this.checked;applyTimerBackground();queueTimerOptionSave()"><span class="cs-slider"></span></label><span>是</span></div></div>
 <div class="ios-setting-group custom-ui-group"><span>背景不透明度</span><div class="ui-control-right ui-slider-wrapper"><span id="timer-background-opacity-value">100%</span><input id="timer-background-opacity" type="range" min="0" max="100" value="100" aria-label="背景不透明度" oninput="uiSettings.timerBackgroundOpacity=Number(this.value);applyTimerBackground()" onchange="queueTimerOptionSave()"></div></div>
 <div class="ios-setting-group custom-ui-group"><span>背景模糊度</span><div class="ui-control-right ui-slider-wrapper"><span id="timer-background-blur-value">0%</span><input id="timer-background-blur" type="range" min="0" max="100" step="1" value="0" aria-label="背景模糊度" oninput="uiSettings.timerBackgroundBlur=30*Math.pow(Number(this.value)/100,2);applyTimerBackground()" onchange="queueTimerOptionSave()"></div></div>
 <hr class="settings-divider">
@@ -1225,7 +1236,7 @@
                         <!-- 左右并排：调色盘按钮与十六进制展示 -->
                         <div class="edit-popup-actions" style="margin-top: 25px; display: flex; gap: 10px; align-items: center;" id="color-palette-actions">
                             <!-- 核心修复：补齐了完美的 iOS 按钮样式，悬停变色，以及选完颜色自动关闭弹窗 -->
-                            <button type="button" id="timer-background-reset" hidden aria-label="重置背景颜色" title="重置背景颜色" onclick="resetTimerBackgroundColor()"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><label style="flex: 1; margin: 0; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: var(--text-main); transition: all 0.2s;" onmouseover="this.style.background='rgba(148, 163, 184, 0.25)'" onmouseout="this.style.background='rgba(148, 163, 184, 0.15)'">
+                            <button type="button" id="timer-background-reset" hidden aria-label="重置背景颜色" title="重置背景颜色" onclick="if(currentColorTarget==='font'){resetTimerTextContrast();openColorModal('font');}else resetTimerBackgroundColor()"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><label style="flex: 1; margin: 0; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: var(--text-main); transition: all 0.2s;" onmouseover="this.style.background='rgba(148, 163, 184, 0.25)'" onmouseout="this.style.background='rgba(148, 163, 184, 0.15)'">
                                 <span>调色盘</span>
                                 <input type="color" id="native-color-picker" style="position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; cursor: pointer;" oninput="applyNativeColor(this.value)" onchange="commitNativeColor(this.value); closeColorModal();">
                             </label>
@@ -1979,17 +1990,17 @@
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.52.0"></script>
+    <script src="main.js?v=1.53.0"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.52.0"></script>
+    <script src="account.js?v=1.53.0"></script>
     <script src="theme.js?v=1.48.14"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
-    <script src="timer_smart.js?v=1.52.0"></script>
-    <script src="cube_space_player.js?v=1.52.0"></script>
-    <script src="formula_favorites.js?v=1.52.0"></script>
+    <script src="timer_smart.js?v=1.53.0"></script>
+    <script src="cube_space_player.js?v=1.53.0"></script>
+    <script src="formula_favorites.js?v=1.53.0"></script>
 </body>
 </html>

@@ -2352,26 +2352,49 @@ function renderInspection() {
     inspectionFrameId = requestAnimationFrame(renderInspection);
 }
 
-function speakInspection(message) {
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
-    const utterance = new window.SpeechSynthesisUtterance(message);
-    utterance.lang = 'en-US';
-    utterance.voice = window.speechSynthesis.getVoices().find(voice => voice.lang.toLowerCase().startsWith('en')) || null;
-    window.speechSynthesis.speak(utterance);
+const inspectionCuePlayers=new Map(),inspectionCueSources=new Set();
+function prepareInspectionCue(){
+ if(!uiSettings.inspectionVoice)return;
+ for(const seconds of [8,12]){
+ let player=inspectionCuePlayers.get(seconds);
+ if(!player){player=new Audio('audio/inspection-'+seconds+'.wav?v=1.52.10');player.preload='auto';player.preservesPitch=true;player.webkitPreservesPitch=true;player.addEventListener('ended',()=>inspectionCueSources.delete(player));inspectionCuePlayers.set(seconds,player);player.load();}
+ }
 }
-
-function scheduleInspectionVoice() {
-    if (!uiSettings.inspectionVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
-    const synth = window.speechSynthesis;
-    synth.getVoices();
-    if (synth.paused) synth.resume();
-    const warmup = new window.SpeechSynthesisUtterance('ready');
-    warmup.lang = 'en-US';
-    warmup.volume = 0;
-    warmup.voice = synth.getVoices().find(voice => voice.lang.toLowerCase().startsWith('en')) || null;
-    synth.speak(warmup);
+function unlockInspectionCue(event){
+ prepareInspectionCue();if(!event.isTrusted||!uiSettings.inspectionVoice)return;
+ for(const player of inspectionCuePlayers.values())if(!player.dataset.unlocked&&!inspectionCueSources.has(player)){
+ player.dataset.unlocked='pending';player.muted=true;
+ const played=player.play();if(played)played.then(()=>{player.dataset.unlocked='yes';if(!inspectionCueSources.has(player)){player.pause();player.currentTime=0;}player.muted=false;}).catch(()=>{delete player.dataset.unlocked;player.muted=false;});
+ }
+}
+function stopInspectionCue(){for(const player of inspectionCuePlayers.values()){player.pause();player.currentTime=0;}inspectionCueSources.clear();}
+document.addEventListener('pointerdown',unlockInspectionCue,{capture:true,passive:true});
+document.addEventListener('keydown',unlockInspectionCue,{capture:true});
+let inspectionUtterance=null;
+function inspectionSystemVoice(){return window.speechSynthesis?.getVoices().find(voice=>voice.lang.toLowerCase().startsWith('en'))||null;}
+function prepareInspectionVoice(event){
+ if(!uiSettings.inspectionVoice||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
+ const synth=window.speechSynthesis;synth.getVoices();if(synth.paused)synth.resume();
+ if(event?.isTrusted&&event.pointerType==='touch'&&!synth.speaking){const warmup=new SpeechSynthesisUtterance('');warmup.lang='en-US';warmup.voice=inspectionSystemVoice();synth.speak(warmup);}
+}
+document.addEventListener('pointerdown',prepareInspectionVoice,{capture:true,passive:true});
+document.addEventListener('keydown',prepareInspectionVoice,{capture:true});
+window.speechSynthesis?.addEventListener('voiceschanged',()=>window.speechSynthesis.getVoices());
+async function speakInspection(message){
+ const started=inspectionStartTime;
+ if(!uiSettings.inspectionVoice||!['OBSERVING','WAITING_INSPECTION','READY_INSPECTION'].includes(timerState))return;
+ prepareInspectionCue();const player=inspectionCuePlayers.get(message==='eight seconds'?8:12);
+ if(player){try{player.currentTime=0;player.muted=false;player.playbackRate=getInspectionVoiceRate();player.preservesPitch=true;player.webkitPreservesPitch=true;inspectionCueSources.add(player);await player.play();return;}catch(e){inspectionCueSources.delete(player);}}
+ if(!uiSettings.inspectionVoice||started!==inspectionStartTime||!['OBSERVING','WAITING_INSPECTION','READY_INSPECTION'].includes(timerState)||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
+ const synth=window.speechSynthesis;if(synth.paused)synth.resume();
+ const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=getInspectionVoiceRate();utterance.voice=inspectionSystemVoice();inspectionUtterance=utterance;
+ utterance.onend=utterance.onerror=()=>{if(inspectionUtterance===utterance)inspectionUtterance=null;};synth.speak(utterance);
+}
+function scheduleInspectionVoice(){
+ if(!uiSettings.inspectionVoice)return;
+ prepareInspectionVoice();prepareInspectionCue();
     for (const [seconds, message] of [[8, 'eight seconds'], [12, 'twelve seconds']]) {
-        const delay = inspectionStartTime + seconds * 1000 - performance.now() - 180;
+        const delay = inspectionStartTime + seconds * 1000 - performance.now() - (seconds===8?0:180);
         if (delay < 0) continue;
         inspectionVoiceTimers.push(setTimeout(() => {
             if (['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) speakInspection(message);
@@ -2395,7 +2418,7 @@ function finishInspection(stamp = performance.now()) {
     cancelAnimationFrame(inspectionFrameId);
     inspectionVoiceTimers.forEach(clearTimeout);
     inspectionVoiceTimers = [];
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopInspectionCue();if (window.speechSynthesis) window.speechSynthesis.cancel();
     return inspectionPenalty;
 }
 
@@ -2405,7 +2428,7 @@ function resetInspection() {
     cancelAnimationFrame(inspectionFrameId);
     inspectionVoiceTimers.forEach(clearTimeout);
     inspectionVoiceTimers = [];
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopInspectionCue();if (window.speechSynthesis) window.speechSynthesis.cancel();
     pendingInspectionKey = null;
     touchWasIdle = false;
     inspectionPenalty = '';
@@ -5053,7 +5076,8 @@ function saveTimerDataSync() {
 
 // ================= 新增：界面设置交互引擎 =================
 function applyUiSettings() {
-    applyTimerBackground();
+    syncInspectionVoiceRate();
+    applyTimerBackground();syncTimerFontColor();
     for(const key of ['promptAction','inspection','inspectionVoice']){const input=document.getElementById('nb-toggle-'+key);if(input)input.checked=!!uiSettings[key];}
     document.getElementById('home-page')?.classList.toggle('home-modern',uiSettings.homeLayout==='modern');
     const profileLayoutLabel=document.getElementById('person-layout-label');if(profileLayoutLabel)profileLayoutLabel.textContent=({classic:'经典',card:'卡片',dense:'密集'})[uiSettings.personLayout||'dense'];
@@ -5168,6 +5192,7 @@ function setNbTimingOption(option, value) {
         uiSettings.inspectionVoice = !!value;
         inspectionVoiceTimers.forEach(clearTimeout);
         inspectionVoiceTimers = [];
+        if(!value)stopInspectionCue();
         if (!value && window.speechSynthesis) window.speechSynthesis.cancel();
         if (value && ['OBSERVING', 'WAITING_INSPECTION', 'READY_INSPECTION'].includes(timerState)) scheduleInspectionVoice();
     } else if (option === 'display') {
@@ -5281,7 +5306,7 @@ function updateColor(type, val) {
     if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) {
         if (hex.length === 7) return;
     } else {
-        if(type==='background')uiSettings.timerBackgroundColor=hex;else if (type === 'single') uiSettings.colorSingle = hex;
+        if(type==='font'){setTimerFontColor(hex);return;}if(type==='background')uiSettings.timerBackgroundColor=hex;else if (type === 'single') uiSettings.colorSingle = hex;
         else uiSettings.colorAvg = hex;
         applyUiSettings();
         queueTimerOptionSave();
@@ -5293,12 +5318,17 @@ let currentColorTarget = 'single';
 
 function openColorModal(type) {
     currentColorTarget = type;
-    document.getElementById('timer-background-reset').hidden=type!=='background';
-    document.getElementById('color-palette-actions').classList.toggle('has-background-reset',type==='background');
-    document.getElementById('color-modal-title').innerText = type==='background'?'选择背景颜色':type === 'single' ? '选择颜色：最快单次' : '选择颜色：最快平均';
+    const palette=document.querySelector('#color-picker-modal .color-swatch-grid');
+    if(!palette.dataset.original)palette.dataset.original=palette.innerHTML;
+    if(type==='font'){
+        palette.replaceChildren(...['#334155','#64748b','#ffffff','#000000','#f59e0b','#ef4444','#3b82f6','#10b981','#8b5cf6','#ec4899'].map(hex=>{const button=document.createElement('button');button.type='button';button.className='color-swatch';button.style.background=hex;button.style.border='1px solid rgba(148,163,184,.35)';button.title=hex.toUpperCase();button.setAttribute('aria-label',hex.toUpperCase());button.onclick=()=>applyQuickColor(hex);return button;}));
+    }else palette.innerHTML=palette.dataset.original;
+    document.getElementById('timer-background-reset').hidden=!['background','font'].includes(type);
+    document.getElementById('color-palette-actions').classList.toggle('has-background-reset',['background','font'].includes(type));
+    document.getElementById('color-modal-title').innerText = type==='font'?'选择全局字体颜色':type==='background'?'选择背景颜色':type === 'single' ? '选择颜色：最快单次' : '选择颜色：最快平均';
 
     // 初始化同步显示当前的十六进制文本与原生调色盘底色
-    let currentColor = type==='background'?(uiSettings.timerBackgroundColor||'#f8fafc'):type === 'single' ? uiSettings.colorSingle : uiSettings.colorAvg;
+    let currentColor = type==='font'?timerFontDefault():type==='background'?(uiSettings.timerBackgroundColor||'#f8fafc'):type === 'single' ? uiSettings.colorSingle : uiSettings.colorAvg;
     document.getElementById('custom-color-btn-text').innerText = currentColor.toUpperCase();
     document.getElementById('native-color-picker').value = currentColor;
 
@@ -5318,7 +5348,7 @@ function closeColorModal(e) {
 // 修复：剥离了导致报错的不存在的 input 元素
 function applyQuickColor(hex) {
     document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
-    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
+    if(currentColorTarget==='font'){setTimerFontColor(hex);return;}if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;else if (currentColorTarget === 'single') uiSettings.colorSingle = hex;
     else uiSettings.colorAvg = hex;
     applyUiSettings();
     queueTimerOptionSave();
@@ -5328,7 +5358,7 @@ function applyQuickColor(hex) {
 let nativeColorPreviewFrame = 0;
 function applyNativeColor(hex) {
     document.getElementById('custom-color-btn-text').innerText = hex.toUpperCase();
-    if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;
+    if(currentColorTarget==='font'){setTimerFontColor(hex);return;}if(currentColorTarget==='background')uiSettings.timerBackgroundColor=hex;
     else if(currentColorTarget==='single')uiSettings.colorSingle=hex;
     else uiSettings.colorAvg=hex;
     if (!nativeColorPreviewFrame) nativeColorPreviewFrame = requestAnimationFrame(() => {
@@ -9244,13 +9274,14 @@ async function adaptTimerTextToBackground() {
  // Preserve the existing palette whenever it is already readable.
  const main=score(defaultMain)>=4.5?defaultMain:score('#ffffff')>score('#17212f')?'#ffffff':'#17212f';
  const muted=main===defaultMain?defaultMuted:main==='#ffffff'?'#ffffff':'#17212f';
- page.style.setProperty('--timer-contrast-overlay',score(main)<4.5?(main==='#ffffff'?'rgba(0,0,0,.38)':'rgba(255,255,255,.45)'):'transparent');
+ page.style.setProperty('--timer-contrast-overlay',score(main)<4.5?(main==='#ffffff'?'rgba(0,0,0,.38)':'rgba(255,255,255,.22)'):'transparent');
 
  page.style.setProperty('--timer-adaptive-main',main);
  page.style.setProperty('--timer-adaptive-muted',muted);
- page.classList.add('timer-auto-contrast');uiSettings.timerAutoContrast=true;syncTimerContrastButton();queueTimerOptionSave();
+ if(!uiSettings.timerAutoContrast&&!Object.prototype.hasOwnProperty.call(uiSettings,'timerFontBeforeAdapt'))uiSettings.timerFontBeforeAdapt=uiSettings.timerFontColor||null;
+ uiSettings.timerFontColor=main;syncTimerFontColor();page.classList.add('timer-auto-contrast');uiSettings.timerAutoContrast=true;syncTimerContrastButton();queueTimerOptionSave();
 }
-function resetTimerTextContrast(){++timerContrastTask;document.getElementById('timer-page').classList.remove('timer-auto-contrast');document.getElementById('timer-page').style.removeProperty('--timer-contrast-overlay');delete uiSettings.timerAutoContrast;syncTimerContrastButton();queueTimerOptionSave();}
+function resetTimerTextContrast(){delete uiSettings.timerFontBeforeAdapt;delete uiSettings.timerFontColor;syncTimerFontColor();++timerContrastTask;document.getElementById('timer-page').classList.remove('timer-auto-contrast');document.getElementById('timer-page').style.removeProperty('--timer-contrast-overlay');delete uiSettings.timerAutoContrast;syncTimerContrastButton();queueTimerOptionSave();}
 
 function saveTimerProject(mode,event,smartEvent) {
  try{localStorage.setItem('nbTimerLastProject',JSON.stringify({mode,event,smartEvent}));}catch(e){}
@@ -9271,7 +9302,7 @@ function syncTimerContrastButton(){
  if(button){button.textContent=uiSettings.timerAutoContrast?'取消适应':'适应背景';button.setAttribute('aria-pressed',String(!!uiSettings.timerAutoContrast));}
 }
 async function toggleTimerTextContrast(){
- if(uiSettings.timerAutoContrast){resetTimerTextContrast();return;}
+ if(uiSettings.timerAutoContrast){const previous=uiSettings.timerFontBeforeAdapt;resetTimerTextContrast();if(previous)setTimerFontColor(previous);return;}
  await adaptTimerTextToBackground();
  syncTimerContrastButton();
 }
@@ -9381,3 +9412,12 @@ function saveTimerData(){
  }catch(error){saveTimerDataSync();timerStoragePending=false;}
 }
 addEventListener('pagehide',()=>{if(timerStoragePending){++timerStorageRevision;saveTimerDataSync();timerStoragePending=false;}});
+
+function timerFontDefault(){return uiSettings.timerFontColor||getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim()||'#334155';}
+function syncTimerFontColor(){const p=document.getElementById('timer-page');if(!p)return;const c=timerFontDefault();p.style.setProperty('--timer-font-color',c);p.classList.toggle('timer-manual-color',!!uiSettings.timerFontColor);const f=document.getElementById('color-font-hex');if(f)f.value=c.toUpperCase();const b=document.getElementById('color-font-display');if(b)b.style.background=c;}
+function setTimerFontColor(c){if(!/^#[0-9a-f]{6}$/i.test(c))return;++timerContrastTask;delete uiSettings.timerFontBeforeAdapt;delete uiSettings.timerAutoContrast;uiSettings.timerFontColor=c;const p=document.getElementById('timer-page');p.classList.remove('timer-auto-contrast');p.style.removeProperty('--timer-contrast-overlay');syncTimerFontColor();syncTimerContrastButton();document.getElementById('custom-color-btn-text').textContent=c.toUpperCase();document.getElementById('native-color-picker').value=c;queueTimerOptionSave();}
+document.querySelectorAll('#sidebar-view-settings input[type=range]').forEach(input=>{let g;input.addEventListener('touchstart',e=>{const t=e.touches[0];g={x:t.clientX,y:t.clientY};},{passive:true});input.addEventListener('touchmove',e=>{if(!g)return;const t=e.touches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;if(!g.axis&&Math.max(Math.abs(dx),Math.abs(dy))>=8)g.axis=Math.abs(dx)>Math.abs(dy)*1.3?'x':'y';if(g.axis==='x'){e.preventDefault();const r=input.getBoundingClientRect(),min=+input.min,max=+input.max,step=+input.step||1;input.value=min+Math.round(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))*(max-min)/step)*step;input.dispatchEvent(new Event('input',{bubbles:true}));}},{passive:false});input.addEventListener('touchend',()=>{if(g?.axis==='x')input.dispatchEvent(new Event('change',{bubbles:true}));g=null;});input.addEventListener('touchcancel',()=>g=null);input.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')e.preventDefault();});});
+
+function getInspectionVoiceRate(){const value=Number(uiSettings.inspectionVoiceRate);return Number.isFinite(value)&&value>=0.5&&value<=2?value:1;}
+function syncInspectionVoiceRate(){const rate=getInspectionVoiceRate(),input=document.getElementById('inspection-voice-rate'),label=document.getElementById('inspection-voice-rate-value');if(input)input.value=rate;if(label)label.textContent=rate.toFixed(1)+'×';}
+function setInspectionVoiceRate(value){const rate=Number(value);if(!Number.isFinite(rate))return;uiSettings.inspectionVoiceRate=Math.round(Math.max(0.5,Math.min(2,rate))*10)/10;syncInspectionVoiceRate();queueTimerOptionSave();}

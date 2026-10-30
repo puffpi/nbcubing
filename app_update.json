@@ -1,6 +1,6 @@
 {
-  "versionCode": 37,
-  "versionName": "1.52.0",
+  "versionCode": 38,
+  "versionName": "1.53.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "修复触屏平板底部布局和三页背景；左下平均成绩显示当前平均，best保留最快单次；累计包含成绩保存、加载和弹窗优化。"
+  "notes": "新增全局字体颜色与观察语速设置；优化手机和平板布局、语音提示和触摸滑条；修复计时状态色及App启动文字位置跳动。"
 }
