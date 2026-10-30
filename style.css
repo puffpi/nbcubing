@@ -5373,7 +5373,7 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 #cube-space-page #cs-exit-space:hover { transform:none; }
 
 /* Desktop custom backgrounds belong to the two timer cards. */
-@media(min-width:769px) {
+@media(min-width:769px) and (pointer:fine) {
  #timer-page.timer-custom-background::before { content:none; }
  #timer-page.timer-custom-background :is(.timer-sidebar,.timer-main) { isolation:isolate; background:var(--card-bg,#fff) !important; }
  #timer-page.timer-custom-background :is(.timer-sidebar,.timer-main)::before {
@@ -5421,7 +5421,7 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 #timer-font-contrast-reset { font-family:inherit; font-size:13px; font-weight:500; line-height:20px; }
 
 /* Desktop sidebar stays on its original surface and palette. */
-@media(min-width:769px) {
+@media(min-width:769px) and (pointer:fine) {
  #timer-page.timer-custom-background .timer-sidebar::before { content:none; }
  #timer-page.timer-auto-contrast .timer-sidebar { --text-main:var(--timer-control-main); --text-muted:var(--timer-control-muted); }
 }
@@ -5761,3 +5761,15 @@ background:transparent!important;backdrop-filter:none!important;-webkit-backdrop
 #timer-page .timer-history-item:has(.col-time.timer-pb-single) .col-id{font-weight:800;}
 /* Navigation matches the upright app icon palette. */
 .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#eef4f9,#f8fafc)!important;}.global-nav-header .nav-back-button svg{stroke:#4d7fae;}html[data-theme=dark] .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#29435c,#202b38)!important;}html[data-theme=dark] .global-nav-header .nav-back-button svg{stroke:#9fbfdd;}
+
+/* 1.51.2: tablet touch timer shares the complete mobile background and footer. */
+@media(pointer:coarse) and (min-width:769px) and (max-width:1400px){
+ #timer-page.active{padding:0!important;}
+ #timer-page.timer-custom-background{isolation:isolate;}
+ #timer-page.timer-custom-background::before{content:''!important;position:absolute;inset:0;z-index:-1;border-radius:0;clip-path:none!important;}
+ #timer-page.timer-custom-background :is(.timer-sidebar,.timer-main){background:transparent!important;isolation:auto;}
+ #timer-page.timer-custom-background :is(.timer-sidebar,.timer-main)::before{content:none!important;}
+ #timer-page.active .timer-stats-panel{bottom:85px!important;left:20px!important;}
+ #timer-page.active .timer-scramble-draw-panel{bottom:85px!important;right:12px!important;}
+ #timer-page.active .timer-main{height:100%!important;max-height:none!important;overflow:visible!important;}
+}

@@ -3218,8 +3218,8 @@ function renderTimerHistory() {
         if (countEl) countEl.innerText = `${validCount}/${records.length}`;
 
         document.getElementById('timer-stat-best').innerText = `best: ` + (currentSessionBestMs !== Infinity ? formatNbTimerOutput(currentSessionBestMs) : 'DNF');
-        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? formatNbTimerOutput(currentSessionBestStat1Ms) : '-');
-        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? formatNbTimerOutput(currentSessionBestStat2Ms) : '-');
+        document.getElementById('timer-stat-stat1').innerText = `${stat1.type}${stat1.count}: ` + (currentSessionBestStat1Ms !== Infinity ? (records[0]?.stat1Str || '-') : '-');
+        document.getElementById('timer-stat-stat2').innerText = `${stat2.type}${stat2.count}: ` + (currentSessionBestStat2Ms !== Infinity ? (records[0]?.stat2Str || '-') : '-');
     } else {
         let countEl = document.getElementById('timer-stat-count');
         if (countEl) countEl.innerText = `0/0`;

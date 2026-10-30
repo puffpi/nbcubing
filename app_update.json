@@ -1,6 +1,6 @@
 {
-  "versionCode": 36,
-  "versionName": "1.51.1",
+  "versionCode": 37,
+  "versionName": "1.52.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "减淡顶部返回按钮光晕，使其与首页图标边缘颜色更协调。"
+  "notes": "修复触屏平板底部布局和三页背景；左下平均成绩显示当前平均，best保留最快单次；累计包含成绩保存、加载和弹窗优化。"
 }
