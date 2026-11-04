@@ -68,7 +68,7 @@ function preloadTimerDiagram() {
 
 async function ensureHistoryData() {
     if (historyDataPromise) return historyDataPromise;
-    historyDataPromise = fetch('history_data.json?v=' + new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }))
+    historyDataPromise = fetch('.json/history_data.json?v=' + new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }))
         .then(response => {
             if (!response.ok) throw new Error(`历史数据请求失败：HTTP ${response.status}`);
             return response.json();
@@ -136,7 +136,7 @@ let chineseCompetitionsPromise = null;
 
 function ensureChineseCompetitions() {
     if (chineseCompetitionsPromise) return chineseCompetitionsPromise;
-    chineseCompetitionsPromise = fetch('competitions_zh.json?v=3').then(async response => {
+    chineseCompetitionsPromise = fetch('.json/competitions_zh.json?v=3').then(async response => {
         if (!response.ok) throw new Error(`赛事缓存请求失败：HTTP ${response.status}`);
         const competitions = await response.json();
         chineseCompsById = new Map(competitions.map(comp => [comp.id, comp]));
@@ -2157,7 +2157,7 @@ async function initData() {
         await finishStartupAnimationCycle();
         if(loader)loader.style.display='none';
         if(!document.querySelector('.page-container.active'))goHome();
-        const resWca = await fetch('wca_data.json?v=' + dailyVersion);
+        const resWca = await fetch('.json/wca_data.json?v=' + dailyVersion);
         if (!resWca.ok) throw new Error(`选手数据请求失败：HTTP ${resWca.status}`);
         allCubersData = await resWca.json();
         isDataReady = true;

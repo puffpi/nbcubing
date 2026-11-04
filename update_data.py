@@ -24,9 +24,11 @@ except ImportError:
 
 WCA_EXPORT_API = "https://www.worldcubeassociation.org/api/v0/export/public"
 
-OUTPUT_WCA = "wca_data.json"
-OUTPUT_HISTORY = "history_data.json"
-OUTPUT_COMPETITIONS_ZH = "competitions_zh.json"
+DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".json")
+os.makedirs(DATA_DIRECTORY, exist_ok=True)
+OUTPUT_WCA = os.path.join(DATA_DIRECTORY, "wca_data.json")
+OUTPUT_HISTORY = os.path.join(DATA_DIRECTORY, "history_data.json")
+OUTPUT_COMPETITIONS_ZH = os.path.join(DATA_DIRECTORY, "competitions_zh.json")
 COMPETITIONS_API = "https://api.cubing.com/competitions"
 
 

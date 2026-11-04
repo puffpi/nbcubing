@@ -1,6 +1,6 @@
 {
-  "versionCode": 39,
-  "versionName": "1.55.0",
+  "versionCode": 40,
+  "versionName": "1.55.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "优化启动更新提醒：每次启动检查，暂不更新后三天不再自动弹窗；累计优化触屏项目切换、深浅色界面与账号连接。"
+  "notes": "公共数据迁移至.json目录，保留在线优先、缓存及安装包离线回退；兼容旧版数据入口。"
 }
