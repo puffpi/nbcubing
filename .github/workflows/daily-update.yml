@@ -66,24 +66,24 @@ jobs:
         run: |
           echo "Checking generated files..."
 
-          test -f wca_data.json
-          test -f history_data.json
-          test -f competitions_zh.json
+          test -f .json/wca_data.json
+          test -f .json/history_data.json
+          test -f .json/competitions_zh.json
 
-          echo "wca_data.json:"
-          ls -lh wca_data.json
+          echo ".json/wca_data.json:"
+          ls -lh .json/wca_data.json
 
-          echo "history_data.json:"
-          ls -lh history_data.json
+          echo ".json/history_data.json:"
+          ls -lh .json/history_data.json
 
-          echo "competitions_zh.json:"
-          ls -lh competitions_zh.json
+          echo ".json/competitions_zh.json:"
+          ls -lh .json/competitions_zh.json
 
           echo "JSON validation:"
-          python -m json.tool wca_data.json > /dev/null
-          python -m json.tool history_data.json > /dev/null
-          python -m json.tool competitions_zh.json > /dev/null
-          python -c "import json; rows=json.load(open('competitions_zh.json', encoding='utf-8')); assert rows, 'Chinese competition cache is empty'"
+          python -m json.tool .json/wca_data.json > /dev/null
+          python -m json.tool .json/history_data.json > /dev/null
+          python -m json.tool .json/competitions_zh.json > /dev/null
+          python -c "import json; rows=json.load(open('.json/competitions_zh.json', encoding='utf-8')); assert rows, 'Chinese competition cache is empty'"
 
           echo "Generated JSON files are valid."
 
@@ -96,7 +96,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          git add wca_data.json history_data.json competitions_zh.json
+          git add .json/wca_data.json .json/history_data.json .json/competitions_zh.json
 
           # 没有变化就正常退出
           if git diff --cached --quiet; then
