@@ -174,30 +174,33 @@ async function ensureSupabaseClient() {
     return supabaseClient ||= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { detectSessionInUrl: false }, global: { fetch: accountServiceFetch } });
 }
 
-// Bound network waits; retry only reads, never a login or score submission.
+// Bound network waits; retry safe reads only, never replay account or score writes.
 async function accountServiceFetch(input, options = {}) {
     const method = String(options.method || input?.method || 'GET').toUpperCase();
     const signal = options.signal || input?.signal;
-    const attempts = ['GET', 'HEAD'].includes(method) ? 2 : 1;
+    const attempts = ['GET', 'HEAD'].includes(method) ? 3 : 1;
     for (let attempt = 0; attempt < attempts; attempt++) {
         if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
         const controller = new AbortController();
         let timedOut = false;
         const abort = () => controller.abort();
         signal?.addEventListener('abort', abort, { once: true });
-        const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+        const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 30000);
         try {
             const transport = typeof window !== 'undefined' && window.nbAppAccountFetch ? window.nbAppAccountFetch : fetch;
-            return await transport(input, { ...options, signal: controller.signal });
+            const response = await transport(input, { ...options, signal: controller.signal });
+            if (attempt + 1 < attempts && [502,503,504,544].includes(response.status)) {
+                if(response.body)await response.body.cancel().catch(()=>{});
+            } else return response;
         } catch (error) {
             if (signal?.aborted) throw error;
             if (timedOut) error = new DOMException('连接账号服务超时', 'TimeoutError');
-            if (attempt + 1 === attempts || (!timedOut && error?.name !== 'TypeError')) throw error;
+            if (attempt + 1 === attempts || (!timedOut && !['TypeError','NetworkError','TimeoutError'].includes(error?.name))) throw error;
         } finally {
             clearTimeout(timer);
             signal?.removeEventListener('abort', abort);
         }
-        await new Promise(resolve => setTimeout(resolve, 400));
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
     }
 }
 
@@ -727,6 +730,8 @@ function goBack() {
 }
 
 function showPage(pageId) {
+    if(pageId!=='timer-page'){const popup=document.getElementById('timer-event-popup');if(popup){popup.style.display='none';popup.classList.remove('popup-fade-out');}}
+
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
     const previousPage = document.querySelector('.page-container.active');
     if (previousPage?.classList.contains('discovery-page') && previousPage.id !== pageId) window.Discovery?.leave();
@@ -3724,6 +3729,8 @@ function openTimerEventPopup() {
 
     const popup = document.getElementById('timer-event-popup');
     popup.classList.remove('popup-fade-out');
+    const header=document.querySelector('body > .global-nav-header');
+    popup.style.setProperty('--timer-picker-top',Math.max(0,header?.getBoundingClientRect().bottom||0)+'px');
     popup.style.display = 'flex';
 }
 
@@ -5824,7 +5831,7 @@ async function openMonthlyRanking(evId, cnName) {
     let finalEntries = Object.values(userMap);
 
     if (finalEntries.length === 0) {
-        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">本月全网暂无成绩</div>';
+        list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">暂无成绩</div>';
         return;
     }
 
@@ -9421,3 +9428,28 @@ document.querySelectorAll('#sidebar-view-settings input[type=range]').forEach(in
 function getInspectionVoiceRate(){const value=Number(uiSettings.inspectionVoiceRate);return Number.isFinite(value)&&value>=0.5&&value<=2?value:1;}
 function syncInspectionVoiceRate(){const rate=getInspectionVoiceRate(),input=document.getElementById('inspection-voice-rate'),label=document.getElementById('inspection-voice-rate-value');if(input)input.value=rate;if(label)label.textContent=rate.toFixed(1)+'×';}
 function setInspectionVoiceRate(value){const rate=Number(value);if(!Number.isFinite(rate))return;uiSettings.inspectionVoiceRate=Math.round(Math.max(0.5,Math.min(2,rate))*10)/10;syncInspectionVoiceRate();queueTimerOptionSave();}
+
+// The active timer tab doubles as a project shortcut on touch layouts.
+(()=>{
+ const button=document.getElementById('btn-tab-main');if(!button)return;
+ let hold=null,suppressClickUntil=0;
+ const allowed=()=>matchMedia('(max-width:768px), (pointer:coarse) and (max-width:1400px)').matches&&document.getElementById('timer-page').classList.contains('active')&&button.classList.contains('active')&&timerState==='IDLE'&&(typeof timerSmartAttempt==='undefined'||!['INSPECTION','SOLVING'].includes(timerSmartAttempt.phase))&&!document.querySelector('.edit-score-popup[style*="display: flex"],.timer-setting-overlay[style*="display: flex"]');
+ const cancel=()=>{if(hold)clearTimeout(hold.timeout);hold=null;};
+ button.addEventListener('pointerdown',event=>{
+  if(hold){cancel();return;}if(!event.isPrimary||event.button!==0||!allowed())return;
+  hold={id:event.pointerId,x:event.clientX,y:event.clientY,started:nbTimerInputStamp(event)};
+ });
+ document.addEventListener('pointerdown',event=>{suppressClickUntil=0;if(hold&&event.pointerId!==hold.id)cancel();},true);
+ document.addEventListener('pointermove',event=>{if(hold&&event.pointerId===hold.id&&Math.hypot(event.clientX-hold.x,event.clientY-hold.y)>10)cancel();},{passive:true});
+ document.addEventListener('pointerup',event=>{if(!hold||event.pointerId!==hold.id)return;const open=nbTimerInputStamp(event)-hold.started>=350&&allowed();cancel();if(open){suppressClickUntil=performance.now()+700;openTimerEventPopup();}},true);
+ document.addEventListener('pointercancel',cancel,true);
+ button.addEventListener('pointerleave',cancel);
+ window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',cancel);
+ document.addEventListener('click',event=>{if(performance.now()<suppressClickUntil&&!event.target.closest?.('.global-nav-header')){event.preventDefault();event.stopImmediatePropagation();suppressClickUntil=0;}},true);
+ button.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();});
+ button.addEventListener('selectstart',event=>event.preventDefault());
+ button.addEventListener('dragstart',event=>event.preventDefault());
+})();
+
+// Capture keyboard input while the project picker owns timer interaction.
+document.addEventListener('keydown',event=>{const popup=document.getElementById('timer-event-popup');if(popup?.style.display!=='flex'||event.target.closest?.('.global-nav-header'))return;if(event.key==='Escape'){closeTimerEventPopup();event.preventDefault();event.stopImmediatePropagation();}else if(!popup.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();}},true);

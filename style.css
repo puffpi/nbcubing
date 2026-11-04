@@ -1550,7 +1550,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         justify-content: center;
         color: #94a3b8;
         cursor: pointer;
-        transition: color 0.25s ease, transform 0.2s ease;
+        transition: color 0.25s ease;
         -webkit-tap-highlight-color: transparent;
     }
 
@@ -1558,9 +1558,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         color: #334155;
     }
 
-    .timer-tab-btn:active {
-        transform: scale(0.85);
-    }
+
 
     .edit-score-popup {
         /* 手机端只负责覆盖内边距和对齐方式，背景模糊直接完美继承全局 */
@@ -5815,3 +5813,88 @@ html[data-theme=dark] #timer-page:is(.timer-manual-color,.timer-auto-contrast) :
 @media(max-height:500px){#global-loading{gap:16px!important;}#global-loading .startup-signature{bottom:14px;}}
 
 @media(min-width:769px) and (pointer:fine){#timer-page:is(.timer-manual-color,.timer-auto-contrast) .btn-more{color:var(--timer-control-main,#334155)!important;border-color:currentColor!important;}}
+
+/* Keep the timer-tab long press exclusively for the project picker. */
+#btn-tab-main,#btn-tab-main *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none;}
+
+#timer-event-popup.timer-screen-overlay{top:var(--timer-picker-top,0px)!important;height:calc(100dvh - var(--timer-picker-top,0px))!important;}
+/* Dropdown links extend below the header and must remain above the picker. */
+body:has(#timer-event-popup[style*="display: flex"]) > .global-nav-header{z-index:2600!important;}
+
+/* Dark launch tiles share the home logo palette; animation and geometry stay shared. */
+html[data-theme="dark"] #global-loading .startup-mosaic i{background:#9fbfdd!important;}
+html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(2),html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(4){background:#4d7fae!important;}
+html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(5){background:#3976a5!important;}
+html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){background:#dfaf66!important;}
+
+#home-page.home-modern .modern-formulas{grid-column:1/5;}
+#home-page.home-modern .modern-monthly{grid-column:9/13;}
+@media(max-width:900px){#home-page.home-modern .modern-formulas{grid-column:1/3;}#home-page.home-modern .modern-monthly{grid-column:5/7;}}
+
+/* A dedicated night palette for the navigation and five home entries. */
+html[data-theme="dark"] .nav-logo .nav-app-icon{content:url('app_icon_dark.svg');}
+html[data-theme="dark"] .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#263d51,#1c2a38)!important;}
+html[data-theme="dark"] .global-nav-header .nav-back-button svg{stroke:#9fbfdd!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-feature{background:var(--night-surface)!important;border-color:var(--night-rim)!important;--modern-ink:#e3eaf2;--modern-muted:var(--night-accent);box-shadow:0 8px 22px -14px #0008;}
+html[data-theme="dark"] #home-page.home-modern .modern-timer{--night-surface:#1d2d3f;--night-rim:#30475f;--night-accent:#9fbfdd;}
+html[data-theme="dark"] #home-page.home-modern .modern-challenge{--night-surface:#1d2d3f;--night-rim:#30475f;--night-accent:#9fbfdd;}
+html[data-theme="dark"] #home-page.home-modern .modern-formulas{--night-surface:#3a352ded;--night-rim:#454039;--night-accent:#bba78a;}
+html[data-theme="dark"] #home-page.home-modern .modern-space{--night-surface:#1d3233;--night-rim:#304c4d;--night-accent:#97c2bd;}
+html[data-theme="dark"] #home-page.home-modern .modern-monthly{--night-surface:#252b3c;--night-rim:#3d455d;--night-accent:#afb9dc;}
+html[data-theme="dark"] #home-page.home-modern .modern-feature .modern-eyebrow,html[data-theme="dark"] #home-page.home-modern .modern-month-period{color:var(--night-accent)!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet{background:#30394e!important;border-color:#56617d!important;color:#dbe3f6!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet.sheet-middle{background:#283145!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet.sheet-back{background:#222a3c!important;}
+
+/* Daytime counterparts to the five night entry colors. */
+html:not([data-theme="dark"]) #home-page.home-modern .modern-timer{--modern-surface:#e2edf8;--modern-rim:#c9dbed;--modern-muted:#62809e;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-challenge{--modern-surface:#e2edf8;--modern-rim:#c9dbed;--modern-muted:#62809e;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-formulas{--modern-surface:#eee8deb8;--modern-rim:#dfe8f0;--modern-muted:#8293a4;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-space{--modern-surface:#e1efeb;--modern-rim:#c5ded7;--modern-muted:#638d83;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly{--modern-surface:#e8eaf7;--modern-rim:#d0d5eb;--modern-muted:#7b83a8;}
+html[data-theme="dark"] .global-nav-header .dropdown-content a,
+html[data-theme="dark"] .global-nav-header .dropdown-content a:hover,
+html[data-theme="dark"] .global-nav-header .dropdown-content a:focus-visible{color:var(--text-main)!important;}
+/* Match every illustration to its own night card palette. */
+html[data-theme="dark"] #home-page.home-modern .modern-feature .modern-kicker{color:#e3eaf2!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-timer-art{color:#c5d9ed!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-timer-track i{background:#789fc4!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-sword{fill:#b7d0e5;stroke:#7397b6;}
+html[data-theme="dark"] #home-page.home-modern .sword-facet{fill:#e1edf7;}
+html[data-theme="dark"] #home-page.home-modern .sword-guard{fill:#89acc8;stroke:#668ba9;}
+html[data-theme="dark"] #home-page.home-modern .sword-grip{fill:#557d9d;}
+html[data-theme="dark"] #home-page.home-modern .sword-binding{stroke:#bdd4e7;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet{background:#494237!important;border-color:#796a53!important;color:#eee3cf!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet.sheet-middle{background:#3e392f!important;border-color:#665b49!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet.sheet-back{background:#332f29!important;border-color:#574f42!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet small{color:#d0b68a!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet b{color:#eee3cf!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-formula-sheet i{background:#8e7d604d!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-space-plane{stroke:#83b9af!important;}
+html[data-theme="dark"] #home-page.home-modern .space-cube-top{fill:#92c9bd33!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-monthly-art{color:#b8b5e4!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-monthly-art i{color:#c2bceb!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-monthly-art svg{stroke:#8f8bb5!important;}
+html[data-theme="dark"] #home-page.home-modern .modern-monthly-art svg path{stroke:#8f8bb5!important;}
+/* Explicit night surfaces preserve identity and visible selection depth. */
+html[data-theme="dark"]{--selection-depth:0 3px 10px #0006,inset 0 0 0 1px #d5d6dc35;}
+html[data-theme="dark"] .account-dashboard .ad-hero{background:linear-gradient(115deg,#303136,#414247)!important;color:#e9e9ec!important;box-shadow:0 8px 24px #0004,inset 0 0 0 1px #c4c5cd2b;}
+html[data-theme="dark"] .account-dashboard .ad-hero :is(h1,strong){color:#f1f1f3!important;}
+html[data-theme="dark"] .account-dashboard .ad-hero :is(.ad-id,.ad-welcome,.ad-career,.ad-identity-line,.ad-stat span,.ad-link){color:#c8c9ce!important;}
+html[data-theme="dark"] .account-dashboard .ad-stat{background:#2021264d!important;border-color:#c0c1c929!important;}
+html[data-theme="dark"] :is(.history-event-tab,.records-event-tab,.ad-event-tabs button){color:#aaaab1!important;background:transparent!important;box-shadow:none;}
+html[data-theme="dark"] :is(.history-event-tab,.records-event-tab,.ad-event-tabs button):hover:not(.disabled){color:#e1e1e5!important;background:#34353a!important;}
+html[data-theme="dark"] :is(.history-event-tab,.records-event-tab,.ad-event-tabs button).active:not(.disabled){color:#f1f1f4!important;background:#48494f!important;box-shadow:var(--selection-depth)!important;}
+html[data-theme="dark"] :is(.history-event-tab,.records-event-tab).disabled{color:#717179!important;box-shadow:none!important;}
+html[data-theme="dark"] :is(.history-event-tab,.records-event-tab,.ad-event-tabs button):focus-visible{outline:2px solid #bfc0c9;outline-offset:2px;}
+html[data-theme="dark"] :is(.ios-segment-control,.ad-types){background:#292a2e!important;}
+html[data-theme="dark"] :is(.ios-segment-control:not(.profile-chart-switch):not(#person-chart-switch) .ios-segment-btn,.ad-types button){color:#b0b0b8!important;}
+html[data-theme="dark"] :is(.ios-segment-control:not(.profile-chart-switch):not(#person-chart-switch) .ios-segment-btn.active,.ad-types button.active){background:#505158!important;color:#fff!important;box-shadow:0 2px 7px #0005,inset 0 0 0 1px #ffffff1f!important;}
+html[data-theme="dark"] :is(.btn,.ad-record,.modern-feature):focus-visible{outline:2px solid #bfc0c9;outline-offset:3px;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-space-plane{stroke:#598c80!important;}
+html:not([data-theme="dark"]) #home-page.home-modern .space-cube-top{fill:#75ad9e30!important;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly-art{color:#8580ae!important;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly-art i{color:#8580ae!important;}
+html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly-art svg path{stroke:#aaa5c7!important;}
+
+html[data-theme="dark"] :is(#person-chart-switch,.profile-chart-switch)::before{background:#505158!important;box-shadow:0 2px 7px #0005,inset 0 0 0 1px #ffffff1f!important;}

@@ -20,7 +20,7 @@ async function accountClient() {
 function accountWelcome(){return accountProfile?.wca_id==='2024GUOC01' && forumAdmin ? '欢迎开发者2024GUOC01登录' : `欢迎用户${accountProfile?.nickname || ''}登录`;}
 async function accountSession(client){
     let timer;
-    try{return await Promise.race([client.auth.getSession(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new DOMException('账号状态检查超时','TimeoutError')),12000);})]);}
+    try{return await Promise.race([client.auth.getSession(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new DOMException('账号状态检查超时','TimeoutError')),35000);})]);}
     finally{clearTimeout(timer);}
 }
 function accountError(error) {

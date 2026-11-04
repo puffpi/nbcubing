@@ -1,6 +1,6 @@
 {
-  "versionCode": 38,
-  "versionName": "1.53.0",
+  "versionCode": 39,
+  "versionName": "1.55.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "新增全局字体颜色与观察语速设置；优化手机和平板布局、语音提示和触摸滑条；修复计时状态色及App启动文字位置跳动。"
+  "notes": "优化启动更新提醒：每次启动检查，暂不更新后三天不再自动弹窗；累计优化触屏项目切换、深浅色界面与账号连接。"
 }
