@@ -1,6 +1,6 @@
 {
-  "versionCode": 40,
-  "versionName": "1.55.1",
+  "versionCode": 41,
+  "versionName": "1.56.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "公共数据迁移至.json目录，保留在线优先、缓存及安装包离线回退；兼容旧版数据入口。"
+  "notes": "公共数据统一至data目录；在线网站入口移至关于本站的网址栏目；App显示名称改为CUBE SPACE。"
 }

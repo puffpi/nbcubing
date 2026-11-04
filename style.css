@@ -5898,3 +5898,6 @@ html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly-art i{color
 html:not([data-theme="dark"]) #home-page.home-modern .modern-monthly-art svg path{stroke:#aaa5c7!important;}
 
 html[data-theme="dark"] :is(#person-chart-switch,.profile-chart-switch)::before{background:#505158!important;box-shadow:0 2px 7px #0005,inset 0 0 0 1px #ffffff1f!important;}
+
+#about-page .about-website-row a{min-width:0;text-align:right;overflow-wrap:anywhere;color:var(--primary-color);font-size:14px;text-decoration:none;}
+#about-page .about-website-row a:hover{text-decoration:underline;}
