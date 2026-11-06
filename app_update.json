@@ -1,6 +1,6 @@
 {
-  "versionCode": 41,
-  "versionName": "1.56.0",
+  "versionCode": 42,
+  "versionName": "1.60.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "公共数据统一至data目录；在线网站入口移至关于本站的网址栏目；App显示名称改为CUBE SPACE。"
+  "notes": "成绩查询新增全球选手列表和 PK 对比；优化首页、排行榜、宁波纪录、赛事列表和 Cube Explorer；新增 CCA 赛事入口。"
 }
