@@ -96,6 +96,10 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
+          python -m json.tool data/persons.json > /dev/null
+          python -m json.tool data/person_countries.json > /dev/null
+          git add data/person_countries.json
+          git add data/persons.json
           git add data/wca_data.json data/history_data.json data/competitions_zh.json
 
           # 没有变化就正常退出
