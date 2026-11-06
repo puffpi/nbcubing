@@ -305,7 +305,10 @@ function renderAccountDashboard(){
    const row=adNode('div','ad-record-result');row.append(adNode('span','ad-type',type==='single'?'单次':'平均'),adNode('strong','ad-score',formatWcaResult(r.best,ev.id,type)));
    const ranks=adNode('div','ad-ranks');for(const [label,value] of [['NR',r.country_rank],[getContinentRankPrefix(p.person.country_iso2),r.continent_rank],['WR',r.world_rank]]){const rank=adNode('span','');rank.append(adNode('small','',label),adNode('b',Number(value)>0&&Number(value)<=100?'ad-top100':'',value?String(value):'—'));ranks.append(rank);}row.append(ranks);card.append(row);
    const match=history?.[ev.id]?.find(round=>Number(round[type])===Number(r.best)&&r.best>0);const name=r.comp_name||match?.comp;const date=r.comp_date||match?.date;
-   card.append(adNode('p','ad-result-source',name?`${getChineseCompetitionName(name)} · ${date||'日期暂无'}`:'比赛与日期待历史数据补全'));
+   const source=adNode('div','ad-result-source result-competition');
+   source.append(adNode('div','',name?getChineseCompetitionName(name):'比赛与日期待历史数据补全'));
+   if(name)source.append(adNode('small','',date||'日期暂无'));
+   card.append(source);
   }grid.append(card);
  }section.append(grid);root.append(section);
  if(root.dataset.layout==='classic')renderAccountClassic(section,records,history,p);
@@ -314,8 +317,8 @@ function renderAccountDashboard(){
  renderAccountLegacyHistory(root,history);
 }
 
-const adHealthTemplate="<div class=\"card\" id=\"account-big-cube-index-card\" style=\"display: none; margin-top: 20px;\">\n            <div style=\"text-align: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0 0 5px 0; font-size: 16px; color: var(--primary-color);\">高阶健康指数</h3>\n                <div style=\"font-size: 12px; color: var(--text-muted);\">\n                    评估四阶到七阶魔方的复原时间健康度<br>\n                    指数偏高代表比较的两方中低阶偏快或高阶偏慢，指数偏低则相反<br>\n                    参考区间：五阶/四阶 ∈ (1.7, 2.0)，六阶/五阶 ∈ (1.7, 2.0)，七阶≤六阶+五阶 即 七阶/六阶 ≈ 1.5\n                </div>\n            </div>\n            <div class=\"table-responsive\">\n                <table>\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%\">类型</th>\n                            <th style=\"width: 25%\">五阶 / 四阶</th>\n                            <th style=\"width: 25%\">六阶 / 五阶</th>\n                            <th style=\"width: 25%\">七阶 / 六阶</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-big-cube-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
-const adHistoryTemplate="<div class=\"card\" id=\"account-history-chart-card\" style=\"display: none; margin-top: 20px;\">\n            <div id=\"account-history-event-tabs\" style=\"display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;\"></div>\n            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0; font-size: 16px; color: var(--text-main);\">成绩变化曲线</h3>\n                <div class=\"ios-segment-control\">\n                    <div id=\"account-btn-type-single\" class=\"ios-segment-btn\" >单次</div>\n                    <div id=\"account-btn-type-average\" class=\"ios-segment-btn active\" >平均</div>\n                </div>\n            </div>\n            <div style=\"height: 250px; width: 100%; margin-bottom: 30px;\">\n                <canvas id=\"account-progressChart\"></canvas>\n            </div>\n            <h3 style=\"margin: 0 0 15px 0; font-size: 16px; color: var(--text-main);\">历史成绩详情</h3>\n            <div class=\"table-responsive\">\n                <table style=\"font-size: 13px;\">\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%;\">比赛</th>\n                            <th style=\"width: 10%;\">轮次</th>\n                            <th style=\"width: 8%;\">排名</th>\n                            <th style=\"width: 12%;\">单次</th>\n                            <th style=\"width: 12%;\">平均</th>\n                            <th style=\"width: 35%;\">详情</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-history-detail-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
+const adHealthTemplate="<div class=\"card\" id=\"account-big-cube-index-card\" style=\"display: none; margin-top: 20px;\">\n            <div style=\"text-align: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0 0 5px 0; font-size: 17px; color: var(--primary-color);\">高阶健康指数</h3>\n                <div style=\"font-size: 12px; color: var(--text-muted);\">\n                    评估四阶到七阶魔方的复原时间健康度<br>\n                    指数偏高代表比较的两方中低阶偏快或高阶偏慢，指数偏低则相反<br>\n                    参考区间：五阶/四阶 ∈ (1.7, 2.0)，六阶/五阶 ∈ (1.7, 2.0)，七阶≤六阶+五阶 即 七阶/六阶 ≈ 1.5\n                </div>\n            </div>\n            <div class=\"table-responsive\">\n                <table>\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%\">类型</th>\n                            <th style=\"width: 25%\">五阶 / 四阶</th>\n                            <th style=\"width: 25%\">六阶 / 五阶</th>\n                            <th style=\"width: 25%\">七阶 / 六阶</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-big-cube-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
+const adHistoryTemplate="<div class=\"card\" id=\"account-history-chart-card\" style=\"display: none; margin-top: 20px;\">\n            <div id=\"account-history-event-tabs\" style=\"display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;\"></div>\n            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0; font-size: 17px; color: var(--text-main);\">成绩变化曲线</h3>\n                <div class=\"ios-segment-control\">\n                    <div id=\"account-btn-type-single\" class=\"ios-segment-btn\" >单次</div>\n                    <div id=\"account-btn-type-average\" class=\"ios-segment-btn active\" >平均</div>\n                </div>\n            </div>\n            <div style=\"height: 250px; width: 100%; margin-bottom: 30px;\">\n                <canvas id=\"account-progressChart\"></canvas>\n            </div>\n            <h3 style=\"margin: 0 0 15px 0; font-size: 17px; color: var(--text-main);\">历史成绩详情</h3>\n            <div class=\"table-responsive\">\n                <table style=\"font-size: 13px;\">\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%;\">比赛</th>\n                            <th style=\"width: 10%;\">轮次</th>\n                            <th style=\"width: 8%;\">排名</th>\n                            <th style=\"width: 12%;\">单次</th>\n                            <th style=\"width: 12%;\">平均</th>\n                            <th style=\"width: 35%;\">详情</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-history-detail-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
 function adTemplate(html,cls){const t=document.createElement('template');t.innerHTML=html;const card=t.content.firstElementChild;card.classList.add(cls);card.style.display='block';return card;}
 function renderAccountHealth(root,records){
  const section=adTemplate(adHealthTemplate,'ad-legacy-health');root.append(section);
@@ -601,7 +604,7 @@ async function updateAccountLegacyHistory(container) {
 
         let tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${displayComp}</td>
+            <td class="result-competition">${displayComp}</td>
             <td style="font-size: 14px; color: var(--text-main);">${displayRound}</td>
             <td style="font-size: 14px; color: var(--text-main);">${displayPos}</td>
             <td style="font-size: 15px; color: var(--text-main);">${singleHtml}</td>
@@ -644,7 +647,7 @@ function renderAccountClassic(section,records,history,cuber){
                         <td>${formatRank(single.country_rank, 'NR')}</td>
                         <td>${formatRank(single.continent_rank, crPrefix)}</td>
                         <td>${formatRank(single.world_rank, 'WR')}</td>
-                        <td>
+                        <td class="result-competition">
                             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${singleCompetition ? getChineseCompetitionName(singleCompetition.name) : '-'}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${singleCompetition?.date || '-'}</div>
                         </td>
@@ -664,7 +667,7 @@ function renderAccountClassic(section,records,history,cuber){
                         <td>${formatRank(average.country_rank, 'NR')}</td>
                         <td>${formatRank(average.continent_rank, crPrefix)}</td>
                         <td>${formatRank(average.world_rank, 'WR')}</td>
-                        <td>
+                        <td class="result-competition">
                             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${averageCompetition ? getChineseCompetitionName(averageCompetition.name) : '-'}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${averageCompetition?.date || '-'}</div>
                         </td>
@@ -706,5 +709,5 @@ async function renderUnifiedPersonPage(player,preserveScroll=false,navigate=true
 }
 
 function restorePublicProfile(){
- if(lastPublicProfile&&(!publicProfileView||!document.getElementById('public-profile-dashboard')?.childElementCount))renderUnifiedPersonPage(lastPublicProfile.player,true,false);
+ if(lastPublicProfile&&(!publicProfileView||!document.getElementById('public-profile-dashboard')?.childElementCount))renderUnifiedPersonPage(lastPublicProfile.player,false,false);
 }

@@ -54,7 +54,7 @@ let initialized=false;
 self.onmessage=({data})=>{
  const{id,facelets,maxDepth,excluded=[]}=data||{};
  try{
-  if(!Number.isInteger(maxDepth)||maxDepth<1||maxDepth>30||typeof facelets!=='string'||facelets.length!==54)throw Error('求解参数无效。');
+  if(!Number.isInteger(maxDepth)||maxDepth<1||maxDepth>24||typeof facelets!=='string'||facelets.length!==54)throw Error('求解参数无效。');
   const start=performance.now();
   if(!initialized){postMessage({id,type:'progress',message:'首次使用，正在准备求解引擎…'});min2phase.initFull();initialized=true;}
   const seen=new Set(excluded.map(algorithm=>ExplorerCube.parse(algorithm).join(' '))),queue=[];
@@ -143,12 +143,12 @@ self.onmessage=({data})=>{
  function solve(){
   if(busy)return;
   if(C.isSolved(state)){stopPlayback(true);status('已经复原，无需转动。','success');return;}
-  const depth=Number($('ce-depth').value);if(!Number.isInteger(depth)||depth<1||depth>30){status('步数设置请输入 1–30 的整数。','error');return;}
+  const depth=Number($('ce-depth').value);if(!Number.isInteger(depth)||depth<1||depth>24){status('步数设置请输入 1–24 的整数。','error');return;}
   let facelets;try{facelets=C.canonical(state);}catch(error){status(error.message,'error');return;}
   stopPlayback();const snapshot=state,scramble=source,id=++job,excluded=records.filter(record=>{try{return C.canonical(record.state)===facelets;}catch(error){return false;}}).map(record=>record.algorithm);started=performance.now();setBusy(true);status(excluded.length?'正在寻找不同的还原路径…':'正在准备搜索…');
   deadline=setTimeout(()=>timeout(id,excluded.length>0),30000);ticker=setInterval(()=>{if(id===job&&busy)$('ce-solve-text').textContent='停止搜索 · '+Math.floor((performance.now()-started)/1000)+' 秒';},500);
   try{
-   if(!worker){worker=new Worker('cube_explorer.js?v=1.46.8');worker.onerror=()=>{const running=busy;cancel(true,true);if(running)status('求解引擎加载失败，请重试。','error');};}
+   if(!worker){worker=new Worker('cube_explorer.js?v=1.56.45');worker.onerror=()=>{const running=busy;cancel(true,true);if(running)status('求解引擎加载失败，请重试。','error');};}
    worker.onmessage=async({data})=>{
     if(data.id!==job||!busy)return;
     if(performance.now()-started>=30000){timeout(id,excluded.length>0);return;}
@@ -170,7 +170,7 @@ self.onmessage=({data})=>{
  }
  function textElement(tag,cls,text){const el=document.createElement(tag);el.className=cls;el.textContent=text;return el;}
  function renderHistory(){
-  $('ce-history-count').textContent=records.length;const list=$('ce-history'),scrollTop=list.scrollTop;list.replaceChildren();if(!records.length){list.appendChild(textElement('p','ce-empty','求解后，记录会保存在这里。'));scheduleLayout();return;}
+  const list=$('ce-history'),scrollTop=list.scrollTop;list.replaceChildren();if(!records.length){list.appendChild(textElement('p','ce-empty','求解后，记录会保存在这里。'));scheduleLayout();return;}
   for(const record of records.slice(0,visibleRecords)){
    const item=document.createElement('article');item.className='ce-history-item';item.dataset.record=String(record.id);const top=document.createElement('div');top.className='ce-history-top';
    top.append(textElement('strong','',record.length+' 步 / 设置 '+record.limit),textElement('span','',new Date(record.date).toLocaleString('zh-CN',{hour12:false})+' · 用时 '+(record.elapsed/1000).toFixed(2)+' 秒'));item.appendChild(top);
@@ -212,7 +212,7 @@ self.onmessage=({data})=>{
   else if(name==='solve'){if(busy)cancel();else solve();}
   else if(name==='view'){if(model)model.resetView();else ensureModel();}
   else if(name==='copy-scramble')copy($('ce-algorithm').value.trim());
-  else if(name==='minus'||name==='plus')$('ce-depth').value=Math.max(1,Math.min(30,(Number($('ce-depth').value)||20)+(name==='minus'?-1:1)));
+  else if(name==='minus'||name==='plus')$('ce-depth').value=Math.max(1,Math.min(24,(Number($('ce-depth').value)||20)+(name==='minus'?-1:1)));
   else if(name==='edit'){paint=!paint;$('ce-palette').hidden=!paint;$('ce-edit-colors').setAttribute('aria-expanded',String(paint));$('ce-edit-colors').textContent=paint?'完成编辑':'编辑配色';drawNet();}
   else if(name==='clear'){stopForChange();try{await storage('readwrite',store=>store.clear());records=[];renderHistory();status('解法记录已清空。');}catch(error){status('清空失败，请重试。','error');}}
  }

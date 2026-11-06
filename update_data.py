@@ -464,6 +464,7 @@ def update_wca_data():
             print("\n[4/8] 读取选手与赛事基础信息...")
 
             countries = {}
+            country_directory = []
 
             for row in read_tsv(z, countries_member):
                 country_id = str(
@@ -476,7 +477,10 @@ def update_wca_data():
 
                 if country_id:
                     countries[country_id] = iso2
+                    if len(iso2) == 2 and iso2.isalpha() and not str(row.get("name") or "").startswith("Multiple Countries"):
+                        country_directory.append([iso2, str(row.get("name") or country_id), str(row.get("continent_id") or row.get("continentId") or "").lstrip("_")])
 
+            atomic_write_json(os.path.join(DATA_DIRECTORY, "person_countries.json"), country_directory)
             print(f"国家数据: {len(countries)}")
 
             # ------------------------------------------------
@@ -484,6 +488,7 @@ def update_wca_data():
             # ------------------------------------------------
 
             persons = {}
+            directory = {}
 
             for row in read_tsv(z, persons_member):
                 wca_id = str(
@@ -491,6 +496,9 @@ def update_wca_data():
                     or row.get("id")
                     or ""
                 ).strip().upper()
+
+                if wca_id and str(row.get("sub_id") or row.get("subid") or "1") == "1":
+                    directory[wca_id] = [str(row.get("name") or "").strip(), wca_id, countries.get(str(row.get("country_id") or row.get("countryId") or ""), str(row.get("country_id") or row.get("countryId") or "")), str(row.get("gender") or "")]
 
                 if wca_id not in NB_ID_SET:
                     continue
@@ -519,6 +527,8 @@ def update_wca_data():
                         row.get("gender") or ""
                     ).strip()
                 }
+
+            atomic_write_json(os.path.join(DATA_DIRECTORY, "persons.json"), list(directory.values()))
 
             print(f"宁波选手实际存在于 WCA Export 中: {len(persons)}")
 

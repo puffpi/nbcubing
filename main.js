@@ -286,7 +286,7 @@ function openSmartCubeLogoModal() {
         preview.className = 'cube-logo-swatch';
         if (option.id === 'puffpi') {
             const logo = document.createElement('img');
-            logo.src = 'PuffPi_black.png';
+            logo.src = 'image/PuffPi_black.png';
             logo.alt = '';
             preview.appendChild(logo);
         } else preview.textContent = '—';
@@ -350,7 +350,7 @@ async function fetchAutocomplete(query) {
 
     if (query.length >= 2 || /[\u4e00-\u9fa5]/.test(query)) {
         try {
-            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons?q=${encodeURIComponent(query)}`);
+            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(7000) });
             if (res.ok) {
                 let data = await res.json();
                 let items = Array.isArray(data) ? data : (data.persons || data.items || data.results || []);
@@ -366,11 +366,14 @@ async function fetchAutocomplete(query) {
     return results;
 }
 
-function setupAutocomplete(inputId, dropdownId, onSelectCallback) {
+function setupAutocomplete(inputId, dropdownId, onSelectCallback, enabled = () => true) {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropdownId);
 
+    let revision = 0;
     const handleInput = debounce(async (e) => {
+        const request = revision;
+        if (!enabled()) return;
         const val = e.target.value.trim();
         if (!val) {
             dropdown.style.display = 'none';
@@ -380,6 +383,7 @@ function setupAutocomplete(inputId, dropdownId, onSelectCallback) {
         dropdown.style.display = 'block';
 
         const results = await fetchAutocomplete(val);
+        if (request !== revision || !enabled() || input.value.trim() !== val) return;
         if (results.length === 0) {
             dropdown.innerHTML = '<div class="autocomplete-item" style="justify-content:center; color:var(--text-muted);">未找到匹配的选手</div>';
             return;
@@ -403,12 +407,16 @@ function setupAutocomplete(inputId, dropdownId, onSelectCallback) {
         });
     }, 400);
 
-    input.addEventListener('input', handleInput);
+    input.addEventListener('input', e => {
+        revision++;
+        dropdown.style.display = 'none';
+        if (enabled()) handleInput(e);
+    });
     document.addEventListener('click', (e) => {
         if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
     });
     input.addEventListener('focus', () => {
-        if (dropdown.innerHTML && input.value.trim() && !input.value.includes('（')) dropdown.style.display = 'block';
+        if (enabled() && dropdown.innerHTML && input.value.trim() && !input.value.includes('（')) dropdown.style.display = 'block';
     });
 }
 
@@ -687,7 +695,7 @@ function navigateTo(pageId, isForward = false) {
 
     showPage(pageId);
 
-    if (isForward || !isForward) window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
     if (isDataReady) {
         if (pageId === 'ranking-page') updateRanking();
@@ -723,7 +731,7 @@ function goBack() {
     if (historyStack.length > 0) {
         const prevState = historyStack.pop();
         showPage(prevState.id);
-        setTimeout(() => window.scrollTo(0, prevState.scrollY), 10);
+        window.scrollTo({ top: prevState.scrollY, left: 0, behavior: 'instant' });
     } else {
         goHome();
     }
@@ -806,7 +814,7 @@ async function openDiscovery(kind, options = {}) {
     if (kind !== 'insight') return;
     closeNavDropdowns();
     try {
-        await loadOptionalScript('analysis.js?v=1.50.16', () => !!window.Discovery);
+        await loadOptionalScript('analysis.js?v=1.60.0', () => !!window.Discovery);
         window.Discovery.open(kind, options);
     } catch (error) { alert('新页面暂时无法加载，请稍后重试。'); }
 }
@@ -820,7 +828,7 @@ function openTimerAnalysis(){
 async function openCubeExplorer() {
     navigateTo('cube-explorer-page', true);
     try {
-        await loadOptionalScript('cube_explorer.js?v=1.46.8', () => !!window.CubeExplorer);
+        await loadOptionalScript('cube_explorer.js?v=1.60.0', () => !!window.CubeExplorer);
         if (document.getElementById('cube-explorer-page').classList.contains('active')) window.CubeExplorer.enter();
     } catch (error) {
         document.getElementById('ce-status').textContent = '工具暂时无法加载，请重新打开后重试。';
@@ -892,53 +900,21 @@ function openPkPage() {
 }
 
 // 全新合并版的历史渲染引擎
-function renderCombinedHistory() {
-    const container = document.getElementById('combined-history-container');
-    const list = document.getElementById('combined-history-list');
-
-    // 如果两条历史记录都为空，则隐藏容器
-    if (searchHistoryList.length === 0 && pkHistoryList.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-
-    container.style.display = 'block';
-    list.innerHTML = '';
-
-    // 1. 优先渲染单人查询历史
-    searchHistoryList.forEach(cuber => {
-        let btn = document.createElement('button');
-        btn.className = 'history-tag';
-        btn.innerHTML = `👤 ${formatName(cuber.person.name)}`;
-        btn.onclick = () => { renderPersonPage(cuber); };
-        list.appendChild(btn);
-    });
-
-    // 2. 紧接着渲染双人 PK 历史
-    pkHistoryList.forEach(entry => {
-        let btn = document.createElement('button');
-        btn.className = 'history-tag';
-        btn.innerHTML = `⚔️ ${formatName(entry.a.person.name)} <span class="history-vs">VS</span> ${formatName(entry.b.person.name)}`;
-        btn.onclick = () => {
-            navigateTo('pk-result-page', true);
-            renderPK(entry.a, entry.b);
-        };
-        list.appendChild(btn);
-    });
-}
-
 async function handlePkClick() {
     const valA = document.getElementById('pk-input-a').value.trim();
     const valB = document.getElementById('pk-input-b').value.trim();
     if (!valA || !valB) return alert('请在两边都输入想要对战的选手姓名或 WCA ID！');
 
     document.getElementById('global-loading').style.display = 'flex';
-    const playerA = await resolvePlayerAsync(valA, '左边选手A');
-    if (!playerA) { document.getElementById('global-loading').style.display = 'none'; return; }
-
-    const playerB = await resolvePlayerAsync(valB, '右边选手B');
-    document.getElementById('global-loading').style.display = 'none';
-    if (!playerB) return;
+    let playerA, playerB;
+    try {
+        playerA = await resolvePlayerAsync(valA, '左边选手A');
+        if (!playerA) return;
+        playerB = await resolvePlayerAsync(valB, '右边选手B');
+        if (!playerB) return;
+    } finally {
+        document.getElementById('global-loading').style.display = 'none';
+    }
 
     addPkHistory(playerA, playerB);
     navigateTo('pk-result-page', true);
@@ -977,8 +953,8 @@ function openSearchPage() {
     document.getElementById('search-input').value = '';
     document.getElementById('pk-input-a').value = '';
     document.getElementById('pk-input-b').value = '';
-    renderCombinedHistory();
     navigateTo('search-page');
+    void loadPlayerDirectory();
 }
 
 async function performSearch() {
@@ -1032,7 +1008,7 @@ async function resolvePlayerAsync(input, sideLabel) {
 
     if (/^\d{4}[A-Z]{4}\d{2}$/i.test(input)) {
         try {
-            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${input.toUpperCase()}`);
+            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${input.toUpperCase()}`, { signal: AbortSignal.timeout(10000) });
             if (!res.ok) throw new Error();
             return await res.json();
         } catch(err) {
@@ -1067,7 +1043,7 @@ async function resolvePlayerAsync(input, sideLabel) {
     return null;
 }
 
-function showSelectionModal(matches, sideLabel) {
+function showSelectionModal(matches, sideLabel, selectOnly = false) {
     return new Promise((resolve) => {
         document.getElementById('pk-modal-side').innerText = sideLabel;
         const list = document.getElementById('pk-modal-list');
@@ -1079,7 +1055,7 @@ function showSelectionModal(matches, sideLabel) {
             btn.innerText = `${formatName(m.person.name)}（${m.person.wca_id}）`;
             btn.onclick = async () => {
                 document.getElementById('pk-modal').style.display = 'none';
-                if (!m.personal_records) {
+                if (!selectOnly && !m.personal_records) {
                     document.getElementById('global-loading').style.display = 'flex';
                     let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${m.person.wca_id}`);
                     document.getElementById('global-loading').style.display = 'none';
@@ -1110,14 +1086,14 @@ function renderPK(pA, pB) {
     // 1. 渲染上方卡片
     let nameAHtml = `
         <div class="pk-player-card" onclick="showPerson('${pA.person.wca_id}')">
-            <div class="pk-score-name" style="line-height: 1.4; font-size: 18px;">${getPkDisplayName(pA.person.name)}</div>
+            <div class="pk-score-name" style="line-height: 1.4;">${getPkDisplayName(pA.person.name)}</div>
             <div class="pk-score-id">${pA.person.wca_id}</div>
             <div class="pk-score-value" id="pk-board-score-a">0</div>
         </div>
     `;
     let nameBHtml = `
         <div class="pk-player-card" onclick="showPerson('${pB.person.wca_id}')">
-            <div class="pk-score-name" style="line-height: 1.4; font-size: 18px;">${getPkDisplayName(pB.person.name)}</div>
+            <div class="pk-score-name" style="line-height: 1.4;">${getPkDisplayName(pB.person.name)}</div>
             <div class="pk-score-id">${pB.person.wca_id}</div>
             <div class="pk-score-value" id="pk-board-score-b">0</div>
         </div>
@@ -1129,8 +1105,8 @@ function renderPK(pA, pB) {
     boardB.innerHTML = nameBHtml;
 
     // 2. 渲染下方表格头部（姓名另起一行写 WCA ID）
-    document.getElementById('pk-table-name-a').innerHTML = `${getPkDisplayName(pA.person.name)}<br><span style="font-size:12px; font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pA.person.wca_id}</span>`;
-    document.getElementById('pk-table-name-b').innerHTML = `${getPkDisplayName(pB.person.name)}<br><span style="font-size:12px; font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pB.person.wca_id}</span>`;
+    document.getElementById('pk-table-name-a').innerHTML = `${getPkDisplayName(pA.person.name)}<br><span class="pk-table-id" style="font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pA.person.wca_id}</span>`;
+    document.getElementById('pk-table-name-b').innerHTML = `${getPkDisplayName(pB.person.name)}<br><span class="pk-table-id" style="font-weight:normal; color:var(--text-muted); margin-top:4px; display:inline-block;">${pB.person.wca_id}</span>`;
 
     let scoreA = 0; let scoreB = 0;
     const tbody = document.getElementById('pk-tbody');
@@ -1243,7 +1219,7 @@ function renderPersonPage(cuber, preserveScroll = false) {
                         <td>${formatRank(single.country_rank, 'NR')}</td>
                         <td>${formatRank(single.continent_rank, crPrefix)}</td>
                         <td>${formatRank(single.world_rank, 'WR')}</td>
-                        <td>
+                        <td class="result-competition">
                             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${singleCompetition ? getChineseCompetitionName(singleCompetition.name) : '-'}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${singleCompetition?.date || '-'}</div>
                         </td>
@@ -1263,7 +1239,7 @@ function renderPersonPage(cuber, preserveScroll = false) {
                         <td>${formatRank(average.country_rank, 'NR')}</td>
                         <td>${formatRank(average.continent_rank, crPrefix)}</td>
                         <td>${formatRank(average.world_rank, 'WR')}</td>
-                        <td>
+                        <td class="result-competition">
                             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${averageCompetition ? getChineseCompetitionName(averageCompetition.name) : '-'}</div>
                             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${averageCompetition?.date || '-'}</div>
                         </td>
@@ -1626,7 +1602,7 @@ async function updateChartAndTable() {
 
         let tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${displayComp}</td>
+            <td class="result-competition">${displayComp}</td>
             <td style="font-size: 14px; color: var(--text-main);">${displayRound}</td>
             <td style="font-size: 14px; color: var(--text-main);">${displayPos}</td>
             <td style="font-size: 15px; color: var(--text-main);">${singleHtml}</td>
@@ -1798,7 +1774,7 @@ function updateRanking() {
 
             <td>${formatRank(result.wr, 'WR')}</td>
 
-            <td>
+            <td class="result-competition">
                 <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">
                     ${result.compName}
                 </div>
@@ -1879,21 +1855,29 @@ function updateRecordsTabsUI() {
 }
 
 // 控制主开关 (当前/历史) 与横向推拉动画
+function toggleRecordPicker(trigger, kind) {
+    if (kind === 'mode') {
+        toggleInlineOptions(trigger, [['current', '当前纪录'], ['history', '历史纪录']], recordsMode, setRecordMode);
+    } else {
+        toggleInlineOptions(trigger, rankingTypeOptions, recordsHistoryType, setRecordHistoryType);
+    }
+}
+
 function setRecordMode(mode) {
     if (recordsMode === mode) return; // 防止重复点击重复刷新
     recordsMode = mode;
-    document.getElementById('btn-record-mode-current').classList.toggle('active', mode === 'current');
-    document.getElementById('btn-record-mode-history').classList.toggle('active', mode === 'history');
+    document.querySelector('#record-mode-picker > span').textContent = mode === 'history' ? '历史纪录' : '当前纪录';
 
     const typeCtrl = document.getElementById('records-history-type-ctrl');
     const tableEl = document.getElementById('records-table');
 
     if (mode === 'history') {
         recordsHistoryEvent = '333'; // 强制跳回三阶
-        typeCtrl.classList.remove('hidden');
+        typeCtrl.hidden = false;
         tableEl.classList.add('table-historical');
     } else {
-        typeCtrl.classList.add('hidden');
+        setInlinePickerOpen(document.getElementById('record-type-picker'), false);
+        typeCtrl.hidden = true;
         tableEl.classList.remove('table-historical');
     }
 
@@ -1909,8 +1893,7 @@ function setRecordMode(mode) {
 function setRecordHistoryType(type) {
     if (recordsHistoryType === type) return;
     recordsHistoryType = type;
-    document.getElementById('btn-record-type-single').classList.toggle('active', type === 'single');
-    document.getElementById('btn-record-type-average').classList.toggle('active', type === 'average');
+    document.querySelector('#record-type-picker > span').textContent = type === 'average' ? '平均' : '单次';
     generateRecords();
 }
 
@@ -2002,7 +1985,7 @@ function generateCurrentRecords(tbody) {
                     <td>${formatRank(bestRecord.nr, 'NR')}</td>
                     <td>${formatRank(bestRecord.cr, crPrefix)}</td>
                     <td>${formatRank(bestRecord.wr, 'WR')}</td>
-                    <td>
+                    <td class="result-competition">
                         <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${bestRecord.compName}</div>
                         <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${bestRecord.compDate}</div>
                     </td>
@@ -2028,7 +2011,7 @@ function generateCurrentRecords(tbody) {
         <td><span class="rank-top100">NR 67</span></td>
         <td>AsR 267</td>
         <td>WR 1531</td>
-        <td>
+        <td class="result-competition">
             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName('Vietnam Championship 2023')}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2023-07-16</div>
         </td>
@@ -2046,7 +2029,7 @@ function generateCurrentRecords(tbody) {
         <td><span class="rank-top100">NR 68</span></td>
         <td>AsR 295</td>
         <td>WR 1524</td>
-        <td>
+        <td class="result-competition">
             <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName('Hefei August Open 2026')}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">2026-08-15</div>
         </td>
@@ -2133,7 +2116,7 @@ function generateHistoricalRecords(tbody) {
                 <span class="clickable-name" onclick="showPerson('${record.wcaId}')">${formattedName}</span>
             </td>
             <td class="highlight-score" style="${isCurrentRecord ? 'color: #10b981;' : ''}">${displayTime}</td>
-            <td>
+            <td class="result-competition">
                 <div style="font-size: 13px; font-weight: bold; color: var(--text-main); white-space: nowrap;">${getChineseCompetitionName(record.comp)}</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: nowrap;">${record.date}</div>
             </td>
@@ -2194,26 +2177,34 @@ function setChartType(type) {
     updateChartAndTable();
 }
 
+const rankingTypeOptions = [['single', '单次'], ['average', '平均']];
+const rankingGenderOptions = [['all', '全部'], ['m', '男'], ['f', '女']];
+
 function setRankingType(type) {
     currentRankingType = type;
-
-    document.querySelectorAll('[id^="ranking-type-"]')
-        .forEach(btn => btn.classList.remove('active'));
-
-    document.getElementById(`ranking-type-${type}`).classList.add('active');
-
+    document.querySelector('.ranking-picker-type .ranking-picker-value').textContent =
+        rankingTypeOptions.find(([value]) => value === type)[1];
     updateRanking();
 }
 
 function setRankingGender(gender) {
     currentRankingGender = gender;
-
-    document.querySelectorAll('[id^="ranking-gender-"]')
-        .forEach(btn => btn.classList.remove('active'));
-
-    document.getElementById(`ranking-gender-${gender}`).classList.add('active');
-
+    document.querySelector('.ranking-picker-gender .ranking-picker-value').textContent =
+        rankingGenderOptions.find(([value]) => value === gender)[1];
     updateRanking();
+}
+
+function toggleRankingPicker(trigger, kind) {
+    if (kind === 'type') return toggleInlineOptions(trigger, rankingTypeOptions, currentRankingType, setRankingType);
+    if (kind === 'gender') return toggleInlineOptions(trigger, rankingGenderOptions, currentRankingGender, setRankingGender);
+    const select = document.getElementById('event-select');
+    const options = Array.from(select.options, option => [option.value, option.text]);
+    toggleInlineOptions(trigger, options, select.value, (value, label) => {
+        select.value = value;
+        trigger.querySelector('.ranking-picker-value').textContent = label;
+        trigger.querySelector('.cubing-icon').className = 'cubing-icon event-' + value;
+        updateRanking();
+    }, true);
 }
 
 function getRankingColumnPositions() {
@@ -2483,7 +2474,7 @@ document.addEventListener('click', (e) => {
 // 清空成绩
 let timerClearSelection=new Set(),timerClearCurrent='',timerClearMultiple=false;
 function timerClearProjects(){const excluded=new Set(['magic','mmagic','333ft','mbf','333mbf','333fm']);return [...eventDict.filter(e=>!excluded.has(e.id)).map(e=>({...e,key:e.id})),...timerOtherEvents.map(e=>({...e,key:e.id})),...['333','222'].map(id=>({id,key:'smart-'+id,name:'智能'+eventDict.find(e=>e.id===id).name}))];}
-function renderTimerClearProjects(){const list=document.getElementById('timer-clear-projects'),projects=timerClearProjects();projects.sort((a,b)=>a.key===timerClearCurrent?-1:b.key===timerClearCurrent?1:0);list.replaceChildren();for(const project of projects){const row=document.createElement('div');row.className='timer-clear-project';const check=document.createElement('input');check.type='checkbox';check.checked=timerClearSelection.has(project.key);check.setAttribute('aria-label',project.name);check.onchange=()=>{if(!timerClearMultiple)timerClearSelection.clear();if(check.checked)timerClearSelection.add(project.key);else timerClearSelection.delete(project.key);renderTimerClearProjects();};const hit=document.createElement('label');hit.className='timer-clear-check-area';hit.append(check);const icon=document.createElement('span');icon.className=project.iconClass?'cubing-icon '+project.iconClass:project.icon?'timer-clear-symbol':'cubing-icon event-'+project.id;if(project.icon)icon.textContent=project.icon;icon.setAttribute('aria-hidden','true');const name=document.createElement('span');name.className='timer-clear-name';name.textContent=project.name;const count=document.createElement('small');count.textContent=(timerHistoryData[project.key]?.length||0)+' 次';if(project.fullName){row.classList.add('timer-clear-fullname');row.append(hit,name,count);}else{if(project.id==='fto'){icon.className='timer-clear-symbol';icon.textContent='FTO';}row.append(hit,icon,name,count);}list.append(row);}document.getElementById('timer-clear-confirm').disabled=!timerClearSelection.size;}
+function renderTimerClearProjects(){const list=document.getElementById('timer-clear-projects'),projects=timerClearProjects();projects.sort((a,b)=>a.key===timerClearCurrent?-1:b.key===timerClearCurrent?1:0);list.replaceChildren();for(const project of projects){const row=document.createElement('div');row.className='timer-clear-project';const check=document.createElement('input');check.type='checkbox';check.checked=timerClearSelection.has(project.key);check.setAttribute('aria-label',project.name);check.onchange=()=>{if(!timerClearMultiple)timerClearSelection.clear();if(check.checked)timerClearSelection.add(project.key);else timerClearSelection.delete(project.key);renderTimerClearProjects();};const hit=document.createElement('label');hit.className='timer-clear-check-area';hit.append(check);const icon=document.createElement('span');icon.className=project.iconClass?'cubing-icon '+project.iconClass:project.icon?'timer-clear-symbol':'cubing-icon event-'+project.id;if(project.icon)icon.textContent=project.icon;icon.setAttribute('aria-hidden','true');const name=document.createElement('span');name.className='timer-clear-name';name.textContent=project.name;const count=document.createElement('small');count.textContent=(timerHistoryData[project.key]?.length||0)+' 次';if(project.fullName){row.classList.add('timer-clear-fullname');row.append(hit,name,count);}else{row.append(hit,icon,name,count);}list.append(row);}document.getElementById('timer-clear-confirm').disabled=!timerClearSelection.size;}
 function toggleTimerClearMultiple(enabled){timerClearMultiple=enabled;document.getElementById('timer-clear-mode').dataset.multiple=String(enabled);if(!enabled)timerClearSelection=new Set([timerClearCurrent]);renderTimerClearProjects();}
 function openTimerClearModal(){document.getElementById('timer-more-dropdown').style.display='none';timerClearCurrent=getTimerHistoryKey();timerClearSelection=new Set([timerClearCurrent]);document.getElementById('timer-clear-multiple').checked=false;toggleTimerClearMultiple(false);document.getElementById('timer-clear-projects').scrollTop=0;document.getElementById('timer-clear-modal').style.display='flex';}
 function closeTimerClearModal(){document.getElementById('timer-clear-modal').style.display='none';timerClearSelection.clear();}
@@ -3687,7 +3678,7 @@ function switchTimerTab(tabName) {
 // ================= 计时器项目选择悬浮窗逻辑 =================
 const timerOtherEvents=[
  ...[8,9,10,11,12,13].map(n=>({id:String(n).repeat(3),name:['八','九','十','十一','十二','十三'][n-8]+'阶',group:'正阶',icon:n+'×'+n})),
- {id:'mirror',name:'镜面',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮',group:'异形',icon:'Gear'},
+ {id:'mirror',name:'镜面',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮',group:'异形',icon:'',iconClass:'unofficial-gear'},
  ...[4,5,6,7].map(n=>({id:'relay2-'+n,name:'2-'+n+' 阶',group:'连拧',icon:'Relay'})),
  {id:'guildford',name:'Guildford Challenge',group:'连拧',icon:'',fullName:true},{id:'mini-guildford',name:'Mini Guildford Challenge',group:'连拧',icon:'',fullName:true}];
 let timerRelayScrambles=[],timerRelayIndex=0;
@@ -7331,6 +7322,7 @@ function initCompetitionListFilters() {
 function filterCompetitionList(){window.currentCompsPage=1;renderCompsPage();}
 function resetCompetitionFilters(){
     for(const id of ['comps-year','comps-city','comps-name'])document.getElementById(id).value='';
+    document.getElementById('comps-year-value').textContent = '全部年份';
     competitionListEvents.clear();document.querySelectorAll('#comps-event-filters button').forEach(button=>{button.setAttribute('aria-pressed','false');button.classList.remove('active');});filterCompetitionList();
 }
 function filteredCompetitionList(includeUnknown=false){
@@ -7368,12 +7360,27 @@ async function renderCompsPage(){
     const sequence=++competitionListSequence,status=document.getElementById('comps-list-status');
     const data=paintCompetitionList(),start=(window.currentCompsPage-1)*window.COMPS_PER_PAGE;
     const pending=(competitionListEvents.size?filteredCompetitionList(true):data.slice(start,start+window.COMPS_PER_PAGE)).filter(comp=>!Array.isArray(comp.eventIds));
-    status.textContent=pending.length?'正在读取赛事地点和项目…':`共 ${data.length} 场比赛`;
-    if(!pending.length)return;
-    let next=0,failed=0;
-    await Promise.all(Array.from({length:Math.min(4,pending.length)},async()=>{while(next<pending.length){const comp=pending[next++];try{await loadCompetitionListMetadata(comp);}catch{failed++;}}}));
-    if(sequence!==competitionListSequence)return;
-    const loaded=paintCompetitionList();status.textContent=`共 ${loaded.length} 场比赛${failed?`；${failed} 场赛事资料暂时无法读取${competitionListEvents.size?'，未纳入项目筛选':''}。`:''}`;
+    const showCount = (count, remaining = 0) => {
+        status.textContent = `共 ${count} 场比赛${remaining ? ` · 正在补充 ${remaining} 场赛事资料` : ''}`;
+    };
+    showCount(data.length, pending.length);
+    if (!pending.length) return;
+    let next = 0, finished = 0, failed = 0;
+    const filteringByEvent = competitionListEvents.size > 0;
+    await Promise.all(Array.from({length: Math.min(4, pending.length)}, async () => {
+        while (next < pending.length && sequence === competitionListSequence) {
+            const comp = pending[next++];
+            try { await loadCompetitionListMetadata(comp); }
+            catch { failed++; }
+            finished++;
+            if (sequence === competitionListSequence && finished % 8 === 0) {
+                showCount(paintCompetitionList().length, pending.length - finished);
+            }
+        }
+    }));
+    if (sequence !== competitionListSequence) return;
+    showCount(paintCompetitionList().length);
+    if (failed) status.append(`；${failed} 场赛事资料暂时无法读取${filteringByEvent ? '，未纳入项目筛选' : ''}。`);
     if(failed){const retry=document.createElement('button');retry.type='button';retry.className='account-text-link';retry.textContent='重试';retry.onclick=()=>renderCompsPage();status.append(retry);}
 }
 
@@ -8906,7 +8913,7 @@ function addObjToSpace(id, type, restoreData = null) {
 
                 // 再次加载图片并画上去
                 const img = new Image();
-                img.src = 'PuffPi.jpg';
+                img.src = 'image/PuffPi.jpg';
                 img.onload = () => {
                     tvCtx.fillStyle = '#050505';
                     tvCtx.fillRect(0, 0, tvCanvas.width, tvCanvas.height);
@@ -9180,7 +9187,7 @@ function toggleCsTv(isOn) {
             };
 
             const img = new Image();
-            img.src = 'PuffPi.jpg'; // 更新为你要求的正确文件名
+            img.src = 'image/PuffPi.jpg'; // 更新为你要求的正确文件名
             img.onload = () => drawLogo(img);
 
             // 开机屏幕材质
@@ -9453,3 +9460,149 @@ function setInspectionVoiceRate(value){const rate=Number(value);if(!Number.isFin
 
 // Capture keyboard input while the project picker owns timer interaction.
 document.addEventListener('keydown',event=>{const popup=document.getElementById('timer-event-popup');if(popup?.style.display!=='flex'||event.target.closest?.('.global-nav-header'))return;if(event.key==='Escape'){closeTimerEventPopup();event.preventDefault();event.stopImmediatePropagation();}else if(!popup.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();}},true);
+
+
+let directoryWorker=null,directoryPage=0,directoryPages=1,directorySequence=0,directoryCountries=[];
+async function loadPlayerDirectory(){await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));return renderPlayerDirectory(0);}
+function renderPlayerDirectory(page=0){
+ if(!document.getElementById('search-page').classList.contains('active'))return;
+ if(!directoryWorker){directoryWorker=new Worker('player_directory_worker.js?v=1.56.9');directoryWorker.onmessage=({data:d})=>{if(d.id!==directorySequence)return;if(d.error){document.getElementById('directory-count').textContent='读取失败，点击搜索重试';return;}if(d.countries)directoryCountries=d.countries;directoryPage=d.page;directoryPages=d.pages;const body=document.getElementById('directory-rows');body.replaceChildren();for(const row of d.rows){const tr=body.insertRow();const name=tr.insertCell(),link=document.createElement('button');link.className='directory-person-name';link.textContent=formatName(row[0]);link.onclick=()=>{document.getElementById('search-input').value=row[1];void performSearch();};name.append(link);for(const value of [row[1],getCountryName(row[2]),({m:'男',f:'女'})[row[3]]||'—'])tr.insertCell().textContent=value;}if(!d.rows.length){const td=body.insertRow().insertCell();td.colSpan=4;td.textContent='暂无符合条件的选手';}document.getElementById('directory-count').textContent='选手列表 · '+d.total.toLocaleString()+' 人';document.querySelector('.directory-pages').innerHTML=renderCompactPager(d.page+1,d.pages,'goDirectoryPage','openDirectoryPagePicker');};directoryWorker.onerror=()=>{document.getElementById('directory-count').textContent='读取失败，点击搜索重试';directoryWorker.terminate();directoryWorker=null;};}
+ document.getElementById('directory-count').textContent='正在载入选手…';directoryWorker.postMessage({id:++directorySequence,page,name:document.getElementById('directory-name').value.trim().toLowerCase(),country:document.getElementById('directory-country').value,gender:document.getElementById('directory-gender').value,meta:!directoryCountries.length});
+}
+function goDirectoryPage(page){renderPlayerDirectory(page-1);}
+function openDirectoryPagePicker(){openSharedPagePicker(directoryPages,directoryPage+1,goDirectoryPage);}
+function openDirectoryFilter(type){
+ if(type==='gender'){toggleDirectoryGender();return;}
+ const existing=document.getElementById('directory-filter-dialog');if(existing){existing.remove();return;}
+ document.getElementById('directory-gender-menu')?.remove();
+ const dialog=document.createElement('div');dialog.id='directory-filter-dialog';dialog.setAttribute('role','region');document.getElementById('directory-filters').append(dialog);dialog.close=()=>dialog.remove();
+ dialog.replaceChildren();const list=document.createElement('div');list.className='directory-filter-options';
+ const regions=[['Asia','亚洲'],['Europe','欧洲'],['Africa','非洲'],['North America','北美洲'],['South America','南美洲'],['Oceania','大洋洲'],['Antarctica','南极洲']];const options=type==='gender'?[['','全部'],['m','男'],['f','女']]:[['','世界'],...regions.map(([k,v])=>['@'+k,v]),...directoryCountries.filter(r=>/^[A-Z]{2}$/.test(r[0])&&!/^Multiple Countries/i.test(r[1])).slice().sort((a,b)=>a[1].localeCompare(b[1],'en')).map(r=>[r[0],getCountryName(r[0])===r[0]?(new Intl.DisplayNames(['zh-CN'],{type:'region'}).of(r[0])||r[1]):getCountryName(r[0])])];for(const [index,[value,label]] of options.entries()){if(type==='country'&&(index===1||index===8)){const divider=document.createElement('hr');list.append(divider);}const button=document.createElement('button');button.type='button';button.textContent=label;button.classList.toggle('active',document.getElementById('directory-'+type).value===value);button.onclick=()=>{document.getElementById('directory-'+type).value=value;document.getElementById('directory-'+type+'-button').querySelector('span').textContent=label;dialog.close();};list.append(button);}if(type==='country'){const search=document.createElement('input');search.type='search';search.placeholder='输入国家或地区名称';search.className='directory-region-search';search.setAttribute('aria-label','搜索国家或地区');const applySearch=()=>{const query=search.value.trim().toLowerCase();for(const button of list.querySelectorAll('button'))button.hidden=!button.textContent.toLowerCase().includes(query);for(const line of list.querySelectorAll('hr'))line.hidden=!!query;};const form=document.createElement('div');form.className='directory-region-form';search.addEventListener('keydown',e=>{if(e.key==='Enter')e.preventDefault();});search.addEventListener('input',applySearch);form.append(search);dialog.append(form);}dialog.append(list);const anchor=document.getElementById('directory-country-button').getBoundingClientRect(),parent=document.getElementById('directory-filters').getBoundingClientRect();dialog.style.left=(anchor.left-parent.left)+'px';dialog.style.width=anchor.width+'px';dialog.style.top=(anchor.bottom-parent.top+6)+'px';dialog.style.maxHeight=Math.max(160,innerHeight-anchor.bottom-20)+'px';
+}
+
+let directoryPK=false;
+function toggleDirectoryPK(){directoryPK=!directoryPK;document.getElementById('directory-filters').classList.toggle('directory-pk-mode',directoryPK);document.querySelector('.directory-search').textContent=directoryPK?'对比':'搜索';document.getElementById('directory-name').placeholder=directoryPK?'选手 A':'姓名或 WCA ID';document.getElementById('directory-pk-toggle').setAttribute('aria-pressed',String(directoryPK));document.getElementById('directory-pk-toggle').textContent=directoryPK?'取消':'PK';if(!directoryPK)document.getElementById('directory-name-b').value='';}
+async function directoryPlayerId(input, label) {
+    const id = input.match(/(?:^|[（(])(\d{4}[a-z]{4}\d{2})[）)]?$/i);
+    if (id) return id[1].toUpperCase();
+    const results = await fetchAutocomplete(input);
+    const exact = results.filter(player => [player.name, formatName(player.name),
+        ...player.name.split(/[（()）]/)].some(name => name.trim().toLowerCase() === input.toLowerCase()));
+    const matches = exact.length ? exact : results;
+    if (!matches.length) {
+        alert(label + '未找到，请检查姓名或输入 WCA ID。');
+        return null;
+    }
+    if (matches.length === 1) return matches[0].wca_id;
+    const selected = await showSelectionModal(matches.map(person => ({ person })), label, true);
+    return selected?.person.wca_id;
+}
+
+async function submitDirectorySearch() {
+    if (!directoryPK) return renderPlayerDirectory(0);
+    const button = document.querySelector('.directory-search');
+    if (button.disabled) return;
+    const inputA = document.getElementById('directory-name');
+    const inputB = document.getElementById('directory-name-b');
+    const a = inputA.value.trim(), b = inputB.value.trim();
+    if (!a || !b) return alert('请输入两位选手的姓名或 WCA ID');
+    const stillCurrent = () => directoryPK && document.getElementById('search-page').classList.contains('active')
+        && inputA.value.trim() === a && inputB.value.trim() === b;
+    button.disabled = true;
+    try {
+        const idA = await directoryPlayerId(a, '选手 A');
+        if (!idA || !stillCurrent()) return;
+        const idB = await directoryPlayerId(b, '选手 B');
+        if (!idB || !stillCurrent()) return;
+        document.getElementById('pk-input-a').value = idA;
+        document.getElementById('pk-input-b').value = idB;
+        await handlePkClick();
+    } finally {
+        button.disabled = false;
+    }
+}
+for (const [input, dropdown] of [['directory-name', 'directory-autocomplete-a'], ['directory-name-b', 'directory-autocomplete-b']]) {
+    setupAutocomplete(input, dropdown, null, () => directoryPK && !document.querySelector('.directory-search').disabled);
+}
+
+function toggleDirectoryGender(){document.getElementById('directory-filter-dialog')?.remove();let menu=document.getElementById('directory-gender-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.id='directory-gender-menu';menu.setAttribute('role','menu');for(const [value,label] of [['','全部'],['m','男'],['f','女']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.classList.toggle('active',document.getElementById('directory-gender').value===value);b.onclick=()=>{document.getElementById('directory-gender').value=value;document.getElementById('directory-gender-button').querySelector('span').textContent=label;menu.remove();};menu.append(b);}document.getElementById('directory-filters').append(menu);const button=document.getElementById('directory-gender-button'),r=button.getBoundingClientRect(),parent=document.getElementById('directory-filters').getBoundingClientRect();menu.style.left=(r.left-parent.left)+'px';menu.style.top=(r.bottom-parent.top+6)+'px';menu.style.width=r.width+'px';}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#directory-gender-menu,#directory-gender-button'))document.getElementById('directory-gender-menu')?.remove();});window.addEventListener('resize',()=>document.getElementById('directory-gender-menu')?.remove());
+
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#directory-filter-dialog,#directory-country-button'))document.getElementById('directory-filter-dialog')?.remove();});window.addEventListener('resize',()=>document.getElementById('directory-filter-dialog')?.remove());document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.getElementById('directory-filter-dialog')?.remove();document.getElementById('directory-gender-menu')?.remove();}});
+
+// Track every open/close transition so both halves of the turn remain clockwise.
+const directoryArrowState={country:{open:false,turn:90},gender:{open:false,turn:90}};
+function syncDirectoryArrows(){for(const type of ['country','gender']){const state=directoryArrowState[type],open=!!document.getElementById(type==='country'?'directory-filter-dialog':'directory-gender-menu'),button=document.getElementById('directory-'+type+'-button');if(!button)continue;if(open!==state.open){state.turn+=180;state.open=open;}button.setAttribute('aria-expanded',String(open));button.querySelector('.setting-chevron').style.transform='rotate('+state.turn+'deg)';}}
+new MutationObserver(syncDirectoryArrows).observe(document.body,{childList:true,subtree:true});syncDirectoryArrows();
+
+function setInlinePickerOpen(trigger, open) {
+    const menu = trigger.nextElementSibling;
+    if (menu.hidden === !open) return;
+    menu.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+    const turn = Number(trigger.dataset.arrowTurn || 90) + 180;
+    trigger.dataset.arrowTurn = turn;
+    trigger.style.setProperty('--picker-angle', turn + 'deg');
+}
+
+function toggleInlineOptions(trigger, options, selected, onSelect, showEventIcons = false) {
+    const menu = trigger.nextElementSibling;
+    if (!menu.hidden) return setInlinePickerOpen(trigger, false);
+    menu.replaceChildren();
+    for (const [value, label] of options) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        if (showEventIcons) {
+            const icon = document.createElement('span');
+            icon.className = 'cubing-icon event-' + value;
+            icon.setAttribute('aria-hidden', 'true');
+            button.append(icon);
+        }
+        button.append(label);
+        button.setAttribute('aria-pressed', String(value === selected));
+        button.onclick = () => {
+            setInlinePickerOpen(trigger, false);
+            trigger.focus();
+            onSelect(value, label);
+        };
+        menu.append(button);
+    }
+    setInlinePickerOpen(trigger, true);
+}
+
+function toggleCcaCompetitionYear() {
+    const trigger = document.getElementById('cca-year-trigger');
+    const label = document.getElementById('cca-year-value');
+    const year = new Date().getFullYear();
+    const options = [['全部年份', '全部年份']];
+    for (let value = year; value >= 2025; value--) {
+        options.push([String(value), String(value)]);
+    }
+    toggleInlineOptions(trigger, options, label.textContent, (_, text) => {
+        label.textContent = text;
+    });
+}
+
+function toggleCompetitionYear() {
+    const trigger = document.getElementById('comps-year-trigger');
+    const select = document.getElementById('comps-year');
+    const options = Array.from(select.options, option => [option.value, option.text]);
+    toggleInlineOptions(trigger, options, select.value, (value, label) => {
+        select.value = value;
+        document.getElementById('comps-year-value').textContent = label;
+        filterCompetitionList();
+    });
+}
+
+document.addEventListener('pointerdown', event => {
+    for (const trigger of document.querySelectorAll('.inline-picker-trigger[aria-expanded="true"]')) {
+        if (!trigger.parentElement.contains(event.target)) setInlinePickerOpen(trigger, false);
+    }
+});
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    for (const trigger of document.querySelectorAll('.inline-picker-trigger[aria-expanded="true"]')) {
+        setInlinePickerOpen(trigger, false);
+        if (trigger.parentElement.contains(event.target)) trigger.focus();
+    }
+});

@@ -23,10 +23,10 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.56.0">
-    <link rel="stylesheet" href="cube_explorer.css?v=1.46.8">
-    <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.0">
-    <link rel="stylesheet" href="analysis.css?v=1.56.0">
+    <link rel="stylesheet" href="style.css?v=1.60.0">
+    <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
+    <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
+    <link rel="stylesheet" href="analysis.css?v=1.60.0">
 </head>
 <body>
 
@@ -67,7 +67,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <header class="home-nav-header global-nav-header">
         <div class="nav-left">
             <div class="nav-logo" onclick="goHome()" title="返回主页">
-                <img class="nav-app-icon" src="app_icon.svg" alt="返回首页" width="38" height="38">
+                <img class="nav-app-icon" src="image/app_icon.svg" alt="返回首页" width="38" height="38">
             </div>
             <!-- 修改：增加了浅灰底色的方形返回按钮，替换了过大的箭头 -->
             <div class="nav-logo nav-back-button" onclick="goBack()" title="返回上一页" style="background: #f1f5f9; border-radius: 10px; width: 40px; height: 40px;">
@@ -95,7 +95,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 <div class="dropdown-content">
                     <a onclick="openCompsPage()">世界魔方协会</a>
-                    <a onclick="alert('等待中国魔方官网开放数据，敬请期待！')">中国魔方官网</a>
+                    <a onclick="navigateTo('cca-comps-page', true)">中国魔方官网</a>
                 </div>
             </div>
             <div class="nav-menu-item has-dropdown">成绩
@@ -140,7 +140,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         <div class="home-content-wrapper">
             <section class="home-intro" aria-labelledby="home-heading">
                 <div class="home-intro-copy">
-                    <p class="home-eyebrow">NINGBO CUBING <span>宁波 · 魔方</span></p>
+                    <p class="home-eyebrow">CUBE SPACE</p>
                     <h1 id="home-heading">每一次突破，<br>都在这里。</h1>
                     <p class="home-intro-description"><span class="home-business-description">关注宁波选手，记录赛场新成绩。<br>从日常练习，到下一次登场。</span><span class="home-modern-description">转动之间，探索更多可能。<br>练习、挑战，与热爱一同进阶。</span></p>
                 </div>
@@ -152,7 +152,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <button type="button" onclick="initMonthly()"><span>02</span><strong>参加月赛</strong><small>每月挑战</small><b aria-hidden="true">↗</b></button>
                     <button type="button" onclick="navigateTo('records-page'); generateRecords();"><span>03</span><strong>查看纪录</strong><small>宁波纪录</small><b aria-hidden="true">↗</b></button>
                 </div>
-                <div class="modern-event-strip" role="img" aria-label="WCA 现行比赛项目"><div class="modern-event-icons" aria-hidden="true"><i class="cubing-icon event-333"></i><i class="cubing-icon event-222"></i><i class="cubing-icon event-444"></i><i class="cubing-icon event-555"></i><i class="cubing-icon event-666"></i><i class="cubing-icon event-777"></i><i class="cubing-icon event-333bf"></i><i class="cubing-icon event-333fm"></i><i class="cubing-icon event-333oh"></i><i class="cubing-icon event-clock"></i><i class="cubing-icon event-minx"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-skewb"></i><i class="cubing-icon event-sq1"></i><i class="cubing-icon event-444bf"></i><i class="cubing-icon event-555bf"></i><i class="cubing-icon event-333mbf"></i></div></div>
+                <div class="modern-event-strip" role="img" aria-label="WCA 现行比赛项目与 FTO"><div class="modern-event-icons" aria-hidden="true"><i class="cubing-icon event-333"></i><i class="cubing-icon event-222"></i><i class="cubing-icon event-444"></i><i class="cubing-icon event-555"></i><i class="cubing-icon event-666"></i><i class="cubing-icon event-777"></i><i class="cubing-icon event-333bf"></i><i class="cubing-icon event-333fm"></i><i class="cubing-icon event-333oh"></i><i class="cubing-icon event-clock"></i><i class="cubing-icon event-minx"></i><i class="cubing-icon event-pyram"></i><i class="cubing-icon event-skewb"></i><i class="cubing-icon event-sq1"></i><i class="cubing-icon event-fto"></i><i class="cubing-icon event-444bf"></i><i class="cubing-icon event-555bf"></i><i class="cubing-icon event-333mbf"></i></div></div>
             </section>
             <section class="modern-home-features" aria-label="探索宁波魔方">
                 <div class="modern-timer-shell"><button class="modern-feature modern-timer" type="button" onclick="openModernTimer('wca')"><span class="modern-eyebrow">NB TIMER</span><span class="modern-kicker">计时器 · 智能魔方</span><span class="modern-timer-art" aria-hidden="true">0.00</span></button></div>
@@ -163,9 +163,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 
             </section>
 
-            <button class="modern-feature modern-formulas" type="button" onclick="openFormulaLibrary()"><span class="modern-eyebrow">LEARN · EXPLORE</span><span class="modern-kicker">公式 · 方法</span><span class="modern-formula-library" aria-hidden="true"><span class="modern-formula-sheet sheet-back"></span><span class="modern-formula-sheet sheet-middle"></span><span class="modern-formula-sheet sheet-front"><small>CFOP</small><b>R U R′ U′</b><span class="formula-page-lines"><i></i><i></i></span></span></span></button>
+            <button class="modern-feature modern-formulas" type="button" onclick="openFormulaLibrary()"><span class="modern-eyebrow">ALGORITHM · METHOD</span><span class="modern-kicker">公式 · 方法</span><span class="modern-formula-library" aria-hidden="true"><span class="modern-formula-sheet sheet-back"></span><span class="modern-formula-sheet sheet-middle"></span><span class="modern-formula-sheet sheet-front"><small>CFOP</small><b>R U R′ U′</b><span class="formula-page-lines"><i></i><i></i></span></span></span></button>
             <div class="home-board">
-            <section class="home-section home-events">
+            <div class="home-left-board"><section class="home-section home-events">
                 <div class="section-header">
                     <h3 class="section-title">赛事日程</h3>
                     <button class="more-link" type="button" onclick="openCompsPage()">全部赛事<span class="home-more-arrow"> ↗</span></button>
@@ -183,7 +183,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <div id="news-list" class="news-list"><div class="loading-text">载入中...</div></div>
                 </section>
 
-                <section class="home-section records-section">
+                </div><section class="home-section records-section">
                     <div class="section-header">
                         <h3 class="section-title">宁波纪录</h3>
                         <button class="more-link" type="button" onclick="navigateTo('records-page'); generateRecords();">全部项目<span class="home-more-arrow"> ↗</span></button>
@@ -199,30 +199,77 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
     <!-- 全量赛事列表页面 -->
     <div id="comps-page" class="page-container">
-        <div class="page-header">
-            <button onclick="goBack()">返回上一页</button>
-            <h2>赛事列表</h2>
-        </div>
-        <div class="competition-list-links">
-            <a class="btn btn-outline" href="https://www.worldcubeassociation.org/" target="_blank" rel="noopener noreferrer">🔗 WCA</a>
-            <a class="btn btn-outline btn-cubing" href="https://cubing.com/" target="_blank" rel="noopener noreferrer">🔗 粗饼</a>
-        </div>
         <div class="list-page-container">
-            <div class="competition-search">
-                <label>年份<select id="comps-year" onchange="filterCompetitionList()"><option value="">全部年份</option></select></label>
-                <label>城市<input id="comps-city" type="search" placeholder="输入城市" oninput="filterCompetitionList()"></label>
-                <label>比赛名称<input id="comps-name" type="search" placeholder="输入比赛名称" oninput="filterCompetitionList()"></label>
-                <button type="button" class="btn btn-outline" onclick="resetCompetitionFilters()">重置</button>
-            </div>
-            <div id="comps-event-filters" class="competition-event-picker" aria-label="筛选比赛项目"></div>
-            <p class="competition-filter-hint">可多选项目，仅显示包含全部已选项目的比赛。</p>
-            <p id="comps-list-status" role="status"></p>
+            <section class="competition-filter-card" aria-label="赛事筛选">
+                <div class="competition-search">
+                    <div class="competition-year-field"><select id="comps-year" hidden><option value="">全部年份</option></select><div class="inline-picker"><button type="button" id="comps-year-trigger" class="inline-picker-trigger" aria-label="筛选年份" aria-expanded="false" onclick="toggleCompetitionYear()"><span id="comps-year-value">全部年份</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div></div>
+                    <label><input aria-label="城市" id="comps-city" type="search" placeholder="输入城市" oninput="filterCompetitionList()"></label>
+                    <label><input aria-label="比赛名称" id="comps-name" type="search" placeholder="输入比赛名称" oninput="filterCompetitionList()"></label>
+                    <button type="button" class="btn btn-outline pk-start-btn" onclick="resetCompetitionFilters()">重置</button>
+                </div>
+                <div id="comps-event-filters" class="competition-event-picker" aria-label="筛选比赛项目"></div>
+                <div class="competition-filter-footer">
+                    <p class="competition-filter-hint">可多选项目，仅显示包含全部已选项目的比赛。</p>
+                    <p id="comps-list-status" role="status"></p>
+                    <div class="competition-list-links">
+                        <a class="competition-site-link" href="https://www.worldcubeassociation.org/" target="_blank" rel="noopener noreferrer" aria-label="世界魔方协会官网" title="世界魔方协会官网"><img src="image/wca-site-icon.png" alt="" width="22" height="22"></a>
+                        <a class="competition-site-link" href="https://cubing.com/" target="_blank" rel="noopener noreferrer" aria-label="粗饼官网" title="粗饼官网"><img src="image/cubing-site-icon.png" alt="" width="22" height="22"></a>
+                    </div>
+                </div>
+            </section>
             <div class="competition-table-scroll"><table class="competition-list-table"><thead><tr><th>日期</th><th>比赛</th><th>状态</th><th>省份</th><th>城市</th><th>地点</th></tr></thead><tbody id="all-comps-grid"></tbody></table></div>
             <div class="pagination-controls">
                 <button class="page-btn" id="comps-prev-btn" onclick="changeCompsPage(-1)">上一页</button>
                 <span class="page-info" id="comps-page-info">第 1 页</span>
                 <button class="page-btn" id="comps-next-btn" onclick="changeCompsPage(1)">下一页</button>
             </div>
+        </div>
+    </div>
+
+    <div id="cca-comps-page" class="page-container" aria-label="中国魔方官网赛事">
+        <div class="list-page-container">
+            <section class="competition-filter-card" aria-label="赛事筛选">
+                <form class="competition-search" onsubmit="event.preventDefault()" onreset="document.getElementById('cca-year-value').textContent = '全部年份'">
+                    <div class="competition-year-field"><div class="inline-picker"><button type="button" id="cca-year-trigger" class="inline-picker-trigger" aria-expanded="false" onclick="toggleCcaCompetitionYear()"><span id="cca-year-value">全部年份</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div></div>
+                    <label><input aria-label="城市" type="search" placeholder="输入城市"></label>
+                    <label><input aria-label="比赛名称" type="search" placeholder="输入比赛名称"></label>
+                    <button type="reset" class="btn btn-outline pk-start-btn">重置</button>
+                </form>
+                <div class="competition-event-picker" aria-label="CCA 赛事项目">
+                    <button type="button" title="三阶" aria-label="三阶" disabled><i class="cubing-icon event-333" aria-hidden="true"></i></button>
+                    <button type="button" title="二阶" aria-label="二阶" disabled><i class="cubing-icon event-222" aria-hidden="true"></i></button>
+                    <button type="button" title="四阶" aria-label="四阶" disabled><i class="cubing-icon event-444" aria-hidden="true"></i></button>
+                    <button type="button" title="五阶" aria-label="五阶" disabled><i class="cubing-icon event-555" aria-hidden="true"></i></button>
+                    <button type="button" title="六阶" aria-label="六阶" disabled><i class="cubing-icon event-666" aria-hidden="true"></i></button>
+                    <button type="button" title="七阶" aria-label="七阶" disabled><i class="cubing-icon event-777" aria-hidden="true"></i></button>
+                    <button type="button" title="单手" aria-label="单手" disabled><i class="cubing-icon event-333oh" aria-hidden="true"></i></button>
+                    <button type="button" title="金字塔" aria-label="金字塔" disabled><i class="cubing-icon event-pyram" aria-hidden="true"></i></button>
+                    <button type="button" title="斜转" aria-label="斜转" disabled><i class="cubing-icon event-skewb" aria-hidden="true"></i></button>
+                    <button type="button" title="五魔方" aria-label="五魔方" disabled><i class="cubing-icon event-minx" aria-hidden="true"></i></button>
+                    <button type="button" title="二阶五魔方" aria-label="二阶五魔方" disabled><i class="cubing-icon unofficial-kilominx" aria-hidden="true"></i></button>
+                    <button type="button" title="SQ1" aria-label="SQ1" disabled><i class="cubing-icon event-sq1" aria-hidden="true"></i></button>
+                    <span>智能三阶</span>
+                    <span>线上智能三阶</span>
+                    <button type="button" title="FTO" aria-label="FTO" disabled><i class="cubing-icon unofficial-fto" aria-hidden="true"></i></button>
+                    <button type="button" title="二阶FTO" aria-label="二阶FTO" disabled><i class="cubing-icon unofficial-baby_fto" aria-hidden="true"></i></button>
+                    <span>CTO</span>
+                    <button type="button" title="REDI" aria-label="REDI" disabled><i class="cubing-icon unofficial-redi" aria-hidden="true"></i></button>
+                    <button type="button" title="枫叶" aria-label="枫叶" disabled><i class="cubing-icon unofficial-ivy" aria-hidden="true"></i></button>
+                    <span>二重奏</span>
+                    <button type="button" title="镜面" aria-label="镜面" disabled><i class="cubing-icon unofficial-333_mirror_blocks" aria-hidden="true"></i></button>
+                    <span>二阶镜面</span>
+                    <button type="button" title="三阶盲拧" aria-label="三阶盲拧" disabled><i class="cubing-icon event-333bf" aria-hidden="true"></i></button>
+                    <button type="button" title="最少步" aria-label="最少步" disabled><i class="cubing-icon event-333fm" aria-hidden="true"></i></button>
+                    <button type="button" title="齿轮" aria-label="齿轮" disabled><i class="cubing-icon unofficial-gear" aria-hidden="true"></i></button>
+                    <button type="button" title="魔表" aria-label="魔表" disabled><i class="cubing-icon event-clock" aria-hidden="true"></i></button>
+                    <span>叠杯Cycle</span>
+                    <span>四阶华容道</span>
+                </div>
+                <div class="competition-filter-footer">
+                    <p class="competition-filter-hint">赛事数据开放后可按项目筛选。</p>
+                </div>
+            </section>
+            <div class="competition-table-scroll cca-comps-placeholder">等待中国魔方官网开放数据，敬请期待！</div>
         </div>
     </div>
 
@@ -381,13 +428,6 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     ========================================= -->
     <div id="settings-page" class="page-container">
         <!-- 将头部宽度限制为 700px (对应下方卡片的真实总宽)，保持居中且清除内边距 -->
-        <div class="page-header" style="max-width: 700px; margin: 24px auto 30px auto; padding: 0; width: 100%; position: relative;">
-            <button onclick="goBack()">返回上一页</button>
-            <div>
-                <h2 style="margin-bottom: 5px;">设置</h2>
-            </div>
-        </div>
-
         <div class="card" style="max-width: 650px; margin: 0 auto;">
             <div class="sidebar-settings-title">用户</div>
 
@@ -447,7 +487,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.56.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.60.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -455,10 +495,6 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     </div>
 
     <div id="about-page" class="page-container">
-        <div class="page-header" style="max-width: 700px; margin: 24px auto 30px auto; padding: 0; width: 100%; position: relative;">
-            <button onclick="goBack()">返回上一页</button>
-            <div><h2 style="margin-bottom: 5px;">关于本站</h2></div>
-        </div>
         <div class="card" style="max-width: 650px; margin: 0 auto;">
             <div class="sidebar-settings-title">网址</div>
             <div class="ios-setting-group custom-ui-group about-source-row about-website-row"><span>CUBE SPACE</span><a href="https://puffpi.github.io/nbcubing/" onclick="if(window.NBApp&&!window.nbOnlineWebsite){event.preventDefault();location.href='nbcubing://website';}">https://puffpi.github.io/nbcubing/</a></div>
@@ -1363,59 +1399,33 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
 
         <div class="card">
-            <div class="controls">
-                <label>选择项目：
-                    <select id="event-select" onchange="updateRanking()">
-                        <option value="333" selected>三阶（3x3x3）</option>
-                        <option value="222">二阶（2x2x2）</option>
-                        <option value="444">四阶（4x4x4）</option>
-                        <option value="555">五阶（5x5x5）</option>
-                        <option value="666">六阶（6x6x6）</option>
-                        <option value="777">七阶（7x7x7）</option>
-                        <option value="333bf">三盲（3x3x3 Blindfolded）</option>
-                        <option value="333fm">最少步（3x3x3 Fewest Moves）</option>
-                        <option value="333oh">单手（3x3x3 One-Handed）</option>
-                        <option value="clock">魔表（Clock）</option>
-                        <option value="minx">五魔方（Megaminx）</option>
-                        <option value="pyram">金字塔（Pyraminx）</option>
-                        <option value="skewb">斜转（Skewb）</option>
-                        <option value="sq1">SQ1（Square-1）</option>
-                        <option value="444bf">四盲（4x4x4 Blindfolded）</option>
-                        <option value="555bf">五盲（5x5x5 Blindfolded）</option>
-                        <option value="333mbf">多盲（3x3x3 Multi-Blind）</option>
-                        <option value="333ft" style="color:var(--text-muted);">脚拧（3x3x3 With Feet）</option>
-                        <option value="magic" style="color:var(--text-muted);">八板（Magic）</option>
-                        <option value="mmagic" style="color:var(--text-muted);">十二板（Master Magic）</option>
-                        <option value="mbf" style="color:var(--text-muted);">旧版多盲（Old Multi-Blind）</option>
+            <div class="ranking-filters">
+                <select id="event-select" hidden onchange="updateRanking()">
+                        <option value="333" selected>三阶</option>
+                        <option value="222">二阶</option>
+                        <option value="444">四阶</option>
+                        <option value="555">五阶</option>
+                        <option value="666">六阶</option>
+                        <option value="777">七阶</option>
+                        <option value="333bf">三盲</option>
+                        <option value="333fm">最少步</option>
+                        <option value="333oh">单手</option>
+                        <option value="clock">魔表</option>
+                        <option value="minx">五魔方</option>
+                        <option value="pyram">金字塔</option>
+                        <option value="skewb">斜转</option>
+                        <option value="sq1">SQ1</option>
+                        <option value="444bf">四盲</option>
+                        <option value="555bf">五盲</option>
+                        <option value="333mbf">多盲</option>
+                        <option value="333ft" style="color:var(--text-muted);">脚拧</option>
+                        <option value="magic" style="color:var(--text-muted);">八板</option>
+                        <option value="mmagic" style="color:var(--text-muted);">十二板</option>
+                        <option value="mbf" style="color:var(--text-muted);">旧版多盲</option>
                     </select>
-                </label>
-
-                <label style="display:flex; align-items:center; gap:8px;">
-                    选择类型：
-                    <div class="ios-segment-control">
-                        <div id="ranking-type-single"
-                             class="ios-segment-btn active"
-                             onclick="setRankingType('single')">单次</div>
-                        <div id="ranking-type-average"
-                             class="ios-segment-btn"
-                             onclick="setRankingType('average')">平均</div>
-                    </div>
-                </label>
-
-                <label style="display:flex; align-items:center; gap:8px;">
-                    性别：
-                    <div class="ios-segment-control">
-                        <div id="ranking-gender-all"
-                             class="ios-segment-btn active"
-                             onclick="setRankingGender('all')">全部</div>
-                        <div id="ranking-gender-m"
-                             class="ios-segment-btn"
-                             onclick="setRankingGender('m')">男</div>
-                        <div id="ranking-gender-f"
-                             class="ios-segment-btn"
-                             onclick="setRankingGender('f')">女</div>
-                    </div>
-                </label>
+                <div class="inline-picker ranking-picker-event event-inline-picker"><button type="button" class="inline-picker-trigger" aria-label="选择项目" aria-expanded="false" onclick="toggleRankingPicker(this, 'event')"><span class="cubing-icon event-333" aria-hidden="true"></span><span class="ranking-picker-value">三阶</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div>
+                <div class="inline-picker ranking-picker-type"><button type="button" class="inline-picker-trigger" aria-label="选择成绩类型" aria-expanded="false" onclick="toggleRankingPicker(this, 'type')"><span class="ranking-picker-value">单次</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div>
+                <div class="inline-picker ranking-picker-gender"><button type="button" class="inline-picker-trigger" aria-label="选择性别" aria-expanded="false" onclick="toggleRankingPicker(this, 'gender')"><span class="ranking-picker-value">全部</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div>
             </div>
 
             <div class="table-responsive">
@@ -1448,20 +1458,14 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <!-- 全新自适应容器：左右布局 -->
             <div class="records-controls-container">
 
-                <!-- 左侧：开关控制组 (横向排列) -->
                 <div class="records-toggles">
-                    <!-- 主开关：当前纪录 vs 历史纪录 -->
-                    <div class="ios-segment-control" style="flex-shrink: 0;">
-                        <div id="btn-record-mode-current" class="ios-segment-btn active" onclick="setRecordMode('current')">当前纪录</div>
-                        <div id="btn-record-mode-history" class="ios-segment-btn" onclick="setRecordMode('history')">历史纪录</div>
+                    <div class="inline-picker" >
+                        <button type="button" id="record-mode-picker" class="inline-picker-trigger" aria-label="纪录范围" aria-expanded="false" onclick="toggleRecordPicker(this, 'mode')"><span>当前纪录</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button>
+                        <div class="inline-picker-menu" hidden></div>
                     </div>
-
-                    <!-- 副开关外壳：负责横向推拉动画 -->
-                    <div class="records-type-wrapper hidden" id="records-history-type-ctrl">
-                        <div class="ios-segment-control" style="width: 100%;">
-                            <div id="btn-record-type-single" class="ios-segment-btn active" onclick="setRecordHistoryType('single')">单次</div>
-                            <div id="btn-record-type-average" class="ios-segment-btn" onclick="setRecordHistoryType('average')">平均</div>
-                        </div>
+                    <div class="inline-picker" id="records-history-type-ctrl" hidden>
+                        <button type="button" id="record-type-picker" class="inline-picker-trigger" aria-label="成绩类型" aria-expanded="false" onclick="toggleRecordPicker(this, 'type')"><span>单次</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button>
+                        <div class="inline-picker-menu" hidden></div>
                     </div>
                 </div>
 
@@ -1477,14 +1481,14 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <table id="records-table">
                     <thead>
                         <tr>
-                            <th style="width: 12%;">项目</th>
-                            <th style="width: 10%;">类型</th>
-                            <th style="width: 18%;">纪录保持者</th>
-                            <th style="width: 12%;">成绩</th>
-                            <th class="record-rank-col" style="width: 12%;">地区排名（NR）</th>
-                            <th class="record-rank-col" style="width: 12%;">洲际排名（CR）</th>
-                            <th class="record-rank-col" style="width: 12%;">世界排名（WR）</th>
-                            <th style="width: 12%;">比赛与日期</th>
+                            <th style="width: 10%;">项目</th>
+                            <th style="width: 7%;">类型</th>
+                            <th style="width: 19%;">纪录保持者</th>
+                            <th style="width: 10%;">成绩</th>
+                            <th class="record-rank-col" style="width: 11%;">地区排名（NR）</th>
+                            <th class="record-rank-col" style="width: 11%;">洲际排名（CR）</th>
+                            <th class="record-rank-col" style="width: 11%;">世界排名（WR）</th>
+                            <th style="width: 21%;">比赛与日期</th>
                         </tr>
                     </thead>
                     <tbody id="records-tbody"></tbody>
@@ -1497,25 +1501,12 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
          成绩查询 & PK 对战页面 (等宽重构版)
     ========================================= -->
     <div id="search-page" class="page-container search-page-fixed">
-        <div style="text-align: center; margin-bottom: 25px; flex-shrink: 0;">
-            <h2 style="margin-bottom: 5px; font-size: 24px;">成绩查询 · PK</h2>
-            <div style="font-size: 14px; color: var(--text-muted); font-weight: normal;">支持输入全球任意选手的姓名或 WCA ID</div>
-        </div>
+        <div class="page-header"><button onclick="goBack()">返回上一页</button><h2>成绩查询 · PK</h2><p class="directory-subtitle">支持输入全球任意选手的姓名或 WCA ID</p></div>
+
 
         <!-- 利用 wrapper 实现三个卡片绝对等宽 -->
         <div class="search-pk-wrapper">
-            <!-- 个人查询模块 -->
-            <div class="card">
-                <div style="font-size: 15px; color: var(--text-main); margin-bottom: 16px; font-weight: bold; text-align: center;">个人成绩查询</div>
-                <div class="pk-inputs-container" style="margin-bottom: 15px;">
-                    <div class="pk-input-wrapper">
-                        <input type="text" id="search-input" class="pk-input" placeholder="输入选手 (姓名或WCAID)" autocomplete="off">
-                        <div id="autocomplete-search" class="autocomplete-list"></div>
-                    </div>
-                </div>
-                <button class="search-pk-btn" onclick="performSearch()">开始查询</button>
-            </div>
-
+<input type="hidden" id="search-input"><div id="autocomplete-search" hidden></div>
             <!-- 选手PK模块 -->
             <div class="card">
                 <div style="font-size: 15px; color: var(--text-main); margin-bottom: 16px; font-weight: bold; text-align: center;">选手成绩 PK</div>
@@ -1534,26 +1525,21 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <button class="search-pk-btn" onclick="handlePkClick()">开始对比</button>
             </div>
 
-            <!-- 统一带滚动条的历史记录模块 -->
-            <div class="card combined-history-card" id="combined-history-container" style="display:none;">
-                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: bold; text-align: center; flex-shrink: 0;">最近查询与对战</div>
-                <div id="combined-history-list" class="history-scroll-container"></div>
-            </div>
         </div>
+<section class="card player-directory"><form id="directory-filters" onsubmit="event.preventDefault();submitDirectorySearch()"><h3 id="directory-count">选手列表</h3><input id="directory-country" type="hidden" value="CN"><button type="button" class="directory-filter" id="directory-country-button" onclick="openDirectoryFilter('country')"><span>中国</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><input id="directory-gender" type="hidden" value=""><button type="button" class="directory-filter" id="directory-gender-button" onclick="openDirectoryFilter('gender')"><span>全部</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="directory-name-pair"><input id="directory-name" placeholder="姓名或 WCA ID" aria-label="选手姓名或WCA ID"><span class="directory-vs">VS</span><input id="directory-name-b" placeholder="选手 B" aria-label="选手B"><div id="directory-autocomplete-a" class="autocomplete-list directory-pk-suggestions"></div><div id="directory-autocomplete-b" class="autocomplete-list directory-pk-suggestions"></div></div><button class="directory-search pk-cancel-btn" type="submit">搜索</button></form><div class="directory-table-wrap"><table><thead><tr><th>姓名</th><th>WCA ID</th><th>地区</th><th>性别</th></tr></thead><tbody id="directory-rows"></tbody></table></div><div class="directory-pages news-compact-pagination"></div></section>
     </div>
 
     <div id="cube-explorer-page" class="page-container">
         <div class="ce-shell">
-            <div class="page-header formula-header"><h2>Cube Explorer</h2></div>
             <div class="ce-workspace">
-                <section class="card ce-visual-card" aria-label="魔方模型与六面展开">
-                    <div class="ce-model-section"><div class="ce-section-heading"><h3>观察魔方</h3><button type="button" class="ce-text-button" data-ce="view">重置视角</button></div>
+                <div class="ce-visual-card">
+                    <div class="card ce-model-section"><div class="ce-section-heading"><h3>观察魔方</h3><button type="button" class="ce-text-button" data-ce="view">重置视角</button></div>
                     <div id="ce-model" tabindex="0" role="img" aria-label="三维魔方，可拖动或使用方向键旋转视角" title="拖动旋转视角，方向键微调"><span class="ce-placeholder">正在准备魔方…</span></div></div>
-                    <div class="ce-net-section">
+                    <div class="card ce-net-section">
                         <div class="ce-section-heading ce-net-heading"><h3>展开图</h3><div class="ce-color-tools"><button type="button" class="ce-text-button" data-ce="reset-colors">重置</button><button type="button" class="ce-text-button" id="ce-edit-colors" data-ce="edit" aria-expanded="false" aria-controls="ce-palette">编辑配色</button><div id="ce-palette" class="ce-palette" hidden aria-label="选择涂色颜色"></div></div></div>
                         <div class="ce-net-frame"><div id="ce-net" class="ce-net" aria-label="魔方六面展开图"></div></div>
                     </div>
-                </section>
+                </div>
                 <section class="card ce-control-card" aria-label="打乱与求解">
                     <div class="ce-scramble-section">
                         <div class="ce-section-heading"><h3>打乱公式</h3><button type="button" class="ce-text-button" data-ce="copy-scramble">复制</button></div>
@@ -1561,10 +1547,10 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                         <div class="ce-actions"><button type="button" class="ce-button" data-ce="reset">复原状态</button><button type="button" class="ce-button" data-ce="random">随机打乱</button><button type="button" class="ce-button" data-ce="apply">应用打乱</button></div>
                     </div>
                     <div class="ce-solver-section">
-                        <div class="ce-section-heading ce-solver-heading"><h3>寻找解法</h3><div class="ce-depth-control"><label for="ce-depth">步数设置</label><div class="ce-stepper"><button type="button" data-ce="minus" aria-label="减少步数">−</button><input id="ce-depth" type="number" min="1" max="30" value="20" inputmode="numeric" aria-label="求解步数上限"><button type="button" data-ce="plus" aria-label="增加步数">+</button></div></div></div>
-                        <button type="button" class="ce-button ce-solve-button" id="ce-solve" data-ce="solve"><span class="ce-spinner" hidden></span><span id="ce-solve-text">求解当前状态</span></button>
+                        <div class="ce-section-heading ce-solver-heading"><h3>寻找解法</h3><div class="ce-depth-control"><label for="ce-depth">步数设置</label><div class="ce-stepper"><button type="button" data-ce="minus" aria-label="减少步数">−</button><input id="ce-depth" type="number" min="1" max="24" value="20" inputmode="numeric" aria-label="求解步数上限"><button type="button" data-ce="plus" aria-label="增加步数">+</button></div></div></div>
+                        <button type="button" class="ce-button ce-solve-button pk-cancel-btn" id="ce-solve" data-ce="solve"><span class="ce-spinner" hidden></span><span id="ce-solve-text">求解当前状态</span></button>
                         <div id="ce-status" class="ce-status" role="status" aria-live="polite">准备就绪。</div>
-                        <div class="ce-history-panel"><div class="ce-section-heading ce-history-heading"><h3 id="ce-history-title">解法记录 <span id="ce-history-count">0</span></h3><button type="button" class="ce-text-button" data-ce="clear">清空记录</button></div><div class="ce-history-wrap"><div id="ce-history" tabindex="0" role="region" aria-labelledby="ce-history-title"><p class="ce-empty">求解后，记录会保存在这里。</p></div><div id="ce-history-scrollbar" role="scrollbar" aria-label="滚动解法记录" aria-controls="ce-history" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span class="ce-history-scroll-thumb"></span></div></div></div>
+                        <div class="ce-history-panel"><div class="ce-section-heading ce-history-heading"><h3 id="ce-history-title">解法记录</h3><button type="button" class="ce-text-button" data-ce="clear">清空记录</button></div><div class="ce-history-wrap"><div id="ce-history" tabindex="0" role="region" aria-labelledby="ce-history-title"><p class="ce-empty">求解后，记录会保存在这里。</p></div><div id="ce-history-scrollbar" role="scrollbar" aria-label="滚动解法记录" aria-controls="ce-history" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span class="ce-history-scroll-thumb"></span></div></div></div>
                     </div>
                 </section>
             </div>
@@ -1573,10 +1559,6 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
     <!-- 丢失的 PK 结果页面补丁 -->
     <div id="pk-result-page" class="page-container">
-        <div class="page-header">
-            <button onclick="goBack()">返回上一页</button>
-            <h2>对决结果</h2>
-        </div>
         <div class="card" id="pk-result-card" style="max-width: 800px; margin: 0 auto 24px auto;">
             <div class="pk-score-board">
                 <div class="pk-score-item"></div>
@@ -1632,7 +1614,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
         <div class="card" id="big-cube-index-card" style="display: none; margin-top: 20px;">
             <div style="text-align: center; margin-bottom: 15px;">
-                <h3 style="margin: 0 0 5px 0; font-size: 16px; color: var(--primary-color);">高阶健康指数</h3>
+                <h3 style="margin: 0 0 5px 0; font-size: 17px; color: var(--primary-color);">高阶健康指数</h3>
                 <div style="font-size: 12px; color: var(--text-muted);">
                     评估四阶到七阶魔方的复原时间健康度<br>
                     指数偏高代表比较的两方中低阶偏快或高阶偏慢，指数偏低则相反<br>
@@ -1657,7 +1639,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         <div class="card" id="history-chart-card" style="display: none; margin-top: 20px;">
             <div id="history-event-tabs" style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; font-size: 16px; color: var(--text-main);">成绩变化曲线</h3>
+                <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">成绩变化曲线</h3>
                 <div id="person-chart-switch" class="ios-segment-control" role="group" aria-label="成绩变化曲线类型">
                     <button type="button" id="btn-type-single" class="ios-segment-btn" aria-pressed="false" onclick="setChartType('single')">单次</button>
                     <button type="button" id="btn-type-average" class="ios-segment-btn active" aria-pressed="true" onclick="setChartType('average')">平均</button>
@@ -1666,7 +1648,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <div style="height: 250px; width: 100%; margin-bottom: 30px;">
                 <canvas id="progressChart"></canvas>
             </div>
-            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--text-main);">历史成绩详情</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: 17px; color: var(--text-main);">历史成绩详情</h3>
             <div class="table-responsive">
                 <table style="font-size: 13px;">
                     <thead>
@@ -1686,7 +1668,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     </div>
 
     <button id="formula-favorites-float" type="button" aria-label="我的收藏" title="我的收藏" onclick="FormulaFavorites.open()"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.55 4.45 1.07 6.28L12 17.37l-5.62 2.96 1.07-6.28L2.9 9.6l6.3-.9Z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
-    <button id="person-back-top" type="button" aria-label="返回个人页面顶部" title="返回顶部" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+    <button id="directory-pk-toggle" type="button" aria-label="切换双人PK" aria-pressed="false" onclick="toggleDirectoryPK()">PK</button>
+    <button id="person-back-top" type="button" aria-label="返回顶部" title="返回顶部" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m5 14 7-7 7 7" />
         </svg>
@@ -1995,21 +1978,21 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
     </div>
 
-    <script src="database.js?v=1.18-fto-weekly-20261004"></script>
+    <script src="database.js?v=1.60.0"></script>
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.56.0"></script>
+    <script src="main.js?v=1.60.0"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.56.0"></script>
+    <script src="account.js?v=1.60.0"></script>
     <script src="theme.js?v=1.48.14"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
-    <script src="timer_smart.js?v=1.56.0"></script>
-    <script src="cube_space_player.js?v=1.56.0"></script>
-    <script src="formula_favorites.js?v=1.56.0"></script>
+    <script src="timer_smart.js?v=1.56.16"></script>
+    <script src="cube_space_player.js?v=1.56.16"></script>
+    <script src="formula_favorites.js?v=1.56.16"></script>
 </body>
 </html>

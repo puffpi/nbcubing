@@ -204,3 +204,42 @@ html[data-theme=dark] .discovery-page #d-lab-change .d-count-label{fill:#a6adb5;
 .discovery-page .d-dialog{box-sizing:border-box;}
 @media(max-width:600px){.discovery-page .d-dialog{width:340px;max-width:calc(100vw - 32px);margin:auto;}}
 #d-lab-dialog > button[data-action="apply"]{display:block;margin-left:auto;}
+
+#insight-page.discovery-page{padding-top:84px!important;}
+
+.discovery-page .d-lab-top :is(#d-lab-source, [data-action=timer], .d-source-tools .d-btn) {
+    box-sizing: border-box;
+    height: 38px;
+}
+.discovery-page [data-action=timer]:hover { transform: none; }
+.discovery-page :is(#d-lab-source, #d-source-list .d-source-option) {
+    gap: 8px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 20px;
+}
+.discovery-page #d-lab-source { padding-inline: 12px; }
+.discovery-page #d-lab-source .setting-chevron-wrap { margin-left: 0; }
+.discovery-page #d-source-list .d-source-option { padding-inline: 7px 30px; }
+.discovery-page :is(#d-lab-source, #d-source-list .d-source-option) > :first-child {
+    width: 26px;
+    flex: 0 0 26px;
+    text-align: center;
+    font-size: 16px;
+}
+.discovery-page :is(#d-lab-source, #d-source-list .d-source-option) > small { font-size: 12px; }
+
+.discovery-page .event-inline-picker :is(#d-lab-source, #d-source-list .d-source-option) {
+    font-size: 16px;
+    font-weight: 400;
+    gap: 8px;
+}
+.discovery-page .event-inline-picker :is(#d-lab-source, #d-source-list .d-source-option) > span:nth-child(2) {
+    font: inherit;
+}
+.discovery-page .event-inline-picker :is(#d-lab-source, #d-source-list .d-source-option) > .cubing-icon {
+    width: 20px !important;
+    flex: 0 0 20px !important;
+    font-size: 20px;
+}
+.discovery-page :is(#d-lab-source, #d-source-list .d-source-option) > small { font-size: 13px; font-weight: 400; }
