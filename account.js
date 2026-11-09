@@ -78,14 +78,25 @@ async function refreshAccountOnce(revision) {
 }
 async function accountRequest(action,fields) {
     if(!['register','login'].includes(action))throw new Error('无效操作。');
-    const client=await accountClient(),session=await accountSession(client);if(session.error)throw session.error;
+    const client=await accountClient();
+    let accessToken;
+    if (action === 'register') {
+        const session = await accountSession(client);
+        if (session.error) throw session.error;
+        accessToken = session.data.session?.access_token;
+    }
     // Supabase display-name edits do not change the deployed function's slug.
     const response=await accountServiceFetch(`${SUPABASE_URL}/functions/v1/swift-processor`,{
-        method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,...(session.data.session ? {Authorization:`Bearer ${session.data.session.access_token}`} : {})},
+        method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,...(accessToken ? {Authorization:`Bearer ${accessToken}`} : {})},
         body:JSON.stringify({action,...fields})
     });
-    let result;try{result=await response.json();}catch{throw new Error('账号服务尚未部署或暂不可用。');}
-    if(!response.ok)throw new Error(result.error || '账号操作失败。');
+    let result;
+    try { result = await response.json(); }
+    catch { throw new Error(`账号服务暂不可用（HTTP ${response.status}），请稍后重试。`); }
+    if (!response.ok) {
+        if (response.status === 429) throw new Error(result?.error || '尝试次数过多，请稍后重试。');
+        throw new Error(result?.error || `账号操作失败（HTTP ${response.status}）。`);
+    }
     if(result.session){const signed=await client.auth.setSession({access_token:result.session.access_token,refresh_token:result.session.refresh_token});if(signed.error)throw signed.error;await refreshAccount();}
     return result;
 }
@@ -142,13 +153,27 @@ function setMonthlyEntryLoading(loading){
     card.querySelectorAll('button').forEach(button=>button.disabled=loading);
 }
 initMonthly=async function(){
-    if(monthlyPageLoading)return;monthlyPageLoading=true;accountEl('monthly-page-loading').hidden=false;
-    let failure;
-    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}void renderMonthlyList().catch(error=>console.warn('月赛统计更新失败',error));navigateTo('monthly-page');ensureTwistyPlayer().catch(console.warn);}
-    catch(error){failure=error;}
-    finally{monthlyPageLoading=false;accountEl('monthly-page-loading').hidden=true;}
-    // Commit removal of the loading layer before a blocking native JS dialog.
-    if(failure){await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));alert(accountError(failure));}
+    if(monthlyPageLoading)return;
+    monthlyPageLoading=true;
+    const loader=accountEl('monthly-page-loading');
+    if(!loader.hasChildNodes()){
+        loader.append(...Array.from(accountEl('global-loading').children, child=>child.cloneNode(true)));
+    }
+    loader.hidden=false;
+    const previousEntries=JSON.stringify([...accountMonthly]);
+    const render=()=>renderMonthlyList().catch(error=>console.warn('月赛统计更新失败',error));
+    try{
+        navigateTo('monthly-page');
+        void render();
+        ensureTwistyPlayer().catch(console.warn);
+        void refreshAccount().then(()=>{
+            if(accountEl('monthly-page').classList.contains('active') && previousEntries!==JSON.stringify([...accountMonthly]))void render();
+        }).catch(error=>console.warn('月赛账号状态暂不可用',error));
+        await new Promise(resolve=>setTimeout(resolve,1250));
+    }finally{
+        monthlyPageLoading=false;
+        loader.hidden=true;
+    }
 };
 function openMonthlyAccountModal(after=initMonthly,allowGuest=false,mode='login'){
     if(forumModalBusy)return;
@@ -318,7 +343,7 @@ function renderAccountDashboard(){
 }
 
 const adHealthTemplate="<div class=\"card\" id=\"account-big-cube-index-card\" style=\"display: none; margin-top: 20px;\">\n            <div style=\"text-align: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0 0 5px 0; font-size: 17px; color: var(--primary-color);\">高阶健康指数</h3>\n                <div style=\"font-size: 12px; color: var(--text-muted);\">\n                    评估四阶到七阶魔方的复原时间健康度<br>\n                    指数偏高代表比较的两方中低阶偏快或高阶偏慢，指数偏低则相反<br>\n                    参考区间：五阶/四阶 ∈ (1.7, 2.0)，六阶/五阶 ∈ (1.7, 2.0)，七阶≤六阶+五阶 即 七阶/六阶 ≈ 1.5\n                </div>\n            </div>\n            <div class=\"table-responsive\">\n                <table>\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%\">类型</th>\n                            <th style=\"width: 25%\">五阶 / 四阶</th>\n                            <th style=\"width: 25%\">六阶 / 五阶</th>\n                            <th style=\"width: 25%\">七阶 / 六阶</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-big-cube-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
-const adHistoryTemplate="<div class=\"card\" id=\"account-history-chart-card\" style=\"display: none; margin-top: 20px;\">\n            <div id=\"account-history-event-tabs\" style=\"display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;\"></div>\n            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0; font-size: 17px; color: var(--text-main);\">成绩变化曲线</h3>\n                <div class=\"ios-segment-control\">\n                    <div id=\"account-btn-type-single\" class=\"ios-segment-btn\" >单次</div>\n                    <div id=\"account-btn-type-average\" class=\"ios-segment-btn active\" >平均</div>\n                </div>\n            </div>\n            <div style=\"height: 250px; width: 100%; margin-bottom: 30px;\">\n                <canvas id=\"account-progressChart\"></canvas>\n            </div>\n            <h3 style=\"margin: 0 0 15px 0; font-size: 17px; color: var(--text-main);\">历史成绩详情</h3>\n            <div class=\"table-responsive\">\n                <table style=\"font-size: 13px;\">\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%;\">比赛</th>\n                            <th style=\"width: 10%;\">轮次</th>\n                            <th style=\"width: 8%;\">排名</th>\n                            <th style=\"width: 12%;\">单次</th>\n                            <th style=\"width: 12%;\">平均</th>\n                            <th style=\"width: 35%;\">详情</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-history-detail-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
+const adHistoryTemplate="<div class=\"card\" id=\"account-history-chart-card\" style=\"display: none; margin-top: 20px;\">\n            <div id=\"account-history-event-tabs\"></div>\n            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;\">\n                <h3 style=\"margin: 0; font-size: 17px; color: var(--text-main);\">成绩变化曲线</h3>\n                <div class=\"ios-segment-control\">\n                    <div id=\"account-btn-type-single\" class=\"ios-segment-btn\" >单次</div>\n                    <div id=\"account-btn-type-average\" class=\"ios-segment-btn active\" >平均</div>\n                </div>\n            </div>\n            <div style=\"height: 250px; width: 100%; margin-bottom: 30px;\">\n                <canvas id=\"account-progressChart\"></canvas>\n            </div>\n            <h3 style=\"margin: 0 0 15px 0; font-size: 17px; color: var(--text-main);\">历史成绩详情</h3>\n            <div class=\"table-responsive\">\n                <table style=\"font-size: 13px;\">\n                    <thead>\n                        <tr>\n                            <th style=\"width: 25%;\">比赛</th>\n                            <th style=\"width: 10%;\">轮次</th>\n                            <th style=\"width: 8%;\">排名</th>\n                            <th style=\"width: 12%;\">单次</th>\n                            <th style=\"width: 12%;\">平均</th>\n                            <th style=\"width: 35%;\">详情</th>\n                        </tr>\n                    </thead>\n                    <tbody id=\"account-history-detail-tbody\"></tbody>\n                </table>\n            </div>\n        </div>";
 function adTemplate(html,cls){const t=document.createElement('template');t.innerHTML=html;const card=t.content.firstElementChild;card.classList.add(cls);card.style.display='block';return card;}
 function renderAccountHealth(root,records){
  const section=adTemplate(adHealthTemplate,'ad-legacy-health');root.append(section);
@@ -388,7 +413,7 @@ function renderAccountLegacyHistory(root,history){
  const tabs=card.querySelector('#account-history-event-tabs');
  const available=eventDict.filter(ev=>history[ev.id]?.length);
  if(!history[accountDashboardEvent])accountDashboardEvent=available[0]?.id;
- for(const ev of available){const tab=adButton('',()=>{accountDashboardEvent=ev.id;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===tab));updateAccountLegacyHistory(card);},'history-event-tab'+(ev.id===accountDashboardEvent?' active':''));tab.setAttribute('aria-label',ev.name);tab.style.border='0';tab.style.padding='0';const icon=adIcon(ev.id);icon.style.fontSize='26px';tab.append(icon);tabs.append(tab);}
+ for(const ev of available){const tab=adButton('',()=>{accountDashboardEvent=ev.id;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===tab));updateAccountLegacyHistory(card);},'history-event-tab'+(ev.id===accountDashboardEvent?' active':''));tab.setAttribute('aria-label',ev.name);tab.append(adIcon(ev.id));tabs.append(tab);}
  const switcher=card.querySelector('.ios-segment-control');switcher.classList.add('profile-chart-switch');switcher.setAttribute('role','group');switcher.setAttribute('aria-label','成绩变化曲线类型');switcher.style.setProperty('--profile-index',accountDashboardType==='average'?1:0);
  for(const type of ['single','average']){const button=card.querySelector('#account-btn-type-'+type);button.setAttribute('role','button');button.tabIndex=0;button.setAttribute('aria-pressed',String(type===accountDashboardType));button.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();}};button.onclick=()=>{accountDashboardType=type;switcher.style.setProperty('--profile-index',type==='average'?1:0);card.querySelectorAll('.ios-segment-btn').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});updateAccountLegacyHistory(card);};button.classList.toggle('active',type===accountDashboardType);}
  updateAccountLegacyHistory(card);
@@ -685,7 +710,16 @@ function renderAccountDense(section,records,history,player){
  const scroll=adNode('div','table-responsive'),table=adNode('table','ad-dense-table'),head=adNode('thead'),tr=adNode('tr');
  for(const label of ['项目','单次','NR',getContinentRankPrefix(player.person.country_iso2),'WR','比赛与日期','平均','NR',getContinentRankPrefix(player.person.country_iso2),'WR','比赛与日期'])tr.append(adNode('th','',label));head.append(tr);table.append(head);
  const body=adNode('tbody');for(const ev of eventDict){if(!records[ev.id])continue;const row=adNode('tr'),label=adNode('td');const event=adNode('div','ad-classic-event');event.append(adIcon(ev.id),adNode('span','',ev.name));label.append(event);row.append(label);
- for(const type of ['single','average']){const r=records[ev.id][type];row.append(adNode('td','ad-dense-score',r?formatWcaResult(r.best,ev.id,type):'—'));for(const v of [r?.country_rank,r?.continent_rank,r?.world_rank])row.append(adNode('td','ad-dense-rank '+(v>0&&v<=100?'ad-top100':''),String(v||'—')));const match=history?.[ev.id]?.find(h=>h[type]===r?.best),source=adNode('td','ad-dense-source');source.append(adNode('div','',getChineseCompetitionName(r?.comp_name||match?.comp||'—')),adNode('small','',r?.comp_date||match?.date||'—'));row.append(source);}body.append(row);}table.append(body);scroll.append(table);section.append(scroll);
+ if(ev.id==='333mbf')row.classList.add('ad-multiblind-row');
+ for(const type of ['single','average']){
+   const r=records[ev.id][type];
+   const score=r?formatWcaResult(r.best,ev.id,type):'—';
+   row.append(adNode('td','ad-dense-score',ev.id==='333mbf'?score.replace(' （','\n（'):score));
+   for(const v of [r?.country_rank,r?.continent_rank,r?.world_rank])row.append(adNode('td','ad-dense-rank '+(v>0&&v<=100?'ad-top100':''),String(v||'—')));
+   const match=history?.[ev.id]?.find(h=>h[type]===r?.best),source=adNode('td','ad-dense-source');
+   source.append(adNode('div','',getChineseCompetitionName(r?.comp_name||match?.comp||'—')),adNode('small','',r?.comp_date||match?.date||'—'));
+   row.append(source);
+ }body.append(row);}table.append(body);scroll.append(table);section.append(scroll);
 }
 
 function openPersonLayoutModal(){

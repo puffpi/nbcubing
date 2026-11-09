@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.60.0">
+    <link rel="stylesheet" href="style.css?v=1.60.17">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -46,7 +46,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
     </div>
 
-    <div id="monthly-page-loading" class="monthly-page-loading" role="status" aria-label="载入中..." hidden><div class="spinner" aria-hidden="true"></div><div>载入中...</div></div>
+    <div id="monthly-page-loading" class="monthly-page-loading" hidden></div>
     <div id="global-loading">
         <div class="startup-mosaic" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="startup-caption" role="status">载入中<span class="startup-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
@@ -254,13 +254,13 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <button type="button" title="二阶FTO" aria-label="二阶FTO" disabled><i class="cubing-icon unofficial-baby_fto" aria-hidden="true"></i></button>
                     <span>CTO</span>
                     <button type="button" title="REDI" aria-label="REDI" disabled><i class="cubing-icon unofficial-redi" aria-hidden="true"></i></button>
-                    <button type="button" title="枫叶" aria-label="枫叶" disabled><i class="cubing-icon unofficial-ivy" aria-hidden="true"></i></button>
+                    <button type="button" title="枫叶" aria-label="枫叶" disabled><svg class="cca-project-icon" viewBox="0 0 500 500" fill="currentColor" aria-hidden="true"><path d="M470 470H84c231-65 321-155 386-386zM30 30h386C185 95 95 185 30 416z"/><path d="M445 55C420.503 300.955 261.759 420.503 55 445 79.498 199.045 238.241 79.498 445 55"/></svg></button>
                     <span>二重奏</span>
                     <button type="button" title="镜面" aria-label="镜面" disabled><i class="cubing-icon unofficial-333_mirror_blocks" aria-hidden="true"></i></button>
                     <span>二阶镜面</span>
                     <button type="button" title="三阶盲拧" aria-label="三阶盲拧" disabled><i class="cubing-icon event-333bf" aria-hidden="true"></i></button>
                     <button type="button" title="最少步" aria-label="最少步" disabled><i class="cubing-icon event-333fm" aria-hidden="true"></i></button>
-                    <button type="button" title="齿轮" aria-label="齿轮" disabled><i class="cubing-icon unofficial-gear" aria-hidden="true"></i></button>
+                    <button type="button" title="齿轮" aria-label="齿轮" disabled><svg class="cca-project-icon" viewBox="0 0 500 500" fill="currentColor" aria-hidden="true"><path d="M102.5 261c0-5 1-2 1-11s-1-6-1-11c0-6.767 8.263-12.364 15-13 26.5-2.5 39.5-21.5 36.5-30s-29-8-39-3.5c-12.5 5.625-11 13.02-28.5 10.5-11.535-1.661-20-10.5-29.5-15-7.8-3.695-11.478-4-15.5-14.5-2.873-7.5 4.042-14 5-25.5 1-12-5-27-11.5-25.5-3.635.839-5 5.5-5 5.5v244s1.365 4.661 5 5.5C41.5 379 47.5 364 46.5 352c-.958-11.5-7.873-18-5-25.5C45.522 316 49.2 315.695 57 312c9.5-4.5 17.965-13.339 29.5-15 17.5-2.52 16 4.875 28.5 10.5 10 4.5 36 5 39-3.5s-10-27.5-36.5-30c-6.737-.636-15-6.233-15-13"/><path d="M30 93V30h63c5 0 6.822 7.943 7.5 15.5C101.643 58.239 108 60.236 120 64c32.518 10.2 47.5 14.4 44.5 33-2.5 15.5-21 11.5-32.5 12-6.246.272-7 4-13 10s-9.728 6.754-10 13c-.5 11.5 3.5 30-12 32.5-18.6 3-22.8-11.982-33-44.5-3.764-12-5.761-18.357-18.5-19.5C37.943 99.822 30 98 30 93M397.5 239c0 5-1 2-1 11s1 6 1 11c0 6.767-8.263 12.364-15 13-26.5 2.5-39.5 21.5-36.5 30s29 8 39 3.5c12.5-5.625 11-13.02 28.5-10.5 11.535 1.661 20 10.5 29.5 15 7.801 3.695 11.478 4 15.5 14.5 2.873 7.5-4.042 14-5 25.5-1 12 5 27 11.5 25.5 3.635-.839 5-5.5 5-5.5V128s-1.365-4.661-5-5.5c-6.5-1.5-12.5 13.5-11.5 25.5.958 11.5 7.873 18 5 25.5-4.022 10.5-7.699 10.805-15.5 14.5-9.5 4.5-17.965 13.339-29.5 15-17.5 2.52-16-4.875-28.5-10.5-10-4.5-36-5-39 3.5s10 27.5 36.5 30c6.737.636 15 6.233 15 13"/><path d="M470 407v63h-63c-5 0-6.822-7.943-7.5-15.5-1.143-12.739-7.5-14.736-19.5-18.5-32.518-10.199-47.5-14.4-44.5-33 2.5-15.5 21-11.5 32.5-12 6.246-.272 7-4 13-10s9.728-6.754 10-13c.5-11.5-3.5-30 12-32.5 18.6-3 22.801 11.982 33 44.5 3.764 12 5.761 18.357 18.5 19.5 7.557.678 15.5 2.5 15.5 7.5M239 102.5c5 0 2 1 11 1s6-1 11-1c6.767 0 12.364 8.263 13 15 2.5 26.5 21.5 39.5 30 36.5s8-29 3.5-39c-5.625-12.5-13.02-11-10.5-28.5 1.661-11.535 10.5-20 15-29.5 3.695-7.8 4-11.478 14.5-15.5 7.5-2.873 14 4.042 25.5 5 12 1 27-5 25.5-11.5-.839-3.635-5.5-5-5.5-5H128s-4.661 1.365-5.5 5C121 41.5 136 47.5 148 46.5c11.5-.958 18-7.873 25.5-5C184 45.522 184.305 49.2 188 57c4.5 9.5 13.339 17.965 15 29.5 2.52 17.5-4.875 16-10.5 28.5-4.5 10-5 36 3.5 39s27.5-10 30-36.5c.636-6.737 6.233-15 13-15"/><path d="M407 30h63v63c0 5-7.943 6.822-15.5 7.5-12.739 1.143-14.736 7.5-18.5 19.5-10.199 32.518-14.4 47.5-33 44.5-15.5-2.5-11.5-21-12-32.5-.272-6.246-4-7-10-13s-6.754-9.728-13-10c-11.5-.5-30 3.5-32.5-12-3-18.6 11.982-22.8 44.5-33 12-3.764 18.357-5.761 19.5-18.5.678-7.557 2.5-15.5 7.5-15.5M232 250c-2.616-6.667-4.844-9.752-11.5-11-32-6-29.5-40-25.5-44s38-6.5 44 25.5c1.248 6.656 4.333 8.884 11 11.5 6.667-2.616 9.752-4.844 11-11.5 6-32 40-29.5 44-25.5s6.5 38-25.5 44c-6.656 1.248-8.884 4.333-11.5 11 2.616 6.667 4.844 9.752 11.5 11 32 6 29.5 40 25.5 44s-38 6.5-44-25.5c-1.248-6.656-4.333-8.884-11-11.5-6.667 2.616-9.752 4.844-11 11.5-6 32-40 29.5-44 25.5s-6.5-38 25.5-44c6.656-1.248 8.884-4.333 11.5-11M261 397.5c-5 0-2-1-11-1s-6 1-11 1c-6.767 0-12.364-8.263-13-15-2.5-26.5-21.5-39.5-30-36.5s-8 29-3.5 39c5.625 12.5 13.02 11 10.5 28.5-1.661 11.535-10.5 20-15 29.5-3.695 7.801-4 11.478-14.5 15.5-7.5 2.873-14-4.042-25.5-5-12-1-27 5-25.5 11.5.839 3.635 5.5 5 5.5 5h244s4.661-1.365 5.5-5c1.5-6.5-13.5-12.5-25.5-11.5-11.5.958-18 7.873-25.5 5-10.5-4.022-10.805-7.699-14.5-15.5-4.5-9.5-13.339-17.965-15-29.5-2.52-17.5 4.875-16 10.5-28.5 4.5-10 5-36-3.5-39s-27.5 10-30 36.5c-.636 6.737-6.233 15-13 15"/><path d="M93 470H30v-63c0-5 7.943-6.822 15.5-7.5C58.239 398.357 60.236 392 64 380c10.2-32.518 14.4-47.5 33-44.5 15.5 2.5 11.5 21 12 32.5.272 6.246 4 7 10 13s6.754 9.728 13 10c11.5.5 30-3.5 32.5 12 3 18.6-11.982 22.801-44.5 33-12 3.764-18.357 5.761-19.5 18.5-.678 7.557-2.5 15.5-7.5 15.5"/></svg></button>
                     <button type="button" title="魔表" aria-label="魔表" disabled><i class="cubing-icon event-clock" aria-hidden="true"></i></button>
                     <span>叠杯Cycle</span>
                     <span>四阶华容道</span>
@@ -487,7 +487,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom: 0;">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.60.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.62.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -656,7 +656,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <button onclick="goBack()">返回上一页</button>
                 <div>
                     <h2 style="margin-bottom: 5px;">巅峰月赛</h2>
-                    <div id="monthly-date-range" style="font-size: 14px; color: var(--text-muted); font-weight: normal; font-family: 'SFMono-Regular', Consolas, monospace;"></div>
+                    <div id="monthly-date-range" class="monthly-date-range"></div>
                 </div>
             </div>
         </div>
@@ -675,6 +675,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <button onclick="goBack()">返回上一页</button>
                 <div>
                     <h2 id="monthly-ranking-title" style="margin-bottom: 5px;">月赛排行榜</h2>
+                    <div id="monthly-ranking-date-range" class="monthly-date-range"></div>
                 </div>
             </div>
         </div>
@@ -984,14 +985,14 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerDailyStats()">日常统计</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerImportModal()">导入成绩</div>
                         <div class="timer-more-item" style="color: var(--text-main);" onclick="openTimerExportModal()">导出成绩</div>
-                        <div class="timer-more-item" onclick="openTimerClearModal()">清空成绩</div>
+                        <div class="timer-more-item timer-more-danger" style="color: #d87070 !important;" onclick="openTimerClearModal()">清空成绩</div>
                     </div>
                 </div>
 
                 <!-- 计时器项目选择悬浮卡片 -->
                 <div id="timer-event-popup" class="edit-score-popup" onclick="closeTimerEventPopup(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择计时项目</h3>
+                        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择项目</h3>
                         <div id="timer-event-grid" class="chal-event-grid"></div>
                         <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
                             <div id="timer-category-select" class="timer-category-select" role="group" aria-label="计时项目分类"><button type="button" aria-label="上一个分类" onclick="cycleTimerCategory(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="timer-category-label">WCA</span><button type="button" aria-label="下一个分类" onclick="cycleTimerCategory(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div>
@@ -1418,10 +1419,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                         <option value="444bf">四盲</option>
                         <option value="555bf">五盲</option>
                         <option value="333mbf">多盲</option>
-                        <option value="333ft" style="color:var(--text-muted);">脚拧</option>
-                        <option value="magic" style="color:var(--text-muted);">八板</option>
-                        <option value="mmagic" style="color:var(--text-muted);">十二板</option>
-                        <option value="mbf" style="color:var(--text-muted);">旧版多盲</option>
+                        <option value="333ft" data-retired>脚拧</option>
+                        <option value="magic" data-retired>八板</option>
+                        <option value="mmagic" data-retired>十二板</option>
                     </select>
                 <div class="inline-picker ranking-picker-event event-inline-picker"><button type="button" class="inline-picker-trigger" aria-label="选择项目" aria-expanded="false" onclick="toggleRankingPicker(this, 'event')"><span class="cubing-icon event-333" aria-hidden="true"></span><span class="ranking-picker-value">三阶</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div>
                 <div class="inline-picker ranking-picker-type"><button type="button" class="inline-picker-trigger" aria-label="选择成绩类型" aria-expanded="false" onclick="toggleRankingPicker(this, 'type')"><span class="ranking-picker-value">单次</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16"><path d="m8 5 5 5-5 5"/></svg></span></button><div class="inline-picker-menu" hidden></div></div>
@@ -1637,7 +1637,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
 
         <div class="card" id="history-chart-card" style="display: none; margin-top: 20px;">
-            <div id="history-event-tabs" style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; overflow-x: auto;"></div>
+            <div id="history-event-tabs"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">成绩变化曲线</h3>
                 <div id="person-chart-switch" class="ios-segment-control" role="group" aria-label="成绩变化曲线类型">
@@ -1677,11 +1677,6 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
     <!-- NB Challenge 页面 -->
     <div id="challenge-page" class="page-container">
-        <!-- 电脑端专属顶部导航栏 -->
-        <div class="page-header chal-pc-header" style="z-index: 100; min-height: 44px; padding: 0;">
-            <button onclick="exitChallenge()">返回上一页</button>
-        </div>
-
         <div class="challenge-wrapper">
             <!-- 玩家 A (上半屏) -->
             <div class="challenge-half top-half" id="challenge-top-area">
@@ -1692,7 +1687,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
             <!-- 中间分割线与计分板 -->
             <div class="challenge-divider">
-                <button class="challenge-back-btn chal-mobile-back" onclick="exitChallenge()">❮</button>
+                <button class="challenge-back-btn" aria-label="返回上一页" onclick="exitChallenge()">❮</button>
                 <div class="challenge-score" id="challenge-score-top">0</div>
 
                 <div class="challenge-event" onclick="openChalEventPopup()" title="点击切换挑战项目">
@@ -1702,16 +1697,18 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
                 <div class="challenge-score" id="challenge-score-bottom">0</div>
                 <!-- 新增：右侧对称的更多按钮 -->
-                <button class="challenge-back-btn chal-more-btn" onclick="toggleChalMore(event)">更多</button>
+                <div class="challenge-more">
+                <button type="button" class="challenge-back-btn chal-more-btn" onclick="toggleChalMore(event)">更多</button>
 
                 <!-- 新增：更多下拉菜单 -->
-                <div id="chal-more-dropdown" class="timer-more-dropdown" style="top: 50px; right: 15px;">
+                <div id="chal-more-dropdown" class="timer-more-dropdown">
                     <div class="timer-more-item" onclick="openChalSettingsModal('clear')">清空比分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('winScore')">设置胜利得分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('adjust')">手动调整比分</div>
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('handicap')">公平让秒</div>
                     <!-- 👇 新增：调整字体大小入口 👇 -->
                     <div class="timer-more-item" style="color: var(--text-main);" onclick="openChalSettingsModal('font')">调整字体大小</div>
+                </div>
                 </div>
             </div>
 
@@ -1725,7 +1722,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <!-- 挑战项目选择卡片 -->
             <div id="chal-event-popup" class="edit-score-popup" onclick="closeChalEventPopup(event)">
                 <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                    <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择挑战项目</h3>
+                    <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择项目</h3>
                     <div id="chal-event-grid" class="chal-event-grid"></div>
                     <div class="edit-popup-actions" style="margin-top: 15px;">
                         <button class="edit-btn-cancel" onclick="closeChalEventPopup()">取消</button>
@@ -1982,9 +1979,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.60.0"></script>
+    <script src="main.js?v=1.60.15"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.60.0"></script>
+    <script src="account.js?v=1.60.13"></script>
     <script src="theme.js?v=1.48.14"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>

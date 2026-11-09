@@ -1,6 +1,6 @@
 {
-  "versionCode": 42,
-  "versionName": "1.60.0",
+  "versionCode": 43,
+  "versionName": "1.62.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "成绩查询新增全球选手列表和 PK 对比；优化首页、排行榜、宁波纪录、赛事列表和 Cube Explorer；新增 CCA 赛事入口。"
+  "notes": "优化手机首页和赛事列表，完善 NB Challenge 的双人布局与切换打乱，NB Timer 新增数码管字体，并修复选手成绩显示和账号连接相关问题。"
 }

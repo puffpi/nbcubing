@@ -187,7 +187,9 @@ async function accountServiceFetch(input, options = {}) {
         signal?.addEventListener('abort', abort, { once: true });
         const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 30000);
         try {
-            const transport = typeof window !== 'undefined' && window.nbAppAccountFetch ? window.nbAppAccountFetch : fetch;
+            // A safe read can fall back to WebView fetch if the native transport fails.
+            const nativeFetch = typeof window !== 'undefined' && window.nbAppAccountFetch;
+            const transport = nativeFetch && attempt !== 1 ? nativeFetch : fetch;
             const response = await transport(input, { ...options, signal: controller.signal });
             if (attempt + 1 < attempts && [502,503,504,544].includes(response.status)) {
                 if(response.body)await response.body.cancel().catch(()=>{});
@@ -232,10 +234,11 @@ let uiSettings = {
 
 const fontOptions = [
     { id: 'default', name: '默认等宽', family: "'SFMono-Regular', Consolas, monospace" },
-    { id: 'arial', name: 'Arial (无衬线)', family: "Arial, Helvetica, sans-serif" },
-    { id: 'impact', name: 'Impact (厚重)', family: "Impact, sans-serif" },
-    { id: 'georgia', name: 'Georgia (衬线)', family: "Georgia, serif" },
-    { id: 'comic', name: 'Comic Sans (活泼)', family: "'Comic Sans MS', 'Chalkboard SE', cursive" }
+    { id: 'sevenSegment', name: '数码管', family: "'NB Seven Segment', 'SFMono-Regular', Consolas, monospace" },
+    { id: 'arial', name: 'Arial', family: "Arial, Helvetica, sans-serif" },
+    { id: 'impact', name: 'Impact', family: "Impact, sans-serif" },
+    { id: 'georgia', name: 'Georgia', family: "Georgia, serif" },
+    { id: 'comic', name: 'Comic Sans', family: "'Comic Sans MS', 'Chalkboard SE', cursive" }
 ];
 
 const cubeAppearanceOptions = [
@@ -719,6 +722,7 @@ function goBack() {
 
     // --- 核心拦截：巅峰月赛退出判定 ---
     const activePage = document.querySelector('.page-container.active');
+    if (activePage?.id === 'challenge-page' && chalState === 'RUNNING') return;
     if (activePage && activePage.id === 'monthly-timer-page') {
         if (!monthlyHasFinished) {
             document.getElementById('monthly-exit-modal').style.display = 'flex';
@@ -745,6 +749,10 @@ function showPage(pageId) {
     if (previousPage?.classList.contains('discovery-page') && previousPage.id !== pageId) window.Discovery?.leave();
     if (previousPage && previousPage.id !== pageId && (inlinePkState || pendingPkPlayerB)) cancelInlinePK(false);
     if (previousPage?.id === 'cube-explorer-page' && pageId !== previousPage.id) window.CubeExplorer?.leave();
+    if (previousPage?.id === 'challenge-page' && pageId !== previousPage.id) {
+        challengeTouches.clear();
+        cancelChallengePreparation();
+    }
     if (typeof forumPageChanged === 'function') forumPageChanged(pageId);
     if (pageId !== 'competition-detail-page') {
         if (competitionCountdownTimer) clearInterval(competitionCountdownTimer);
@@ -1346,11 +1354,11 @@ function renderPersonPage(cuber, preserveScroll = false) {
 
             let tab = document.createElement('div');
             tab.className = `history-event-tab ${isSelected ? 'active' : ''}`;
-            tab.innerHTML = `<span class="cubing-icon event-${evId}" style="font-size: 26px;"></span>`;
+            tab.innerHTML = `<span class="cubing-icon event-${evId}"></span>`;
 
             tab.onclick = () => {
                 currentChartEventId = evId;
-                document.querySelectorAll('.history-event-tab').forEach(el => el.classList.remove('active'));
+                eventTabs.querySelectorAll('.history-event-tab').forEach(el => el.classList.remove('active'));
                 tab.classList.add('active');
                 updateChartAndTable();
             };
@@ -1661,7 +1669,7 @@ function formatWcaResult(rawScore, eventId, type) {
         const padMins = mins.toString().padStart(2, '0');
         const padSecs = secs.toString().padStart(2, '0');
         let timeStr = hours > 0 ? `${hours}:${padMins}:${padSecs}` : `${mins}:${padSecs}`;
-        return `${solved}/${attempted} &nbsp;&nbsp;（${timeStr}）`;
+        return `${solved}/${attempted} （${timeStr}）`;
     }
     const totalSeconds = Math.floor(rawScore / 100);
     const mins = Math.floor(totalSeconds / 60);
@@ -1823,7 +1831,7 @@ function initRecordsTabs() {
             let tab = document.createElement('div');
             tab.className = `records-event-tab disabled`;
             tab.dataset.ev = ev.id;
-            tab.innerHTML = `<span class="cubing-icon event-${ev.id}" style="font-size: 24px;"></span>`;
+            tab.innerHTML = `<span class="cubing-icon event-${ev.id}"></span>`;
             tab.onclick = () => {
                 if (recordsMode === 'current') return;
                 recordsHistoryEvent = ev.id;
@@ -2198,11 +2206,12 @@ function toggleRankingPicker(trigger, kind) {
     if (kind === 'type') return toggleInlineOptions(trigger, rankingTypeOptions, currentRankingType, setRankingType);
     if (kind === 'gender') return toggleInlineOptions(trigger, rankingGenderOptions, currentRankingGender, setRankingGender);
     const select = document.getElementById('event-select');
-    const options = Array.from(select.options, option => [option.value, option.text]);
+    const options = Array.from(select.options, option => [option.value, option.text, option.hasAttribute('data-retired')]);
     toggleInlineOptions(trigger, options, select.value, (value, label) => {
         select.value = value;
         trigger.querySelector('.ranking-picker-value').textContent = label;
         trigger.querySelector('.cubing-icon').className = 'cubing-icon event-' + value;
+        trigger.classList.toggle('ranking-retired-event', select.selectedOptions[0].hasAttribute('data-retired'));
         updateRanking();
     }, true);
 }
@@ -4427,6 +4436,7 @@ function showChallengeHandicap() {
 let challengeScrambleObserver = null;
 let challengeScrambleTokens = [];
 let challengeScrambleIsMinx = false;
+let challengeRenderedEvent = null;
 
 function renderChallengeScramble(tokens) {
     return challengeScrambleIsMinx
@@ -4489,9 +4499,14 @@ async function generateChallengeScramble() {
     challengeScrambleReady = false;
     let scramble;
     try { scramble = await getScrambleByEvent(event); }
-    catch (error) { console.warn('打乱生成失败，保留上一条公式',error); return; }
+    catch (error) {
+        if (request === challengeScrambleRequest && event === challengeRenderedEvent) challengeScrambleReady = true;
+        console.warn('挑战打乱生成失败', error);
+        return;
+    }
     if (request !== challengeScrambleRequest || event !== chalCurrentEvent) return;
     challengeScrambleReady = true;
+    challengeRenderedEvent = event;
     challengeScrambleIsMinx = chalCurrentEvent === 'minx';
     challengeScrambleTokens = challengeScrambleIsMinx
         ? scramble.split(/<br\s*\/?\s*>/i).map(group => group.trim()).filter(Boolean)
@@ -4508,22 +4523,23 @@ async function generateChallengeScramble() {
 
 function updateChallengeScores() {
     const segments = {
-        a: '<rect x="3" y="0" width="12" height="3"/>',
-        b: '<rect x="15" y="3" width="3" height="11"/>',
-        c: '<rect x="15" y="16" width="3" height="11"/>',
-        d: '<rect x="3" y="27" width="12" height="3"/>',
-        e: '<rect x="0" y="16" width="3" height="11"/>',
-        f: '<rect x="0" y="3" width="3" height="11"/>',
-        g: '<rect x="3" y="13.5" width="12" height="3"/>'
+        a: '3,1.5 4.5,0 13.5,0 15,1.5 13.5,3 4.5,3',
+        b: '16.5,3 18,4.5 18,12.5 16.5,14 15,12.5 15,4.5',
+        c: '16.5,16 18,17.5 18,25.5 16.5,27 15,25.5 15,17.5',
+        d: '3,28.5 4.5,27 13.5,27 15,28.5 13.5,30 4.5,30',
+        e: '1.5,16 3,17.5 3,25.5 1.5,27 0,25.5 0,17.5',
+        f: '1.5,3 3,4.5 3,12.5 1.5,14 0,12.5 0,4.5',
+        g: '3,15 4.5,13.5 13.5,13.5 15,15 13.5,16.5 4.5,16.5'
     };
     const digitSegments = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgecd', 'abc', 'abcdefg', 'abfgcd'];
-    const renderScore = value => String(value).split('').map(char => {
+    const renderScore = (value, flipped) => String(value).split('').map(char => {
         const active = digitSegments[Number(char)] || 'g';
-        return `<svg viewBox="0 0 18 30" aria-hidden="true" focusable="false">${[...active].map(key => segments[key]).join('')}</svg>`;
+        const shapes = [...active].map(key => `<polygon points="${segments[key]}"/>`).join('');
+        return `<svg viewBox="0 0 18 30" aria-hidden="true" focusable="false"><g transform="${flipped ? 'rotate(180 9 15)' : ''}">${shapes}</g></svg>`;
     }).join('');
     [['top', chalScoreTop], ['bottom', chalScoreBottom]].forEach(([side, value]) => {
         const element = document.getElementById(`challenge-score-${side}`);
-        element.innerHTML = renderScore(value);
+        element.innerHTML = renderScore(value, side === 'top');
         element.setAttribute('role', 'img');
         element.setAttribute('aria-label', String(value));
     });
@@ -4932,50 +4948,110 @@ function checkChallengeFinish() {
 /* ================= 触屏与鼠标事件绑定 ================= */
 const isChalActive = () => document.querySelector('.page-container.active')?.id === 'challenge-page';
 
-document.addEventListener('touchstart', (e) => {
-    if (!isChalActive()) return;
-    if (e.target.closest('.global-nav-header')) return; // <--- 新增这行，放行顶部导航栏！
-    if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
-    if (e.cancelable) e.preventDefault();
+const challengeTouches = new Map();
+const challengeWrapper = document.querySelector('#challenge-page .challenge-wrapper');
+const challengeSide = target => target.closest('.challenge-half')?.id === 'challenge-top-area'
+    ? 'top' : target.closest('#challenge-bottom-area') ? 'bottom' : null;
 
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        let t = e.changedTouches[i];
-        if (t.target.closest('#challenge-top-area')) handleChalPress('top');
-        if (t.target.closest('#challenge-bottom-area')) handleChalPress('bottom');
+function cancelChallengePreparation() {
+    chalTopPressed = chalBottomPressed = false;
+    clearTimeout(chalHoldTimeout);
+    if (chalState === 'WAITING' || chalState === 'READY') chalState = 'IDLE';
+    for (const side of ['top', 'bottom']) {
+        document.getElementById(`challenge-timer-${side}`).classList.remove('waiting', 'ready');
+    }
+}
+
+function switchChallengeScramble() {
+    if ((chalState === 'IDLE' || chalState === 'DONE') && !chalTopPressed && !chalBottomPressed) {
+        void generateChallengeScramble();
+    }
+}
+
+challengeWrapper.addEventListener('contextmenu', e => {
+    if (!challengeSide(e.target)) return;
+    e.preventDefault();
+    if (e.button === 2 && e.pointerType !== 'touch') switchChallengeScramble();
+});
+
+challengeWrapper.addEventListener('touchstart', e => {
+    const side = challengeSide(e.target);
+    if (!side) return;
+    if (e.cancelable) e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if ([...challengeTouches.values()].some(start => start.side === side)) continue;
+        challengeTouches.set(touch.identifier, {
+            side, x: touch.clientX, y: touch.clientY, moved: false, canSwipe: chalState !== 'RUNNING'
+        });
+        handleChalPress(side);
     }
 }, { passive: false });
 
-document.addEventListener('touchend', (e) => {
-    if (!isChalActive()) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        let t = e.changedTouches[i];
-        if (t.target.closest('#challenge-top-area')) handleChalRelease('top');
-        if (t.target.closest('#challenge-bottom-area')) handleChalRelease('bottom');
+function trackChallengeSwipe(touch, start) {
+    const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+    if (start.canSwipe && !start.moved && Math.hypot(dx, dy) >= 14) {
+        start.moved = true;
+        cancelChallengePreparation();
     }
+    return start.moved && dx * (start.side === 'bottom' ? 1 : -1) >= 45
+        && Math.abs(dx) > Math.abs(dy) * 1.4;
+}
+
+challengeWrapper.addEventListener('touchmove', e => {
+    for (const touch of e.changedTouches) {
+        const start = challengeTouches.get(touch.identifier);
+        if (start) trackChallengeSwipe(touch, start);
+    }
+}, { passive: true });
+
+function endChallengeTouch(e) {
+    const swipes = new Set();
+    if (e.type === 'touchend') {
+        for (const touch of e.changedTouches) {
+            const start = challengeTouches.get(touch.identifier);
+            if (start && trackChallengeSwipe(touch, start)) swipes.add(touch.identifier);
+        }
+    }
+    for (const touch of e.changedTouches) {
+        const start = challengeTouches.get(touch.identifier);
+        if (!start) continue;
+        challengeTouches.delete(touch.identifier);
+        if (e.type === 'touchcancel') {
+            if (start.canSwipe) cancelChallengePreparation();
+        } else if (!start.moved) {
+            handleChalRelease(start.side);
+        }
+    }
+    if (swipes.size) switchChallengeScramble();
+}
+challengeWrapper.addEventListener('touchend', endChallengeTouch);
+challengeWrapper.addEventListener('touchcancel', endChallengeTouch);
+
+challengeWrapper.addEventListener('mousedown', e => {
+    const side = challengeSide(e.target);
+    if (side && e.button === 0) handleChalPress(side);
 });
-
-document.addEventListener('mousedown', (e) => {
-    if (!isChalActive()) return;
-    if (e.target.closest('.global-nav-header')) return; // <--- 新增这行，放行顶部导航栏！
-    if (e.target.closest('#chal-event-popup') || e.target.closest('#chal-settings-modal') || e.target.closest('#chal-alert-modal') || e.target.closest('.challenge-divider')) return;
-
-    if (e.target.closest('#challenge-top-area')) handleChalPress('top');
-    if (e.target.closest('#challenge-bottom-area')) handleChalPress('bottom');
-});
-
-document.addEventListener('mouseup', (e) => {
-    if (!isChalActive()) return;
-    if (e.target.closest('#challenge-top-area')) handleChalRelease('top');
-    if (e.target.closest('#challenge-bottom-area')) handleChalRelease('bottom');
+document.addEventListener('mouseup', e => {
+    if (!isChalActive() || e.button !== 0) return;
+    const side = challengeSide(e.target);
+    if (side) handleChalRelease(side);
+    else if (chalState !== 'RUNNING') cancelChallengePreparation();
 });
 
 /* ================= 键盘事件绑定 ================= */
-const topKeys = ['w', 'a', 's', 'd'];
-const bottomKeys = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+const topKeys = ['w', 'a', 's'];
+const bottomKeys = ['arrowup', 'arrowdown', 'arrowleft'];
 
 document.addEventListener('keydown', (e) => {
-    if (!isChalActive() || e.repeat) return;
+    if (!isChalActive() || e.ctrlKey || e.altKey || e.metaKey ||
+        e.target.closest?.('input, textarea, select, [contenteditable], #chal-event-popup, #chal-settings-modal, #chal-alert-modal')) return;
     const key = e.key.toLowerCase();
+    if (key === 'd' || key === 'arrowright') {
+        e.preventDefault();
+        if (!e.repeat && document.getElementById('chal-more-dropdown').style.display !== 'block') switchChallengeScramble();
+        return;
+    }
+    if (e.repeat) return;
     if (topKeys.includes(key)) { e.preventDefault(); handleChalPress('top'); }
     if (bottomKeys.includes(key)) { e.preventDefault(); handleChalPress('bottom'); }
 });
@@ -5113,10 +5189,14 @@ function applyUiSettings() {
     // 👆 新增结束 👆
 
     let fontObj = fontOptions.find(f => f.id === uiSettings.font) || fontOptions[0];
-    document.documentElement.style.setProperty('--timer-font', fontObj.family);
+    const isSevenSegment = fontObj.id === 'sevenSegment';
+    document.documentElement.style.setProperty('--timer-font', isSevenSegment ? fontOptions[0].family : fontObj.family);
+    const timerDisplayStyle = document.getElementById('timer-display')?.style;
+    if (isSevenSegment) timerDisplayStyle?.setProperty('--timer-font', fontObj.family);
+    else timerDisplayStyle?.removeProperty('--timer-font');
 
     let fontNameEl = document.getElementById('current-font-name');
-    if (fontNameEl) fontNameEl.innerText = fontObj.name.split(' ')[0];
+    if (fontNameEl) fontNameEl.innerText = fontObj.name;
 
     document.documentElement.style.setProperty('--timer-font-scale', uiSettings.fontSize / 100);
 
@@ -5252,11 +5332,19 @@ function openFontModal() {
     const list = document.getElementById('font-options-list');
     list.innerHTML = '';
     fontOptions.forEach(f => {
-        let btn = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = `chal-event-item ${uiSettings.font === f.id ? 'active' : ''}`;
-        btn.style.flexDirection = 'row';
-        btn.style.padding = '14px 15px';
-        btn.innerHTML = `<span style="font-family: ${f.family}; font-size: 16px;">${f.name}</span>`;
+        btn.setAttribute('aria-pressed', String(uiSettings.font === f.id));
+        const label = document.createElement('span');
+        label.style.fontFamily = f.family;
+        label.textContent = f.name;
+        const preview = document.createElement('span');
+        preview.className = 'timer-font-preview';
+        preview.style.fontFamily = f.family;
+        preview.textContent = '19:45.815';
+        preview.setAttribute('aria-hidden', 'true');
+        btn.append(label, preview);
         btn.onclick = () => {
             uiSettings.font = f.id;
             queueTimerOptionSave();
@@ -5437,8 +5525,8 @@ function getCurrentMonthKey() {
     return `${year}-${month}`;
 }
 
-function getCurrentMonthCloudRange() {
-    const [year, month] = getCurrentMonthKey().split('-').map(Number);
+function getCurrentMonthCloudRange(monthKey = getCurrentMonthKey()) {
+    const [year, month] = monthKey.split('-').map(Number);
     const start = new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00+08:00`);
     const nextYear = month === 12 ? year + 1 : year;
     const nextMonth = month === 12 ? 1 : month + 1;
@@ -5626,15 +5714,20 @@ function confirmMonthlyName() {
 }
 
 // ---------------- 巅峰月赛 列表主页渲染引擎 (异步秒开版) ----------------
-async function renderMonthlyList() {
-    const [year, month] = getCurrentMonthKey().split('-');
+function formatMonthlyDateRange(monthKey) {
+    const [year, month] = monthKey.split('-');
     const lastDay = new Date(Number(year), Number(month), 0).getDate();
-    document.getElementById('monthly-date-range').innerText = `${month}.01 - ${month}.${lastDay}`;
+    return `${month}.01 - ${month}.${lastDay}`;
+}
+
+async function renderMonthlyList() {
+    const monthKey = getCurrentMonthKey();
+    document.getElementById('monthly-date-range').innerText = formatMonthlyDateRange(monthKey);
 
     const list = document.getElementById('monthly-event-list');
     list.innerHTML = ''; // 取消转圈动画，瞬间清空
 
-    ensureMonthlyScrambles();
+    const rankElements = new Map();
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
     const validEvents = eventDict.filter(ev => !excludedEvents.includes(ev.id));
 
@@ -5669,7 +5762,7 @@ async function renderMonthlyList() {
         let row = document.createElement('div');
         row.className = 'monthly-event-row';
         row.style.cursor = 'pointer';
-        row.onclick = () => { openMonthlyRanking(ev.id, cnName); };
+        row.onclick = () => { openMonthlyRanking(ev.id, cnName, monthKey); };
 
         row.innerHTML = `
             <div style="display: flex; align-items: center; font-size: 16px; font-weight: bold; color: var(--text-main);">
@@ -5680,16 +5773,16 @@ async function renderMonthlyList() {
             ${resultHtml}
         `;
         list.appendChild(row);
+        rankElements.set(ev.id, row.querySelector(`#monthly-rank-${ev.id}`));
     });
 
     // 第二步：后台静默拉取云端数据，不阻塞页面交互
     try {
-        const client = await ensureSupabaseClient();
-        const monthRange = getCurrentMonthCloudRange();
+        const monthRange = getCurrentMonthCloudRange(monthKey);
         const { data, error } = await monthlyCloudRequest(
-            client.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
+            ensureSupabaseClient().then(client => client.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
                 .gte('created_at', monthRange.start)
-                .lt('created_at', monthRange.end)
+                .lt('created_at', monthRange.end))
         );
         if (error) throw error;
         if (data) {
@@ -5738,7 +5831,7 @@ async function renderMonthlyList() {
                     }
                 }
 
-                let rankEl = document.getElementById(`monthly-rank-${ev.id}`);
+                let rankEl = rankElements.get(ev.id);
                 if (rankEl) {
                     if (totalParticipants > 0) {
                         rankEl.innerText = myRank !== -1 ? `[${myRank}/${totalParticipants}]` : `[${totalParticipants}]`;
@@ -5751,7 +5844,7 @@ async function renderMonthlyList() {
     } catch (e) {
         console.warn("后台拉取云端统计数据失败", e);
         validEvents.forEach(ev => {
-            const rankEl = document.getElementById(`monthly-rank-${ev.id}`);
+            const rankEl = rankElements.get(ev.id);
             if (rankEl) {
                 rankEl.innerText = '[暂不可用]';
                 rankEl.title = '月赛云端数据暂时无法连接，请稍后重试';
@@ -5776,8 +5869,9 @@ async function monthlyCloudRequest(query) {
 }
 
 // ---------------- 巅峰月赛 排行榜渲染引擎 (核心升级：直连全网云端) ----------------
-async function openMonthlyRanking(evId, cnName) {
+async function openMonthlyRanking(evId, cnName, monthKey = getCurrentMonthKey()) {
     document.getElementById('monthly-ranking-title').innerText = `月赛排行榜 - ${cnName}`;
+    document.getElementById('monthly-ranking-date-range').innerText = formatMonthlyDateRange(monthKey);
     const list = document.getElementById('monthly-ranking-list');
 
     list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>载入中...</div>';
@@ -5785,7 +5879,7 @@ async function openMonthlyRanking(evId, cnName) {
 
     let cloudData;
     try {
-        cloudData = await fetchWeeklyLeaderboard(evId);
+        cloudData = await fetchWeeklyLeaderboard(evId, monthKey);
     } catch (error) {
         console.warn('月赛排行榜加载失败', error);
         list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">月赛云端数据暂不可用，请稍后重试</div>';
@@ -6561,16 +6655,15 @@ async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
 }
 
 // 2. 从全网拉取排行榜
-async function fetchWeeklyLeaderboard(eventId) {
-    const client = await ensureSupabaseClient();
-    const monthRange = getCurrentMonthCloudRange();
-    const { data, error } = await monthlyCloudRequest(client
+async function fetchWeeklyLeaderboard(eventId, monthKey = getCurrentMonthKey()) {
+    const monthRange = getCurrentMonthCloudRange(monthKey);
+    const { data, error } = await monthlyCloudRequest(ensureSupabaseClient().then(client => client
         .from('WeeklyRecord')
         .select('*')
         .eq('event_id', eventId)
         .gte('created_at', monthRange.start)
         .lt('created_at', monthRange.end)
-        .order('raw_ms', { ascending: true })); // 月内每周成绩在客户端按选手取最佳
+        .order('raw_ms', { ascending: true }))); // 月内每周成绩在客户端按选手取最佳
 
     if (error) {
         console.error('拉取排行榜失败：', error);
@@ -7343,14 +7436,29 @@ async function loadCompetitionListMetadata(comp){
     })().finally(()=>competitionMetadataRequests.delete(comp.id)));
     return competitionMetadataRequests.get(comp.id);
 }
+let competitionHighlightedId = null;
 function paintCompetitionList(){
     const grid=document.getElementById('all-comps-grid'),data=filteredCompetitionList();grid.replaceChildren();
     window.currentCompsPage=Math.min(window.currentCompsPage,Math.max(1,Math.ceil(data.length/window.COMPS_PER_PAGE)));
     const start=(window.currentCompsPage-1)*window.COMPS_PER_PAGE;
     for(const comp of data.slice(start,start+window.COMPS_PER_PAGE)){
         const row=document.createElement('tr');
+        row.classList.toggle('competition-row-highlight', comp.id === competitionHighlightedId);
+        row.addEventListener('click', () => {
+            if (!matchMedia('(hover: none)').matches) return;
+            grid.querySelector('.competition-row-highlight')?.classList.remove('competition-row-highlight');
+            competitionHighlightedId = comp.id;
+            row.classList.add('competition-row-highlight');
+        });
         const values=[comp.end_date&&comp.end_date!==comp.start_date?`${comp.start_date} 至 ${comp.end_date}`:comp.start_date,comp.nameZh||getChineseCompetitionName(comp.name,comp.id),comp.province||'—',comp.cityName||comp.city||'—',[comp.venue,comp.venueAddress].filter(Boolean).join(' · ')||(Array.isArray(comp.eventIds)?'地点待公布':'地点暂未读取')];
-        values.forEach((value,index)=>{const cell=document.createElement('td');if(index===1){const link=document.createElement('button');link.type='button';link.className='competition-name-link';link.textContent=value;link.onclick=()=>openCompetitionDetail(comp);cell.append(link);}else cell.textContent=value;row.append(cell);if(index===1){const statusCell=document.createElement('td'),badge=document.createElement('span'),status=competitionStatus(comp);badge.className=`comp-status-tag ${status.className}`;badge.textContent=status.text;statusCell.append(badge);row.append(statusCell);}});grid.append(row);
+        values.forEach((value,index)=>{const cell=document.createElement('td');if(index===1){const link=document.createElement('button');link.type='button';link.className='competition-name-link';link.textContent=value;link.onclick=()=>openCompetitionDetail(comp);cell.append(link);}else if(index===0){
+            cell.className='competition-list-date';
+            const start=document.createElement('time');start.textContent=comp.start_date;cell.append(start);
+            if(comp.end_date&&comp.end_date!==comp.start_date){
+                const separator=document.createElement('span');separator.className='competition-list-date-separator';separator.textContent=' 至 ';
+                const end=document.createElement('time');end.textContent=comp.end_date;cell.append(separator,end);
+            }
+        }else cell.textContent=value;row.append(cell);if(index===1){const statusCell=document.createElement('td'),badge=document.createElement('span'),status=competitionStatus(comp);badge.className=`comp-status-tag ${status.className}`;badge.textContent=status.text;statusCell.append(badge);row.append(statusCell);}});grid.append(row);
     }
     if(!data.length){const row=grid.insertRow(),cell=row.insertCell();cell.colSpan=6;cell.textContent='没有符合条件的比赛。';cell.className='competition-empty';}
     const pager=document.querySelector('#comps-page .pagination-controls');pager.classList.add('news-compact-pagination');pager.innerHTML=renderCompactPager(window.currentCompsPage,Math.max(1,Math.ceil(data.length/window.COMPS_PER_PAGE)),'goToCompsPage','openCompsPagePicker');
@@ -7484,15 +7592,16 @@ function createNewsCard(news, isFullPage) {
     let titleHtml = `
         <div class="news-title">
             <span class="news-name-link" onclick="showPerson('${news.wcaId}')">${news.name}</span> 
-            以 <span class="highlight">${timeDisp}</span> 的成绩刷新了 ${news.evName} ${news.type} ${levelText} 纪录！${nrBadge}
+            以 <span class="highlight">${timeDisp}</span> 的成绩刷新了 ${news.evName}${news.type}${levelText}纪录！${nrBadge}
         </div>
     `;
 
     let descHtml = `在 <strong>${getChineseCompetitionName(news.comp)}</strong> 上，他凭借优异的发挥突破了极限。`;
 
     let item = document.createElement('div');
-    item.className = isFullPage ? 'news-card-item' : 'news-item' + (news.isNR ? ' news-record' : '');
+    item.className = isFullPage ? 'news-card-item' : 'news-item';
     item.innerHTML = `
+        <span class="news-event-watermark" aria-hidden="true"><span class="cubing-icon event-${news.evId}"></span></span>
         ${titleHtml}
         <div class="news-desc">${descHtml}</div>
         <div class="news-footer">️发布时间：${news.date} &nbsp;·&nbsp; WCA ID：${news.wcaId}</div>
@@ -9549,9 +9658,10 @@ function toggleInlineOptions(trigger, options, selected, onSelect, showEventIcon
     const menu = trigger.nextElementSibling;
     if (!menu.hidden) return setInlinePickerOpen(trigger, false);
     menu.replaceChildren();
-    for (const [value, label] of options) {
+    for (const [value, label, retired] of options) {
         const button = document.createElement('button');
         button.type = 'button';
+        if (retired) button.classList.add('ranking-retired-event');
         if (showEventIcons) {
             const icon = document.createElement('span');
             icon.className = 'cubing-icon event-' + value;

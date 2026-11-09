@@ -427,35 +427,14 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .loading-text{font-family:inherit;font-size:14px;font-weight:400;line-height:1.5;color:var(--text-muted);}
 .spinner { width: 40px; height: 40px; border: 4px solid rgba(71,85,105,0.2); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.monthly-page-loading[hidden],.monthly-entry-loading[hidden]{display:none;}
+#monthly-page-loading[hidden],.monthly-entry-loading[hidden]{display:none;}
+.monthly-date-range{font-size:14px;color:var(--text-muted);font-weight:normal;font-family:SFMono-Regular,Consolas,monospace;}
 .monthly-entry-card{position:relative;}
 .monthly-entry-loading{position:absolute;inset:0;justify-content:center;}
 .monthly-entry-busy > :not(.monthly-entry-loading){visibility:hidden;pointer-events:none;}
 .monthly-entry-card .btn{transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s,transform .2s;}
 
 /* 历史记录项目图标按钮 */
-.history-event-tab {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 45px;
-    height: 45px;
-    border-radius: 12px;
-    color: var(--text-muted);
-    background: transparent;
-    transition: all 0.25s ease;
-}
-.history-event-tab:hover {
-    background: rgba(200, 200, 200, 0.15);
-    color: var(--text-main);
-}
-.history-event-tab.active {
-    color: #000000;
-    font-weight: bold;
-    background: rgba(0, 0, 0, 0.05);
-}
-
 .ios-segment-control {
     display: inline-flex;
     background: rgba(0, 0, 0, 0.05);
@@ -1353,6 +1332,29 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
 .hex-input { flex: 1; text-transform: uppercase; font-family: monospace; font-size: 13px; padding: 8px !important; }
 
+/* 数字字形取自 NB Challenge 比分的七段矩形。 */
+@font-face {
+    font-family: 'NB Seven Segment';
+    src: url('fonts/nb-seven-segment.woff2?v=3') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+    unicode-range: U+002E, U+0030-003A;
+}
+#font-options-list > .chal-event-item {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 15px;
+    border: 0;
+    font: inherit;
+    font-size: 16px;
+    text-align: left;
+}
+#font-options-list .timer-font-preview {
+    flex: none;
+    font-weight: 700;
+}
+
 /* 动态接管计时大屏字体和缩放 (完美兼容原有的 clamp 函数) */
 .timer-display {
     font-family: var(--timer-font) !important;
@@ -1656,8 +1658,6 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 #challenge-page { display: none; }
 #challenge-page.active { display: block; }
 
-.chal-pc-header { display: flex; }
-.chal-mobile-back { display: none; }
 
 .challenge-wrapper {
     display: flex; flex-direction: column; width: 100%; height: 68vh; min-height: 520px;
@@ -1672,7 +1672,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 
 /* 恢复了你最喜欢的灰蓝底色和无边框设计 */
 .challenge-divider {
-    height: 52px;
+    --challenge-divider-height: 52px;
+    height: var(--challenge-divider-height);
     background: #e2e8f0;
     display: flex; align-items: center; justify-content: center;
     position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.05); z-index: 10;
@@ -1690,12 +1691,21 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .challenge-back-btn:hover { opacity: 0.7; }
 /* 右侧对称的更多按钮 - 加入微弱的毛玻璃质感，融入整体泛灰风格 */
 /* 去除“更多”按钮的底色与阴影，自然融入 */
+.challenge-more {
+    --challenge-more-line: 18px;
+    position: absolute;
+    inset-block: 0;
+    right: calc((var(--challenge-divider-height) - var(--challenge-more-line)) / 2);
+    display: flex;
+}
 .chal-more-btn {
-    left: auto; right: 15px;
+    position: static;
+    transform: none;
     font-size: 15px;
+    line-height: var(--challenge-more-line);
     background: transparent;
     border-radius: 0;
-    padding: 10px;
+    padding: 0;
     font-weight: bold;
 }
 .chal-more-btn:hover {
@@ -1774,14 +1784,12 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         position: fixed; inset: 0; z-index: 2000; display: flex;
         flex-direction: column; background: #f8fafc; padding: 0;
     }
-    .chal-pc-header { display: none !important; }
-    .chal-mobile-back { display: block; }
     .challenge-wrapper { height: 100%; margin: 0; border-radius: 0; border: none; box-shadow: none; }
     .top-half { transform: rotate(180deg); }
     #challenge-score-top { transform: translateY(-50%); right: 50%; margin-right: 60px; }
     #challenge-score-bottom { transform: translateY(-50%); left: 50%; margin-left: 60px; }
     #challenge-scramble-top { top: 20px; bottom: auto; }
-    .chal-event-grid { grid-template-columns: repeat(3, 1fr); }
+    #chal-event-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* =========================================
@@ -2077,7 +2085,7 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 /* =========================================
    宁波纪录专属：WCA 项目导航栏
    ========================================= */
-.records-event-tab {
+:is(.records-event-tab, .history-event-tab) {
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -2090,11 +2098,11 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     transition: all 0.25s ease;
     flex-shrink: 0;
 }
-.records-event-tab:hover {
+:is(.records-event-tab, .history-event-tab):hover {
     background: rgba(200, 200, 200, 0.15);
     color: var(--text-main);
 }
-.records-event-tab.active {
+:is(.records-event-tab, .history-event-tab).active {
     color: #000000;
     font-weight: bold;
     background: rgba(0, 0, 0, 0.06);
@@ -2135,12 +2143,20 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     min-width: 0;
 }
 
-#records-event-tabs {
+:is(#records-event-tabs, #history-event-tabs, #account-history-event-tabs) {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+}
+#records-event-tabs {
     justify-content: flex-end;
 }
+:is(#history-event-tabs, #account-history-event-tabs) {
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+:is(#records-event-tabs, #history-event-tabs, #account-history-event-tabs) .cubing-icon { font-size: 24px; }
 
 /* 手机端响应式排版：开关左右对齐，图标换行靠左 */
 @media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
@@ -2181,6 +2197,22 @@ table.table-historical th:nth-child(2) { width: 8% !important; }  /* 类型 */
 table.table-historical th:nth-child(3) { width: 24% !important; } /* 纪录保持者 */
 table.table-historical th:nth-child(4) { width: 16% !important; } /* 成绩 */
 table.table-historical th:nth-child(8) { width: 42% !important; } /* 比赛与日期 */
+@media (max-width: 768px) {
+    #records-table.table-historical { min-width: 820px; }
+    #records-table.table-historical th:nth-child(3) { width: 28% !important; }
+    #records-table.table-historical th:nth-child(4) { width: 17% !important; }
+    #records-table.table-historical th:nth-child(8) { width: 37% !important; }
+    #records-table.table-historical .clickable-name {
+        margin-inline: 0;
+        padding-inline: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #records-table.table-historical .result-competition > div:first-child {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }
+}
 
 /* =========================================
    成绩分布柱状图专属样式 (连续区间版)
@@ -2848,6 +2880,21 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 
 /* 7. 新闻资讯：无特效高亮与文字对齐 */
 .news-title { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; line-height: 1.5; }
+:is(.news-item, .news-card-item):has(> .news-event-watermark) {
+    position: relative;
+}
+.news-event-watermark {
+    position: absolute;
+    inset-block-end: 16px;
+    inset-inline-end: 16px;
+    display: grid;
+    place-items: center;
+    color: #111;
+    pointer-events: none;
+}
+html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
+.news-event-watermark .cubing-icon { font-size: 18px; line-height: 1; }
+.news-event-watermark ~ .news-footer { padding-inline-end: 24px; }
 .news-name-link { color: #2563eb; font-weight: 700; cursor: pointer; text-decoration: none; }
 .badge-nr-break {
     display: inline-flex; align-items: center; justify-content: center;
@@ -3644,17 +3691,24 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 }
 #challenge-page.active .challenge-scramble-after:empty { display: none; }
 #challenge-page.active .challenge-score {
+    inset-block: 0;
+    margin-block: auto;
     min-width: 28px; height: 30px;
     display: flex; align-items: center; justify-content: center; gap: 3px;
 }
 #challenge-page.active .challenge-score svg { width: 12px; height: 20px; display: block; fill: currentColor; flex: none; }
-#challenge-page.active #challenge-score-top { transform: translateY(-50%) rotate(180deg); }
-#challenge-page.active #challenge-score-bottom { transform: translateY(-50%); }
+#challenge-page.active #challenge-score-top { flex-direction: row-reverse; }
+#challenge-page.active :is(#challenge-score-top, #challenge-score-bottom) { transform: none; }
 #challenge-page.active .challenge-score::after {
     content: ''; position: absolute; top: calc(50% + 25px); left: 50%;
     transform: translateX(-50%); width: 0; height: 0;
     border-left: 10px solid transparent; border-right: 10px solid transparent;
     border-top: 13px solid #e2e8f0; pointer-events: none;
+}
+#challenge-page.active #challenge-score-top::after {
+    top: auto;
+    bottom: calc(50% + 25px);
+    transform: translateX(-50%) rotate(180deg);
 }
 @media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     #monthly-timer-page.active #monthly-stats-panel,
@@ -3954,14 +4008,13 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 .ad-legacy-health > div:first-child { text-align:left !important; }
 .ad-legacy-health h3,.ad-legacy-history h3 { text-align:left; }
 .ad-legacy-health thead,.ad-legacy-history thead { background:#f3f7fa; }
-.ad-legacy-history .history-event-tab.active { color:#506c87; }
 
 #account-page.account-resolving > .account-card { display:none; }
 #account-loading { display:none; text-align:center; padding:40px 16px; color:var(--text-muted); }
 #account-page.account-resolving > #account-loading { display:block; }
 #account-page.account-resolving > .account-dashboard { display:none; }
 .ad-legacy-health > div:first-child,.ad-legacy-health h3 { text-align:center !important; }
-.ad-legacy-history .history-event-tab { border:0; padding:0; font:inherit; flex-shrink:0; }
+.ad-legacy-history .history-event-tab { border:0; padding:0; font:inherit; }
 .ad-classic-event { display:flex;justify-content:center;align-items:center;gap:5px;white-space:nowrap; }
 .ad-classic-event .cubing-icon { font-size:16px; }
 .ad-classic-table { font-size:14px; }.ad-classic-source small { display:block;margin-top:4px;color:var(--text-muted);font-size:12px; }
@@ -4003,10 +4056,11 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 .ad-dense-table th:first-child { width:9%; }.ad-dense-table th:nth-child(2),.ad-dense-table th:nth-child(5){width:8%;}.ad-dense-table th:nth-child(3),.ad-dense-table th:nth-child(6){width:13%;}.ad-dense-table th:nth-child(4),.ad-dense-table th:nth-child(7){width:24.5%;}
 .ad-dense-table .ad-classic-event { justify-content:flex-start;gap:6px; }
 .ad-dense-score { font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap; }
+.ad-multiblind-row .ad-dense-score { white-space: pre; }
 .ad-dense-ranks span { display:inline-block;min-width:30%;padding:0 2px;box-sizing:border-box;font-weight:600;font-size:14px; }
 .ad-dense-source div { font-size:13px;line-height:1.4;overflow-wrap:anywhere; }.ad-dense-source small{display:block;font-size:13px;color:var(--text-muted);margin-top:2px;}
 .account-dashboard[data-layout="dense"] .ad-identity{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px;}.account-dashboard[data-layout="dense"] .ad-identity h1{width:100%;}.account-dashboard[data-layout="dense"] .ad-identity p{margin:0;}.account-dashboard[data-layout="dense"] .ad-welcome{width:100%;}.account-dashboard[data-layout="dense"] .ad-links{margin:0;}
-@media(max-width:800px){.ad-dense-table{min-width:1050px;}.ad-dense-records{padding:10px;}.ad-classic-records table{min-width:850px;}}
+@media(max-width:800px){.ad-dense-records{padding:10px;}.ad-classic-records table{min-width:850px;}}
 
 #person-layout-select { width:140px;min-height:36px;padding:7px 12px;border:1px solid var(--border-color);border-radius:10px;background:#f4f7fb;color:var(--text-main);font:inherit;font-size:14px;font-weight:600;cursor:pointer; }
 .ad-classic-header { position:relative;display:block;text-align:center;padding-top:35px;margin-bottom:26px; }
@@ -4023,6 +4077,14 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 .account-dashboard[data-layout="dense"] .ad-welcome { grid-column:1/-1;font-size:14px; }
 .ad-dense-table .ad-classic-event { justify-content:center; }
 .ad-dense-table th:first-child{width:9%;}.ad-dense-table th:nth-child(2),.ad-dense-table th:nth-child(7){width:8%;}.ad-dense-table th:nth-child(3),.ad-dense-table th:nth-child(4),.ad-dense-table th:nth-child(5),.ad-dense-table th:nth-child(8),.ad-dense-table th:nth-child(9),.ad-dense-table th:nth-child(10){width:4.5%;}.ad-dense-table th:nth-child(6),.ad-dense-table th:nth-child(11){width:24%;}
+@media (min-width: 801px) {
+    .ad-dense-table:has(.ad-multiblind-row) th:is(:nth-child(2), :nth-child(7)) { width: 110px; }
+}
+@media (max-width: 800px) {
+    .ad-dense-table { min-width: 1120px; }
+    .ad-dense-table th:is(:nth-child(2), :nth-child(7)) { width: 10%; }
+    .ad-dense-table th:is(:nth-child(6), :nth-child(11)) { width: 22%; }
+}
 .ad-dense-rank { font-size:14px;font-weight:600;font-variant-numeric:tabular-nums; }
 @media(max-width:600px){.account-dashboard[data-layout="dense"] .ad-identity{grid-template-columns:1fr;}.account-dashboard[data-layout="dense"] .ad-links{grid-column:1;grid-row:auto;}.ad-classic-actions{right:0;gap:14px;}.ad-classic-header{padding-top:40px;}}
 
@@ -4090,7 +4152,6 @@ body:has(#person-page.active) #person-back-top { display: flex; }
 #home-page .comp-status-tag { position:static; font-size:10px; padding:4px 6px; white-space:nowrap; }
 #home-page .news-list { display:grid; gap:12px; }
 #home-page .news-item { background:#fff; padding:18px 20px; border:1px solid var(--border-color); border-radius:12px; box-shadow:0 4px 12px rgba(25,50,44,.02); }
-#home-page .news-item.news-record { background:linear-gradient(115deg,#fff,#eaf3fc); }
 #home-page .news-title { display:block; font-size:15px; line-height:1.7; color:var(--text-main); }
 #home-page .news-desc { font-size:12px; line-height:1.7; color:var(--text-muted); }
 #home-page .news-footer { font-size:11px; color:var(--text-muted); }
@@ -4105,7 +4166,6 @@ html[data-theme="dark"] #home-page .home-intro-side { background:linear-gradient
 html[data-theme="dark"] #home-page .home-shortcuts { background:#1c2632; border-color:#354a61; }
 html[data-theme="dark"] #home-page .home-shortcuts button+button { border-color:#354a61; }
 html[data-theme="dark"] #home-page .home-shortcuts button:hover { background:#293c52 !important; }
-html[data-theme="dark"] #home-page .news-item.news-record { background:linear-gradient(115deg,#202935,#263c53); }
 @media(max-width:900px) {
  #home-page .home-board { grid-template-columns:minmax(0,1fr); grid-template-areas:'events' 'news' 'records'; gap:28px; }
  #home-page .home-intro-copy { padding:28px; }
@@ -5774,13 +5834,13 @@ html[data-theme=dark] #timer-page:is(.timer-manual-color,.timer-auto-contrast) :
 
 
 /* Reserve launch geometry before any animation or external stylesheet. */
-#global-loading{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:9999;display:flex;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:24px!important;margin:0!important;padding:0!important;box-sizing:border-box;text-align:center;background:var(--bg-color,#f8fafc)!important;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;}
-#global-loading .startup-mosaic{width:112px;height:112px;min-height:112px;flex:0 0 112px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:7px;}
-#global-loading .startup-caption{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;font-size:14px;line-height:21px;font-weight:400;letter-spacing:1px;color:var(--text-muted,#94a3b8);}
-#global-loading .startup-dots{display:inline-flex;align-items:center;gap:4px;height:20px;}
-#global-loading .startup-dots i{width:3px;height:3px;border-radius:50%;background:currentColor;}
-#global-loading .startup-signature{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:0;right:0;width:100%;margin:0;padding:0;box-sizing:border-box;text-align:center;font-size:12px;font-weight:500;letter-spacing:2.5px;line-height:1.6;color:var(--text-muted,#94a3b8);opacity:.65;}
-@media(max-height:500px){#global-loading{gap:16px!important;}#global-loading .startup-signature{bottom:14px;}}
+:is(#global-loading,#monthly-page-loading){position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:9999;display:flex;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:24px!important;margin:0!important;padding:0!important;box-sizing:border-box;text-align:center;background:var(--bg-color,#f8fafc)!important;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;}
+:is(#global-loading,#monthly-page-loading) .startup-mosaic{width:112px;height:112px;min-height:112px;flex:0 0 112px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:7px;}
+:is(#global-loading,#monthly-page-loading) .startup-caption{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;font-size:14px;line-height:21px;font-weight:400;letter-spacing:1px;color:var(--text-muted,#94a3b8);}
+:is(#global-loading,#monthly-page-loading) .startup-dots{display:inline-flex;align-items:center;gap:4px;height:20px;}
+:is(#global-loading,#monthly-page-loading) .startup-dots i{width:3px;height:3px;border-radius:50%;background:currentColor;}
+:is(#global-loading,#monthly-page-loading) .startup-signature{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:0;right:0;width:100%;margin:0;padding:0;box-sizing:border-box;text-align:center;font-size:12px;font-weight:500;letter-spacing:2.5px;line-height:1.6;color:var(--text-muted,#94a3b8);opacity:.65;}
+@media(max-height:500px){:is(#global-loading,#monthly-page-loading){gap:16px!important;}:is(#global-loading,#monthly-page-loading) .startup-signature{bottom:14px;}}
 
 @media(min-width:769px) and (pointer:fine){#timer-page:is(.timer-manual-color,.timer-auto-contrast) .btn-more{color:var(--timer-control-main,#334155)!important;border-color:currentColor!important;}}
 
@@ -5792,10 +5852,10 @@ html[data-theme=dark] #timer-page:is(.timer-manual-color,.timer-auto-contrast) :
 body:has(#timer-event-popup[style*="display: flex"]) > .global-nav-header{z-index:2600!important;}
 
 /* Dark launch tiles share the home logo palette; animation and geometry stay shared. */
-html[data-theme="dark"] #global-loading .startup-mosaic i{background:#9fbfdd!important;}
-html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(2),html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(4){background:#4d7fae!important;}
-html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(5){background:#3976a5!important;}
-html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){background:#dfaf66!important;}
+html[data-theme="dark"] :is(#global-loading,#monthly-page-loading) .startup-mosaic i{background:#9fbfdd!important;}
+html[data-theme="dark"] :is(#global-loading,#monthly-page-loading) .startup-mosaic i:nth-child(2),html[data-theme="dark"] :is(#global-loading,#monthly-page-loading) .startup-mosaic i:nth-child(4){background:#4d7fae!important;}
+html[data-theme="dark"] :is(#global-loading,#monthly-page-loading) .startup-mosaic i:nth-child(5){background:#3976a5!important;}
+html[data-theme="dark"] :is(#global-loading,#monthly-page-loading) .startup-mosaic i:nth-child(9){background:#dfaf66!important;}
 
 #home-page.home-modern .modern-formulas{grid-column:1/5;}
 #home-page.home-modern .modern-monthly{grid-column:9/13;}
@@ -5928,7 +5988,7 @@ html[data-theme="dark"] :is(#person-chart-switch,.profile-chart-switch)::before{
 :is(#settings-page,#about-page,#pk-result-page,#comps-page,#cca-comps-page){padding-top:84px!important;}
 @media(max-width:900px){#home-page.home-modern .home-board{grid-template-columns:minmax(0,1fr);}#home-page.home-modern .home-content-wrapper{grid-template-rows:340px 190px 190px auto auto;}}
 @media(max-width:768px){#home-page.home-modern .home-events{display:none;}}
-@media(max-width:640px){#home-page.home-modern .home-content-wrapper{grid-template-rows:290px 190px 190px auto auto;}}
+@media(max-width:640px){#home-page.home-modern .home-content-wrapper{grid-template-rows:290px repeat(2, 168px) auto auto;}}
 @media(min-width:901px){#home-page.home-modern .home-board{grid-template-columns:repeat(12,minmax(0,1fr));}#home-page.home-modern .home-left-board{grid-column:1/9;}#home-page.home-modern .records-section{grid-column:9/13;}}
 #home-page.home-modern .home-left-board>section{width:100%;box-sizing:border-box;align-self:stretch;}
 /* Search workspace and alphabetic player directory. */
@@ -6231,6 +6291,7 @@ html[data-theme="dark"] .competition-filter-card { background: #1c1c1e; }
     gap: 8px;
 }
 .ranking-picker-event .cubing-icon { flex: none; }
+.ranking-picker-event .ranking-retired-event { color: var(--text-muted); }
 @media (max-width: 768px) {
     .ranking-filters { gap: 8px; }
     .ranking-filters .inline-picker-trigger { padding-inline: 8px; gap: 5px; }
@@ -6393,6 +6454,9 @@ h3 + div { font-size: 12px !important; }
 #home-page.home-modern .section-title { font-size: 20px; }
 #home-page.home-modern .mini-record-row > div:first-child > span:last-child { font-size: 14px; }
 #home-page.home-modern .mini-record-row > div:last-child { font-size: 17px !important; }
+@media (max-width: 768px) {
+    #home-page.home-modern .mini-record-row > div:last-child { font-size: 16px !important; }
+}
 
 .comp-status-tag {
     display: inline-flex;
@@ -6482,7 +6546,72 @@ html[data-theme="dark"] .comp-status-tag.status-ended { color: #fda4af !importan
     width: 1em;
     height: 1em;
     background: currentColor;
+    -webkit-mask: var(--cubing-local-icon) center / contain no-repeat;
     mask: var(--cubing-local-icon) center / contain no-repeat;
 }
 .cubing-icon:is(.event-gear, .unofficial-gear) { --cubing-local-icon: url("image/cubing-icon-gear.svg"); }
 .cubing-icon.unofficial-ivy { --cubing-local-icon: url("image/cubing-icon-ivy.svg"); }
+
+/* Keep the divider centered in the full available viewport. */
+body:has(#challenge-page.active) > .global-nav-header { display: none !important; }
+body #challenge-page.active {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2000;
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    animation: none !important;
+}
+body #challenge-page.active .challenge-wrapper {
+    width: 100%;
+    max-width: none !important;
+    height: 100% !important;
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+#challenge-page .challenge-half { min-height: 0; }
+#challenge-page .challenge-divider { flex-shrink: 0; }
+#cca-comps-page .cca-project-icon { display: block; width: 24px; height: 24px; }
+
+.competition-list-date time { white-space: nowrap; }
+#chal-more-dropdown {
+    --challenge-menu-padding: 13px;
+    top: 100%;
+    left: auto;
+    right: calc(-1px - var(--challenge-menu-padding));
+    border-color: var(--border-color);
+}
+#chal-more-dropdown .timer-more-item {
+    padding-inline: var(--challenge-menu-padding);
+    text-align: center;
+}
+@media (max-width: 640px) {
+    #comps-page .competition-list-table th:first-child { width: calc(10ch + 1.25em); }
+    #comps-page .competition-list-date time:first-child { display: block; }
+    #comps-page .competition-list-date-separator { margin-right: .25em; }
+    #comps-page .competition-list-table th:nth-child(4),
+    #comps-page .competition-list-table th:nth-child(5) { width: 4.25em; }
+}
+@media (hover: none) {
+    #comps-page .competition-list-table .competition-row-highlight td {
+        background: var(--bg-color);
+        transform: none;
+        transition: none;
+    }
+    #comps-page .competition-list-table .competition-row-highlight td:first-child { border-radius: 10px 0 0 10px; }
+    #comps-page .competition-list-table .competition-row-highlight td:last-child { border-radius: 0 10px 10px 0; }
+    #comps-event-filters .records-event-tab[aria-pressed="false"] {
+        background: transparent !important;
+        color: var(--text-muted) !important;
+        box-shadow: none !important;
+        transition: none;
+    }
+}
