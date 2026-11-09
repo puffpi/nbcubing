@@ -1,6 +1,6 @@
 {
-  "versionCode": 43,
-  "versionName": "1.62.0",
+  "versionCode": 44,
+  "versionName": "1.62.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "优化手机首页和赛事列表，完善 NB Challenge 的双人布局与切换打乱，NB Timer 新增数码管字体，并修复选手成绩显示和账号连接相关问题。"
+  "notes": "统一手机首页入口标题字号和设置页行距，优化关于本站的网址换行。"
 }
