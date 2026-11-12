@@ -1134,13 +1134,9 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     position: absolute;
     right: 24px;
     bottom: 24px;
-    background: rgba(248, 250, 252, 0.65);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    border: 1px solid transparent;
     border-radius: 16px;
     padding: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1160,7 +1156,6 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         right: 8px;
         bottom: 80px;
         padding: 8px;
-        border-radius: 12px;
     }
 
     /* 核心修复：手机端打乱图调大 */
@@ -1459,6 +1454,8 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     }
 
     #timer-tab-main.active-tab {
+        /* A filled opacity animation isolates the diagram from the page wallpaper. */
+        animation-fill-mode: none;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -4957,12 +4954,8 @@ html[data-theme=dark] .timer-daily-card{background:#1c1c1e;}html[data-theme=dark
 .timer-daily-tabs{width:174px;gap:4px;padding:3px;background:#eef3f9;border-radius:9px;margin:14px auto;}.timer-daily-tabs button{padding:6px;font-size:13px;}.timer-daily-tabs button.active{background:#516b88;color:#fff;box-shadow:0 2px 6px #516b881a;}
 .timer-daily-date button{background:none!important;border-radius:0;display:grid;place-items:center;}.timer-daily-date button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .daily-count-tip{font-family:inherit;font-size:13px;font-weight:650;fill:var(--text-main);pointer-events:none;}.daily-bar{cursor:pointer;}.daily-bar.active{fill:#578cbf;}
-:is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal) .pk-confirm-card,.timer-daily-card{background:radial-gradient(ellipse at 100% 0%,#eff6fd,transparent 46%),radial-gradient(ellipse at 0% 100%,#f2f9fb,transparent 42%),#fff!important;backdrop-filter:none!important;opacity:1!important;border:1px solid #e2eaf4!important;box-shadow:0 10px 30px #33415512!important;}
 #timer-clear-modal .edit-btn-confirm{background:#fcecef!important;color:#e04f66!important;border:0;border-radius:9px;}#timer-clear-modal .edit-btn-confirm:hover{background:#f9d9e0!important;}
 #timer-dist-modal .dist-bar-fill{background:var(--timer-chart-color,#7c828b);box-shadow:none;}#timer-dist-modal .dist-bar-track{border-color:#dbe9f2;}#timer-dist-modal .dist-y-tick-top,#timer-dist-modal .dist-y-tick-bottom{color:#829bb0;}
-html[data-theme=dark] :is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal) .pk-confirm-card,html[data-theme=dark] .timer-daily-card{background:radial-gradient(ellipse at 100% 0%,#243345,transparent 46%),#1c1c1e!important;border-color:#364354!important;}
-:is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal) .pk-confirm-card,.timer-daily-card{background:#fff!important;}
-html[data-theme=dark] :is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal) .pk-confirm-card,html[data-theme=dark] .timer-daily-card{background:#1c1c1e!important;}
 .smart-penalty-chain{opacity:.85;overflow:hidden;}.smart-penalty-chain svg{overflow:hidden;}
 .smart-analysis-tabs{width:190px;margin:10px auto;padding:3px;gap:4px;}.smart-analysis-tabs button{padding:6px;font-size:14px;}
 #smart-analysis-replay-slider{display:block;width:calc(100% - 16px);box-sizing:border-box;margin:10px 8px 0;}
@@ -5044,14 +5037,13 @@ html[data-theme=dark] .timer-cube-battery[data-power=critical],html[data-theme=d
 #timer-import-help{width:100%;font-size:12px;font-weight:400;line-height:1.65;color:var(--text-muted);margin:0 0 14px;text-align:left;}
 #timer-import-help p{margin:0 0 7px;}
 #timer-db-result-modal{position:fixed;inset:0;border-radius:0;z-index:2800!important;}
-#timer-db-result-modal .pk-confirm-card{width:360px;max-width:90%;max-height:calc(100dvh - 32px);overflow:auto;margin:0;padding:20px;box-sizing:border-box;background:var(--card-bg,#fff)!important;backdrop-filter:none!important;}
+#timer-db-result-modal .pk-confirm-card{width:360px;max-width:90%;max-height:calc(100dvh - 32px);overflow:auto;margin:0;padding:20px;box-sizing:border-box;}
 #timer-db-result-title{font-size:17px;margin:0 0 15px;}
 #timer-db-result-summary,#timer-db-skipped{font-size:13px;line-height:1.7;color:var(--text-muted);overflow-wrap:anywhere;}
 #timer-db-skipped{max-height:220px;overflow:auto;scrollbar-width:thin;}
 #timer-db-skipped p{margin:7px 0;}
 #timer-db-result-modal .edit-popup-actions{display:flex;width:100%;margin-top:16px;}
 #timer-db-result-modal .edit-btn-confirm{flex:1;}
-html[data-theme=dark] #timer-db-result-modal .pk-confirm-card{background:#1c1c1e!important;}
 @media(prefers-reduced-motion:reduce){#timer-import-mode-toggle + .cs-slider,#timer-import-mode-toggle + .cs-slider:before{transition:none;}}
 /* Segmented control standard: one shared moving thumb, not per-button fills.
    Matches the laboratory's day/week/month control (200ms transform easing). */
@@ -5708,7 +5700,7 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
 }
 .timer-sidebar:has(> :is(#edit-score-popup,#avg-score-popup,#avg-details-popup)[style*="display: flex"]) > :not(.edit-score-popup){
- filter:blur(1px);pointer-events:none;
+ pointer-events:none;
 }
 
 /* Align the usable row width with the header and reserve room for long indices. */
@@ -5721,19 +5713,19 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
 #timer-page.timer-auto-contrast .sidebar-header-row > .btn-more{color:var(--text-main)!important;border-color:currentColor!important;}
 #timer-page.timer-auto-contrast #timer-more-dropdown{background:rgba(60,70,85,.25);border-color:var(--text-main);color:var(--text-main);}
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:var(--text-main)!important;}
-/* Setting pickers use the same single-pass foreground blur as score dialogs. */
+/* Keep the settings overlay clear so only the card samples the backdrop. */
 .cube-appearance-overlay.timer-settings-context,.edit-score-popup.timer-setting-overlay{
  animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);
 }
 body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
-body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
+body:has(.timer-setting-overlay[style*="display: flex"],#cube-appearance-modal.timer-settings-context:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){pointer-events:none;}
 
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item:hover{background:color-mix(in srgb,currentColor 12%,transparent);}
 
-/* 1.50.20: More dialogs use the same single content blur as settings. */
+/* Keep the More dialogs in a clear overlay. */
 :is(#timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay){animation:none!important;transform:none!important;will-change:auto;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(248,250,252,.08);}
 body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-sidebar > :not(.edit-score-popup),
-body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
+body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){pointer-events:none;}
 
 /* 1.50.21 touch timer */
 #timer-page{--nb-timer-default-font-size:90px;}
@@ -5758,7 +5750,7 @@ body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="
 }
 .timer-screen-overlay{position:fixed!important;inset:0!important;width:100%!important;height:100dvh!important;border-radius:0!important;animation:none!important;transform:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:transparent!important;}
 body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="display: flex"],#nb-delete-last-modal[style*="display: flex"],#nb-edit-last-modal[style*="display: flex"],#edit-score-popup[style*="display: flex"],#avg-score-popup[style*="display: flex"],#avg-details-popup[style*="display: flex"]) #timer-page .timer-sidebar > :not(.edit-score-popup),
-body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="display: flex"],#nb-delete-last-modal[style*="display: flex"],#nb-edit-last-modal[style*="display: flex"],#edit-score-popup[style*="display: flex"],#avg-score-popup[style*="display: flex"],#avg-details-popup[style*="display: flex"]) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
+body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="display: flex"],#nb-delete-last-modal[style*="display: flex"],#nb-edit-last-modal[style*="display: flex"],#edit-score-popup[style*="display: flex"],#avg-score-popup[style*="display: flex"],#avg-details-popup[style*="display: flex"]) #timer-page .timer-main > :not(.edit-score-popup){pointer-events:none;}
 #timer-bluetooth-icon.disconnected::after{box-shadow:none;}
 
 /* 1.50.23: opaque menu and preserve score-card margins after portaling. */
@@ -5767,6 +5759,10 @@ body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="dis
 html[data-theme=dark] #timer-page #timer-more-dropdown,html[data-theme=dark] #timer-page.timer-auto-contrast #timer-more-dropdown{background:#24272d!important;color:#f1f5f9!important;border-color:#454a52!important;}
 html[data-theme=dark] #timer-page #timer-more-dropdown .timer-more-item{color:#f1f5f9!important;}
 :is(#edit-score-popup,#avg-score-popup,#avg-details-popup).timer-screen-overlay > .edit-score-content{width:calc(100% - 64px);max-width:450px;box-sizing:border-box;}
+:is(#edit-score-popup,#avg-score-popup).timer-screen-overlay > .edit-score-content{width:calc(100% - 52px);max-width:462px;}
+:is(#edit-score-popup,#avg-score-popup):not(.timer-screen-overlay){padding-inline:4px;}
+#timer-page .smart-result-card { --text-main: #334155; --text-muted: #94a3b8; color: var(--text-main); }
+html[data-theme="dark"] #timer-page .smart-result-card { --text-main: #e5e5e7; --text-muted: #a0a0a5; }
 
 
 /* 1.50.24: denser score-card scramble, unchanged card width. */
@@ -5781,7 +5777,43 @@ html[data-theme=dark] #timer-page #timer-more-dropdown .timer-more-item{color:#f
 #timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay{
 background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
+html[data-theme] :is(.timer-scramble-draw-panel, :is(#edit-score-popup, #avg-score-popup, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+    --scramble-glass: rgba(248, 250, 252, .65);
+    --scramble-glass-edge: rgba(226, 232, 240, .8);
+    background: var(--scramble-glass) !important;
+    border-color: var(--scramble-glass-edge) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .06) !important;
+}
+html[data-theme="dark"] :is(.timer-scramble-draw-panel, :is(#edit-score-popup, #avg-score-popup, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+    --scramble-glass: rgba(28, 28, 30, .65);
+    --scramble-glass-edge: rgba(53, 53, 56, .8);
+}
 .smart-result-overlay,.smart-analysis-overlay,.smart-delete-overlay{background:transparent!important;backdrop-filter:blur(1px)!important;-webkit-backdrop-filter:blur(1px)!important;}
+:is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay {
+    will-change: auto;
+}
+html[data-theme] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
+    --nb-dialog-glass: rgba(243, 248, 252, .84);
+    --nb-dialog-solid: #f3f8fc;
+    background: var(--nb-dialog-solid) !important;
+    border-color: rgba(255, 255, 255, .64) !important;
+    box-shadow: 0 8px 24px rgba(26, 45, 65, .12), inset 0 1px rgba(255, 255, 255, .65) !important;
+}
+html[data-theme="dark"] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
+    --nb-dialog-glass: rgba(29, 36, 45, .88);
+    --nb-dialog-solid: #1d242d;
+    border-color: rgba(255, 255, 255, .16) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08) !important;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    html[data-theme] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
+        background: var(--nb-dialog-glass) !important;
+        -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
+        backdrop-filter: blur(28px) saturate(125%) !important;
+    }
+}
 #timer-page .timer-history-item:has(.col-time.timer-pb-single) .col-id{font-weight:800;}
 /* Navigation matches the upright app icon palette. */
 .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#eef4f9,#f8fafc)!important;}.global-nav-header .nav-back-button svg{stroke:#4d7fae;}html[data-theme=dark] .global-nav-header .nav-back-button{background:radial-gradient(ellipse at 50% 45%,#29435c,#202b38)!important;}html[data-theme=dark] .global-nav-header .nav-back-button svg{stroke:#9fbfdd;}

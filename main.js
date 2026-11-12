@@ -996,6 +996,24 @@ async function showPerson(wcaId) {
     }
 }
 
+async function fetchWcaPerson(path) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 18000);
+    try {
+        const response = await fetch(`https://www.worldcubeassociation.org/api/v0/persons${path}`, {signal: controller.signal});
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error(`WCA HTTP ${response.status}`);
+        return await response.json();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function showWcaLookupMessage(message) {
+    document.getElementById('global-loading').style.display = 'none';
+    alert(message);
+}
+
 async function resolvePlayerAsync(input, sideLabel) {
     const idMatch = input.match(/[（\(]([A-Z0-9]+)[）\)]$/i);
     if (idMatch) {
@@ -1018,25 +1036,26 @@ async function resolvePlayerAsync(input, sideLabel) {
 
     if (/^\d{4}[A-Z]{4}\d{2}$/i.test(input)) {
         try {
-            let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${input.toUpperCase()}`, { signal: AbortSignal.timeout(10000) });
-            if (!res.ok) throw new Error();
-            return await res.json();
+            const player = await fetchWcaPerson('/' + input.toUpperCase());
+            if (player) return player;
+            showWcaLookupMessage(`在 WCA 官方数据库中未找到 ID 为 [${input}] 的选手！`);
         } catch(err) {
-            alert(`在 WCA 官方数据库中未找到 ID 为 [${input}] 的选手！`);
-            return null;
+            showWcaLookupMessage('暂时无法连接 WCA 成绩服务，请稍后重试。');
         }
+        return null;
     }
 
     try {
-        let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons?q=${encodeURIComponent(input)}`);
-        if (res.ok) {
-            let data = await res.json();
+        const data = await fetchWcaPerson('?q=' + encodeURIComponent(input));
+        if (data) {
             let items = Array.isArray(data) ? data : (data.persons || data.items || data.results || []);
             if (items && items.length > 0) {
                 if (items.length === 1) {
                     let wcaId = items[0].person ? items[0].person.wca_id : items[0].wca_id;
-                    let fullRes = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${wcaId}`);
-                    if (fullRes.ok) return await fullRes.json();
+                    if (wcaId) {
+                        const player = await fetchWcaPerson('/' + encodeURIComponent(wcaId));
+                        if (player) return player;
+                    }
                 } else {
                     let combinedMatches = [];
                     items.forEach(item => {
@@ -1047,9 +1066,12 @@ async function resolvePlayerAsync(input, sideLabel) {
                 }
             }
         }
-    } catch(e) {}
+    } catch(e) {
+        showWcaLookupMessage('暂时无法连接 WCA 成绩服务，请稍后重试。');
+        return null;
+    }
 
-    alert(`在库中未找到符合 [${input}] 的选手！\n请检查姓名拼写，或直接输入完整的 WCA ID。`);
+    showWcaLookupMessage(`在库中未找到符合 [${input}] 的选手！\n请检查姓名拼写，或直接输入完整的 WCA ID。`);
     return null;
 }
 
@@ -1067,9 +1089,15 @@ function showSelectionModal(matches, sideLabel, selectOnly = false) {
                 document.getElementById('pk-modal').style.display = 'none';
                 if (!selectOnly && !m.personal_records) {
                     document.getElementById('global-loading').style.display = 'flex';
-                    let res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${m.person.wca_id}`);
-                    document.getElementById('global-loading').style.display = 'none';
-                    resolve(await res.json());
+                    try {
+                        const player = await fetchWcaPerson('/' + encodeURIComponent(m.person.wca_id));
+                        document.getElementById('global-loading').style.display = 'none';
+                        if (!player) showWcaLookupMessage(`在 WCA 官方数据库中未找到 ID 为 [${m.person.wca_id}] 的选手！`);
+                        resolve(player);
+                    } catch (error) {
+                        showWcaLookupMessage('暂时无法连接 WCA 成绩服务，请稍后重试。');
+                        resolve(null);
+                    }
                 } else {
                     resolve(m);
                 }
@@ -2679,7 +2707,8 @@ function showTimerDatabaseImportResult(result) {
 }
 
 function timerRecordDateLabel(record) {
-    return record.importSource === 'dc-timer' ? 'DC Timer 导入' : record.timestamp || '';
+    const timestamp = record.timestamp || '';
+    return record.importSource === 'dc-timer' ? ['DC Timer 导入', timestamp].filter(Boolean).join(' | ') : timestamp;
 }
 
 // ================= 智能成绩分布引擎 (带动态区间防溢出) =================
@@ -3184,14 +3213,12 @@ function paintTimerHistoryWindow(force = false) {
     const start = Math.max(0, Math.min(records.length - 1, Math.floor(list.scrollTop / TIMER_HISTORY_ROW_HEIGHT)) - 8);
     const end = Math.min(records.length, start + visibleCount + 16);
     if (!force && state.start === start && state.end === end) return;
-    state.start = start; state.end = end;
-    const fragment = document.createDocumentFragment();
-    const spacer = height => {
+    const previousStart = state.start, previousEnd = state.end;
+    const spacer = () => {
         const node = document.createElement('div'); node.className = 'timer-history-spacer';
-        node.style.height = `${Math.max(0, height)}px`; node.setAttribute('aria-hidden', 'true'); return node;
+        node.setAttribute('aria-hidden', 'true'); return node;
     };
-    fragment.append(spacer(start * TIMER_HISTORY_ROW_HEIGHT));
-    for (let index = start; index < end; index++) {
+    const createRow = index => {
         const record = records[index], row = document.createElement('div');
         row.className = 'timer-history-item'; row.dataset.index = String(index);
         for (const [column, text, highlight, clickable, number] of [
@@ -3206,10 +3233,25 @@ function paintTimerHistoryWindow(force = false) {
             if (highlight) cell.classList.add(column === 'col-time' ? 'timer-pb-single' : 'timer-pb-avg');
             row.append(cell);
         }
-        fragment.append(row);
+        return row;
+    };
+    if (force || start >= previousEnd || end <= previousStart) {
+        state.top = spacer();
+        state.bottom = spacer();
+        const fragment = document.createDocumentFragment();
+        fragment.append(state.top);
+        for (let index = start; index < end; index++) fragment.append(createRow(index));
+        fragment.append(state.bottom);
+        list.replaceChildren(fragment);
+    } else {
+        for (let index = previousStart; index < start; index++) state.top.nextElementSibling.remove();
+        for (let index = previousEnd; index > end; index--) state.bottom.previousElementSibling.remove();
+        for (let index = previousStart - 1; index >= start; index--) state.top.after(createRow(index));
+        for (let index = previousEnd; index < end; index++) state.bottom.before(createRow(index));
     }
-    fragment.append(spacer((records.length - end) * TIMER_HISTORY_ROW_HEIGHT));
-    list.replaceChildren(fragment);
+    state.top.style.height = `${start * TIMER_HISTORY_ROW_HEIGHT}px`;
+    state.bottom.style.height = `${(records.length - end) * TIMER_HISTORY_ROW_HEIGHT}px`;
+    state.start = start; state.end = end;
 }
 function renderTimerHistory() {
     const list = document.getElementById('timer-history-list');
@@ -3222,7 +3264,7 @@ function renderTimerHistory() {
         bindTimerHistoryScrollbar(list);
         list.addEventListener('scroll', () => {
             if (frame !== null) return;
-            frame = requestAnimationFrame(() => { frame = null; paintTimerHistoryWindow(); updateTimerHistoryScrollbar(); });
+            frame = requestAnimationFrame(() => { frame = null; updateTimerHistoryScrollbar(); paintTimerHistoryWindow(); });
         }, { passive: true });
         list.addEventListener('click', event => {
             const cell = event.target.closest('.clickable-time[data-stat]');
@@ -4127,7 +4169,7 @@ const isScrollableTimerScrambleTouch = target => {
     return text && text.scrollHeight > text.clientHeight + 1;
 };
 
-document.addEventListener('touchstart', (e) => {
+document.getElementById('timer-tab-main').addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
@@ -4164,7 +4206,7 @@ document.addEventListener('touchstart', (e) => {
     }
 }, { passive: false });
 
-document.addEventListener('touchmove', (e) => {
+document.getElementById('timer-tab-main').addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (currentTimerMode === 'smart') return;
@@ -4292,7 +4334,7 @@ let monthlyTouchStartX = 0;
 let monthlyTouchStartY = 0;
 let monthlySwipeAction = null;
 
-document.addEventListener('touchstart', (e) => {
+document.getElementById('monthly-timer-main-area').addEventListener('touchstart', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
     if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
@@ -4325,7 +4367,7 @@ document.addEventListener('touchstart', (e) => {
     }
 }, { passive: false });
 
-document.addEventListener('touchmove', (e) => {
+document.getElementById('monthly-timer-main-area').addEventListener('touchmove', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'monthly-timer-page') return;
     if (!monthlyScrambleReady && monthlyTimerState === 'IDLE') return;
@@ -5362,13 +5404,14 @@ function openNbTimingModal(kind) {
         };
         list.appendChild(button);
     }
-    showNbTimerSettingOverlay(document.getElementById('nb-timing-modal'));
+    showNbTimerSettingOverlay(document.getElementById('nb-timing-modal'), kind !== 'category');
 }
 
-function showNbTimerSettingOverlay(modal) {
+function showNbTimerSettingOverlay(modal, frosted = false) {
     // Keep all timer setting backdrops at the same DOM level as the appearance picker.
     if (modal.parentElement !== document.body) document.body.appendChild(modal);
     modal.classList.add('timer-setting-overlay');
+    modal.classList.toggle('timer-frosted', frosted);
     modal.style.display = 'flex';
 }
 

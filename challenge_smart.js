@@ -233,6 +233,7 @@ const ChallengeSmart = (() => {
         player.cubeFrame = requestAnimationFrame(() => {
             player.cubeFrame = 0;
             if (!canRender() || player.connection !== connection) return;
+            if (player.scrambleDirty) renderScramble(player);
             if (player.renderedState !== connection.state) {
                 renderMoyuCubeStickers(player.body, connection.state);
                 player.renderedState = connection.state;
@@ -273,6 +274,7 @@ const ChallengeSmart = (() => {
             scheduleHumanCubeRender(player, connection);
             return;
         }
+        if (player.scrambleDirty) renderScramble(player);
         if (player.visualMoves.length >= 3) renderCubeState(player, previous);
         player.visualMoves.push({move, state, duration});
         if (!player.turnAnimation) animateNextTurn(player);
@@ -314,6 +316,8 @@ const ChallengeSmart = (() => {
             }
             renderCubeState(player, player.connection?.state);
             player.attempt = null;
+            player.scrambleDirty = false;
+            player.renderedScrambleTokens = null;
             player.timer.textContent = '0.00';
             player.timer.className = 'challenge-timer';
             player.scramble.replaceChildren();
@@ -383,6 +387,7 @@ const ChallengeSmart = (() => {
         for (const player of players) {
             const connection = player.connection;
             renderCubeState(player, canRender() ? connection?.state : null);
+            if (canRender() && player.scrambleDirty) renderScramble(player);
             if (canRender() && connection?.gyro) renderGyro(player, connection);
         }
         if (canRender()) updateClocks();
@@ -659,7 +664,17 @@ const ChallengeSmart = (() => {
     }
 
     function renderScramble(player) {
+        player.scrambleDirty = false;
         const {tokens, index, errors} = player.attempt;
+        if (!errors.length && player.renderedScrambleTokens === tokens) {
+            const spans = player.scramble.children;
+            for (let i = 0; i < spans.length; i++) {
+                spans[i].classList.toggle('smart-correct', i < index);
+                spans[i].classList.toggle('smart-current', i === index);
+            }
+            return;
+        }
+        player.renderedScrambleTokens = errors.length ? null : tokens;
         const content = document.createDocumentFragment();
         const add = (text, classes = '') => {
             const token = document.createElement('span');
@@ -743,14 +758,14 @@ const ChallengeSmart = (() => {
         if (attempt.phase === 'scrambling') {
             advanceMoyuScramble(attempt, move);
             if (attempt.index !== attempt.tokens.length || attempt.errors.length) {
-                renderScramble(player);
+                player.scrambleDirty = true;
                 return;
             }
             attempt.phase = 'inspection';
             attempt.inspectionEnd = stamp + 15000;
             player.timer.classList.add('ready');
             player.timer.textContent = '15';
-            renderScramble(player);
+            player.scrambleDirty = true;
             player.hint.textContent = '观察中 · 转动即开始';
         } else {
             if (attempt.phase === 'inspection') {

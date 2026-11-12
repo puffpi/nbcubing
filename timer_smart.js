@@ -86,7 +86,7 @@ function updateTimerBluetoothContext(){
 function openTimerBluetoothIdleModal(){
     document.getElementById('nb-timing-modal-title').textContent='蓝牙自动断开';const list=document.getElementById('nb-timing-options');list.replaceChildren();
     for(const [value,label]of timerBluetoothIdleOptions){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(value===timerBluetoothIdleMinutes()?' active':'');button.style.cssText='padding:14px 15px;text-align:center;cursor:pointer;border:0';button.textContent=label;button.onclick=()=>{uiSettings.bluetoothAutoDisconnect=value;queueTimerOptionSave();updateTimerBluetoothIdleLabel();if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothContext();closeNbTimingModal();};list.append(button);}
-    const modal=document.getElementById('nb-timing-modal');if(modal.parentElement!==document.body)document.body.append(modal);modal.classList.add('timer-setting-overlay');modal.style.display='flex';
+    showNbTimerSettingOverlay(document.getElementById('nb-timing-modal'), true);
 }
 const timerMoyuAddresses = new Map();
 let timerMoyuCleanup = Promise.resolve();
@@ -193,12 +193,20 @@ function timerCubeSlots(){
     }
     return slots;
 }
-function timerCubeTurn(state,move){
+const timerCubeTurnMappings=new Map();
+function timerCubeTurnMapping(move){
     const slots=timerCubeSlots(),axis=slots.find(s=>s.face===move[0]).n;
     const sign=move.endsWith("'")?1:-1;
     const rotate=v=>{const d=v.reduce((sum,x,i)=>sum+x*axis[i],0);const c=[axis[1]*v[2]-axis[2]*v[1],axis[2]*v[0]-axis[0]*v[2],axis[0]*v[1]-axis[1]*v[0]];return v.map((x,i)=>axis[i]*d+c[i]*sign);};
+    const mapping=[];
+    slots.forEach((s,i)=>{if(s.p.reduce((d,x,k)=>d+x*axis[k],0)!==1)return;const p=rotate(s.p),n=rotate(s.n);const j=slots.findIndex(t=>t.p.every((x,k)=>x===p[k])&&t.n.every((x,k)=>x===n[k]));mapping.push([i,j]);});
+    timerCubeTurnMappings.set(move,mapping);
+    return mapping;
+}
+function timerCubeTurn(state,move){
+    const mapping=timerCubeTurnMappings.get(move)??timerCubeTurnMapping(move);
     const next=state.split('');
-    slots.forEach((s,i)=>{if(s.p.reduce((d,x,k)=>d+x*axis[k],0)!==1)return;const p=rotate(s.p),n=rotate(s.n);const j=slots.findIndex(t=>t.p.every((x,k)=>x===p[k])&&t.n.every((x,k)=>x===n[k]));next[j]=state[i];});
+    for(const [from,to] of mapping)next[to]=state[from];
     return next.join('');
 }
 function renderTimerLiveCube(){
@@ -207,8 +215,16 @@ function renderTimerLiveCube(){
 }
 function renderMoyuCubeStickers(body,state){
     if(!body)return;
-    body.replaceChildren();
     const colors={U:'#ffffff',R:'#e74745',F:'#29b85e',D:'#f7da2d',L:'#f69335',B:'#3174cf'};
+    const tiles=body.children;
+    if(tiles.length===54&&tiles[0].classList.contains('timer-live-sticker')){
+        for(let i=0;i<54;i++){
+            const color=colors[state[i]],style=tiles[i].style;
+            if(style.getPropertyValue('--sticker')!==color)style.setProperty('--sticker',color);
+        }
+        return;
+    }
+    body.replaceChildren();
     const rotations={U:'rotateX(90deg)',D:'rotateX(-90deg)',R:'rotateY(90deg)',L:'rotateY(-90deg)',F:'',B:'rotateY(180deg)'};
     timerCubeSlots().forEach((s,i)=>{const tile=document.createElement('div');tile.className='timer-live-sticker';tile.dataset.index=i;tile.dataset.cell=String(i%9);
         const position=s.p.map((x,k)=>(x+s.n[k]*.5)*(k===1?-1:1));
