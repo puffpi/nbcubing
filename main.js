@@ -218,8 +218,6 @@ let uiSettings = {
     smartCubeAppearance: 'black',
     smartCubeLogo: 'puffpi',
     virtualCubeAppearance: 'black',
-    chalTimerSize: 100,    // <--- 新增：对战计时器大小
-    chalScrambleSize: 100, // <--- 新增：对战打乱公式大小
     promptAction: true,
     inspection: false,
     inspectionVoice: false,
@@ -750,6 +748,8 @@ function showPage(pageId) {
     if (previousPage && previousPage.id !== pageId && (inlinePkState || pendingPkPlayerB)) cancelInlinePK(false);
     if (previousPage?.id === 'cube-explorer-page' && pageId !== previousPage.id) window.CubeExplorer?.leave();
     if (previousPage?.id === 'challenge-page' && pageId !== previousPage.id) {
+        closeChalSettings();
+        ChallengeSmart.leave();
         challengeTouches.clear();
         cancelChallengePreparation();
     }
@@ -767,6 +767,8 @@ function showPage(pageId) {
     });
     void page.offsetWidth;
     page.classList.add('active');
+    if (pageId === 'timer-page') syncTimerFontSizeControls();
+    if (pageId === 'challenge-page' && previousPage?.id !== pageId && chalCategory === 'smart') ChallengeSmart.enter();
     if (isDataReady && inlinePkDirtyPages.delete(pageId)) {
         if (pageId === 'ranking-page') updateRanking();
         if (pageId === 'records-page') generateRecords();
@@ -4017,7 +4019,7 @@ document.addEventListener('keydown', (e) => {
     const activePage = document.querySelector('.page-container.active');
     if (!activePage || activePage.id !== 'timer-page') return;
     if (document.getElementById('timer-import-modal')?.style.display === 'flex' || document.getElementById('timer-db-result-modal')?.style.display === 'flex') return;
-    if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar')) return;
+    if (e.target.closest?.('#timer-history-list, #timer-history-scrollbar, #font-size-slider, #scramble-size-slider')) return;
     if (currentTimerMode === 'smart') return;
     if (!timerScrambleReady && timerState === 'IDLE' && e.code !== 'ArrowRight') return;
 
@@ -4445,7 +4447,10 @@ function renderChallengeScramble(tokens) {
 }
 
 function updateChallengeScrambleBounds() {
+    if (chalCategory === 'smart') return;
     const mobile = window.matchMedia('(max-width: 768px)').matches;
+    const pageStyle = getComputedStyle(document.getElementById('challenge-page'));
+    const scrambleSize = getChallengeFontSize(pageStyle, 'scramble');
     ['top', 'bottom'].forEach(side => {
         const half = document.getElementById(`challenge-${side}-area`);
         const timer = document.getElementById(`challenge-timer-${side}`);
@@ -4458,8 +4463,7 @@ function updateChallengeScrambleBounds() {
         if (before.innerHTML !== fullContent) before.innerHTML = fullContent;
         if (after.innerHTML) after.innerHTML = '';
         if (mobile) {
-            const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chal-scramble-scale')) || 1;
-            let size = (challengeScrambleIsMinx ? 17 : 19) * scale;
+            let size = scrambleSize;
             before.style.fontSize = after.style.fontSize = `${size}px`;
             const split = before.offsetHeight > timerTop - gap - 16;
             if (split) {
@@ -4494,7 +4498,7 @@ function exitChallenge() {
 }
 
 async function generateChallengeScramble() {
-    if (chalState === 'RUNNING') return;
+    if (chalState === 'RUNNING' || chalCategory === 'smart') return;
     const request = ++challengeScrambleRequest, event = chalCurrentEvent;
     challengeScrambleReady = false;
     let scramble;
@@ -4567,7 +4571,63 @@ document.addEventListener('click', (e) => {
 });
 
 // ============== 弹窗设置面板 ==============
+const challengeFontControls = [
+    {id: 'scramble', label: '打乱公式', key: 'chalScrambleSizePx', min: 12, max: 30},
+    {id: 'timer', label: '计时器', key: 'chalTimerSizePx', min: 40, max: 120}
+];
+
+function getChallengeFontSize(style, id) {
+    return parseFloat(style.getPropertyValue(`--chal-${id}-preview-size`))
+        || parseFloat(style.getPropertyValue(`--chal-${id}-size`))
+        || parseFloat(style.getPropertyValue(`--chal-${id}-default-size`));
+}
+
+function applyChallengeFontSizes() {
+    const page = document.getElementById('challenge-page');
+    for (const {id, key, min, max} of challengeFontControls) {
+        const size = uiSettings[key];
+        const property = `--chal-${id}-size`;
+        if (Number.isFinite(size) && size > 0) page.style.setProperty(property, `${Math.min(max, Math.max(min, size))}px`);
+        else page.style.removeProperty(property);
+    }
+}
+
+function configureChallengeFontPreview(modal, body, confirm) {
+    const page = document.getElementById('challenge-page');
+    const pageStyle = getComputedStyle(page);
+    const pending = {};
+    body.innerHTML = challengeFontControls.map(({id, label, min, max}) => {
+        const size = Math.round(getChallengeFontSize(pageStyle, id));
+        const value = `${size} px`;
+        const sliderId = `chal-${id}-size-slider`;
+        return `<label class="chal-font-label" for="${sliderId}">${label}</label>
+            <div class="chal-font-slider">
+                <output for="${sliderId}">${value}</output>
+                <input type="range" id="${sliderId}" min="${min}" max="${max}" step="1" value="${size}" aria-valuetext="${value}">
+            </div>`;
+    }).join('');
+    modal.classList.add('challenge-font-preview');
+    for (const {id, key} of challengeFontControls) {
+        const input = document.getElementById(`chal-${id}-size-slider`);
+        input.addEventListener('input', () => {
+            pending[key] = input.valueAsNumber;
+            const value = `${input.value} px`;
+            input.previousElementSibling.textContent = value;
+            input.setAttribute('aria-valuetext', value);
+            page.style.setProperty(`--chal-${id}-preview-size`, `${input.value}px`);
+            updateChallengeScrambleBounds();
+        });
+    }
+    confirm.onclick = () => {
+        Object.assign(uiSettings, pending);
+        applyChallengeFontSizes();
+        saveTimerOptionsOnly();
+        closeChalSettings();
+    };
+}
+
 function openChalSettingsModal(type) {
+    closeChalSettings();
     document.getElementById('chal-more-dropdown').style.display = 'none';
     const titleEl = document.getElementById('chal-settings-title');
     const bodyEl = document.getElementById('chal-settings-body');
@@ -4580,6 +4640,7 @@ function openChalSettingsModal(type) {
             chalScoreTop = 0; chalScoreBottom = 0;
             // 核心修复：清空比分时重置所有状态
             chalHasWinner = false;
+            ChallengeSmart.resetMatch();
             matchPointShownTop = false;
             matchPointShownBottom = false;
             updateChallengeScores();
@@ -4588,9 +4649,7 @@ function openChalSettingsModal(type) {
     } else if (type === 'winScore') {
         titleEl.innerText = '设置胜利得分';
         bodyEl.innerHTML = `
-            <div class="ios-setting-group" style="text-align: center;">
-                <input type="number" id="chal-input-winscore" class="ios-input" value="${chalWinScore}" style="width: 120px; font-size: 24px; padding: 12px;">
-            </div>`;
+            <input type="number" id="chal-input-winscore" class="chal-number-input" min="1" step="1" inputmode="numeric" aria-label="胜利得分" value="${chalWinScore}">`;
         confirmBtn.onclick = () => {
             let val = parseInt(document.getElementById('chal-input-winscore').value);
             if (!isNaN(val) && val > 0) chalWinScore = val;
@@ -4608,7 +4667,11 @@ function openChalSettingsModal(type) {
                 <label><input type="radio" name="chal-handicap-side" value="top" ${side === 'top' ? 'checked' : ''}>上屏玩家</label>
                 <label><input type="radio" name="chal-handicap-side" value="bottom" ${side === 'bottom' ? 'checked' : ''}>下屏玩家</label>
             </div>
-            <label class="chal-handicap-amount">让（<input type="number" id="chal-handicap-seconds" class="ios-input" min="0.01" max="120" step="0.01" value="${secondsValue}" inputmode="decimal" aria-label="让秒数">）秒</label>`;
+            <div class="chal-handicap-amount">
+                <span>让</span>
+                <input type="number" id="chal-handicap-seconds" class="chal-number-input" min="0.01" max="120" step="0.01" value="${secondsValue}" inputmode="decimal" aria-label="让秒数">
+                <span>秒</span>
+            </div>`;
         confirmBtn.onclick = () => {
             const selected = document.querySelector('input[name="chal-handicap-side"]:checked')?.value || 'none';
             const value = Number(document.getElementById('chal-handicap-seconds').value);
@@ -4624,16 +4687,10 @@ function openChalSettingsModal(type) {
     } else if (type === 'adjust') {
         titleEl.innerText = '手动调整比分';
         bodyEl.innerHTML = `
-            <div style="display: flex; justify-content: space-around; align-items: center; margin-top: 10px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">上屏玩家</label>
-                    <input type="number" id="chal-input-top" class="ios-input" value="${chalScoreTop}" style="width: 80px; font-size: 22px;">
-                </div>
-                <div style="font-size: 20px; font-weight: bold; color: var(--border-color);">:</div>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">下屏玩家</label>
-                    <input type="number" id="chal-input-bot" class="ios-input" value="${chalScoreBottom}" style="width: 80px; font-size: 22px;">
-                </div>
+            <div class="chal-score-inputs">
+                <label>上屏玩家<input type="number" id="chal-input-top" class="chal-number-input" min="0" step="1" inputmode="numeric" value="${chalScoreTop}"></label>
+                <span aria-hidden="true">:</span>
+                <label>下屏玩家<input type="number" id="chal-input-bot" class="chal-number-input" min="0" step="1" inputmode="numeric" value="${chalScoreBottom}"></label>
             </div>`;
         confirmBtn.onclick = () => {
             let t = parseInt(document.getElementById('chal-input-top').value);
@@ -4642,47 +4699,26 @@ function openChalSettingsModal(type) {
             if (!isNaN(b) && b >= 0) chalScoreBottom = b;
             updateChallengeScores();
             checkChalWinCondition();
+            if (t === 0 && b === 0) ChallengeSmart.resetMatch();
             closeChalSettings();
         };
     }
     // 👇 从这里开始追加全新的字体调节模块 👇
     else if (type === 'font') {
         titleEl.innerText = '调整字体大小';
-        let curScramble = uiSettings.chalScrambleSize || 100;
-        let curTimer = uiSettings.chalTimerSize || 100;
-
-        // 界面结构：复用了主界面的同款 UI 风格
-        bodyEl.innerHTML = `
-            <div style="margin-top: 10px;">
-                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: left; font-weight: 600;">打乱公式</div>
-                <div class="ui-slider-wrapper" style="width: 100%; margin-bottom: 20px;">
-                    <span id="chal-scramble-size-val" style="width: 45px; text-align: left; font-family: monospace; font-size: 14px; color: var(--text-main);">${curScramble}%</span>
-                    <input type="range" id="chal-scramble-size-slider" min="50" max="200" value="${curScramble}" oninput="document.getElementById('chal-scramble-size-val').innerText = this.value + '%'" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
-                </div>
-                
-                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: left; font-weight: 600;">计时器</div>
-                <div class="ui-slider-wrapper" style="width: 100%;">
-                    <span id="chal-timer-size-val" style="width: 45px; text-align: left; font-family: monospace; font-size: 14px; color: var(--text-main);">${curTimer}%</span>
-                    <input type="range" id="chal-timer-size-slider" min="50" max="200" value="${curTimer}" oninput="document.getElementById('chal-timer-size-val').innerText = this.value + '%'" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
-                </div>
-            </div>
-        `;
-
-        // 逻辑：点击确定后保存到全局设置，触发重新渲染，并存入本地数据库
-        confirmBtn.onclick = () => {
-            uiSettings.chalScrambleSize = parseInt(document.getElementById('chal-scramble-size-slider').value);
-            uiSettings.chalTimerSize = parseInt(document.getElementById('chal-timer-size-slider').value);
-            applyUiSettings();
-            requestAnimationFrame(updateChallengeScrambleBounds);
-            saveTimerData();
-            closeChalSettings();
-        };
+        configureChallengeFontPreview(document.getElementById('chal-settings-modal'), bodyEl, confirmBtn);
     }
     document.getElementById('chal-settings-modal').style.display = 'flex';
 }
 
 function closeChalSettings() {
-    document.getElementById('chal-settings-modal').style.display = 'none';
+    const modal = document.getElementById('chal-settings-modal');
+    modal.style.display = 'none';
+    if (!modal.classList.contains('challenge-font-preview')) return;
+    modal.classList.remove('challenge-font-preview');
+    const page = document.getElementById('challenge-page');
+    for (const {id} of challengeFontControls) page.style.removeProperty(`--chal-${id}-preview-size`);
+    updateChallengeScrambleBounds();
 }
 
 // ============== 赛点与胜利判定特效 (独立逻辑引擎) ==============
@@ -4751,10 +4787,13 @@ function closeChalAlert() {
 
 // ============== 项目选择悬浮窗逻辑 ==============
 let chalTempEvent = '333'; // 新增：用于暂存点击选中、但还未确定的项目
+let chalCategory = 'wca';
+let chalTempCategory = 'wca';
 
 function openChalEventPopup() {
     document.getElementById('chal-more-dropdown').style.display = 'none';
     chalTempEvent = chalCurrentEvent; // 每次打开时，将暂存值同步为当前真实项目
+    chalTempCategory = chalCategory;
     renderChalEventGrid();
 
     const popup = document.getElementById('chal-event-popup');
@@ -4762,14 +4801,24 @@ function openChalEventPopup() {
     popup.style.display = 'flex';
 }
 
+function cycleChalCategory() {
+    chalTempCategory = chalTempCategory === 'wca' ? 'smart' : 'wca';
+    if (chalTempCategory === 'smart' && !['333', '222'].includes(chalTempEvent)) {
+        chalTempEvent = '333';
+    }
+    renderChalEventGrid();
+    document.getElementById('chal-event-grid').scrollTop = 0;
+}
+
 // 抽离出的独立渲染函数，只管渲染高亮，不碰真实的打乱和计分板
 function renderChalEventGrid() {
     const grid = document.getElementById('chal-event-grid');
+    document.getElementById('chal-category-label').textContent = chalTempCategory === 'smart' ? '智能魔方' : 'WCA';
     grid.innerHTML = '';
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
 
     eventDict.forEach(ev => {
-        if (!excludedEvents.includes(ev.id)) {
+        if (chalTempCategory === 'smart' ? ['333', '222'].includes(ev.id) : !excludedEvents.includes(ev.id)) {
             let isActive = chalTempEvent === ev.id ? 'active' : '';
             let btn = document.createElement('div');
             btn.className = `chal-event-item ${isActive}`;
@@ -4787,8 +4836,13 @@ function renderChalEventGrid() {
 
 // 点击“确定”按钮时执行的终极确认函数
 function confirmChalEvent() {
-    // 只有当用户确实换了新项目时，才触发清零和打乱
-    if (chalTempEvent !== chalCurrentEvent) {
+    const changed = chalCategory !== chalTempCategory || chalCurrentEvent !== chalTempEvent;
+    chalCategory = chalTempCategory;
+    if (changed) {
+        challengeTouches.clear();
+        cancelChallengePreparation();
+        chalState = 'IDLE';
+        challengeScrambleRequest++;
         if (chalScoreTop > 0 || chalScoreBottom > 0) {
             chalScoreTop = 0;
             chalScoreBottom = 0;
@@ -4800,14 +4854,14 @@ function confirmChalEvent() {
 
         chalCurrentEvent = chalTempEvent;
 
-        // 从字典中取出全名
-        let evObj = eventDict.find(e => e.id === chalCurrentEvent);
-        let evName = evObj ? evObj.name : '未知';
-
         document.getElementById('chal-event-icon').className = `cubing-icon event-${chalCurrentEvent}`;
-        document.getElementById('chal-event-name').innerText = evName;
-        generateChallengeScramble();
+        ChallengeSmart.updateMode();
+        if (chalCategory === 'wca') void generateChallengeScramble();
     }
+
+    const eventName = eventDict.find(event => event.id === chalCurrentEvent)?.name || '未知';
+    document.getElementById('chal-event-name').textContent =
+        chalCategory === 'smart' ? `智能${eventName}` : eventName;
 
     // 执行完毕后关闭弹窗
     closeChalEventPopup();
@@ -4827,7 +4881,7 @@ function closeChalEventPopup(e) {
 
 // ============== 计时核心逻辑 ==============
 function handleChalPress(player) {
-    if (!challengeScrambleReady) return;
+    if (chalCategory === 'smart' || !challengeScrambleReady) return;
     // 核心新增：如果“更多”菜单在开着，强制拦截触摸/点击，必须关了才能按计时器
     const chalMore = document.getElementById('chal-more-dropdown');
     if (chalMore && chalMore.style.display === 'block') return;
@@ -4880,6 +4934,7 @@ function handleChalPress(player) {
 }
 
 function handleChalRelease(player) {
+    if (chalCategory === 'smart') return;
     if (player === 'top') {
         chalTopPressed = false;
         if (chalState !== 'RUNNING' && chalState !== 'DONE') {
@@ -4963,6 +5018,7 @@ function cancelChallengePreparation() {
 }
 
 function switchChallengeScramble() {
+    if (chalCategory === 'smart') return;
     if ((chalState === 'IDLE' || chalState === 'DONE') && !chalTopPressed && !chalBottomPressed) {
         void generateChallengeScramble();
     }
@@ -4976,7 +5032,9 @@ challengeWrapper.addEventListener('contextmenu', e => {
 
 challengeWrapper.addEventListener('touchstart', e => {
     const side = challengeSide(e.target);
-    if (!side) return;
+    if (!side || e.target.closest('button') || ChallengeSmart.choosing) return;
+    const formula = chalCategory === 'smart' && e.target.closest('.challenge-scramble');
+    if (formula && formula.scrollHeight > formula.clientHeight) return;
     if (e.cancelable) e.preventDefault();
     for (const touch of e.changedTouches) {
         if ([...challengeTouches.values()].some(start => start.side === side)) continue;
@@ -4989,6 +5047,9 @@ challengeWrapper.addEventListener('touchstart', e => {
 
 function trackChallengeSwipe(touch, start) {
     const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+    if (chalCategory === 'smart') {
+        return dy * (start.side === 'bottom' ? -1 : 1) >= 45 && Math.abs(dy) > Math.abs(dx) * 1.4;
+    }
     if (start.canSwipe && !start.moved && Math.hypot(dx, dy) >= 14) {
         start.moved = true;
         cancelChallengePreparation();
@@ -5005,11 +5066,11 @@ challengeWrapper.addEventListener('touchmove', e => {
 }, { passive: true });
 
 function endChallengeTouch(e) {
-    const swipes = new Set();
+    const swipes = new Map();
     if (e.type === 'touchend') {
         for (const touch of e.changedTouches) {
             const start = challengeTouches.get(touch.identifier);
-            if (start && trackChallengeSwipe(touch, start)) swipes.add(touch.identifier);
+            if (start && trackChallengeSwipe(touch, start)) swipes.set(touch.identifier, start.side);
         }
     }
     for (const touch of e.changedTouches) {
@@ -5022,7 +5083,11 @@ function endChallengeTouch(e) {
             handleChalRelease(start.side);
         }
     }
-    if (swipes.size) switchChallengeScramble();
+    if (chalCategory === 'smart') {
+        if (swipes.size) void ChallengeSmart.startFromSwipe();
+    } else if (swipes.size) {
+        switchChallengeScramble();
+    }
 }
 challengeWrapper.addEventListener('touchend', endChallengeTouch);
 challengeWrapper.addEventListener('touchcancel', endChallengeTouch);
@@ -5181,12 +5246,7 @@ function applyUiSettings() {
     const precisionLabel = document.getElementById('nb-precision-label');
     if (precisionLabel) precisionLabel.innerText = uiSettings.nbPrecision === 3 ? '0.001 秒' : '0.01 秒';
 
-    // 👇 新增：每次应用 UI 设置时，同步更新 Challenge 的缩放参数 👇
-    let scScale = (uiSettings.chalScrambleSize || 100) / 100;
-    let tmScale = (uiSettings.chalTimerSize || 100) / 100;
-    document.documentElement.style.setProperty('--chal-scramble-scale', scScale);
-    document.documentElement.style.setProperty('--chal-timer-scale', tmScale);
-    // 👆 新增结束 👆
+    applyChallengeFontSizes();
 
     let fontObj = fontOptions.find(f => f.id === uiSettings.font) || fontOptions[0];
     const isSevenSegment = fontObj.id === 'sevenSegment';
@@ -5199,19 +5259,8 @@ function applyUiSettings() {
     if (fontNameEl) fontNameEl.innerText = fontObj.name;
 
     document.documentElement.style.setProperty('--timer-font-scale', uiSettings.fontSize / 100);
-
-    let sliderEl = document.getElementById('font-size-slider');
-    if (sliderEl) sliderEl.value = uiSettings.fontSize;
-
-    let sliderValEl = document.getElementById('font-size-val');
-    if (sliderValEl) sliderValEl.innerText = uiSettings.fontSize + '%';
-
-    // 👇 核心新增：渲染并应用打乱公式的大小 👇
     document.documentElement.style.setProperty('--scramble-font-scale', uiSettings.scrambleSize / 100);
-    let scrambleSliderEl = document.getElementById('scramble-size-slider');
-    if (scrambleSliderEl) scrambleSliderEl.value = uiSettings.scrambleSize;
-    let scrambleValEl = document.getElementById('scramble-size-val');
-    if (scrambleValEl) scrambleValEl.innerText = uiSettings.scrambleSize + '%';
+    syncTimerFontSizeControls();
     document.documentElement.style.setProperty('--smart-cube-scale', (uiSettings.smartCubeSize || 100) / 100);
     document.documentElement.style.setProperty('--smart-cube-clearance', Math.max(0, (uiSettings.smartCubeSize || 100) - 100) * .4 + 'px');
     const smartCubeSlider = document.getElementById('smart-cube-size-slider');
@@ -5361,17 +5410,38 @@ function closeFontModal(e) {
     document.getElementById('font-select-modal').style.display = 'none';
 }
 
-function updateFontSize(val) {
-    uiSettings.fontSize = parseInt(val);
-    applyUiSettings();
-    queueTimerOptionSave();
+function syncTimerFontSizeControls() {
+    const page = document.getElementById('timer-page');
+    const defaultTimerSize = parseFloat(getComputedStyle(page).getPropertyValue('--nb-timer-default-font-size'));
+    const legacyTimerScale = Number(uiSettings.fontSize);
+    const legacyTimerBase = Math.min(timerTouchLayout.matches ? 85 : 95, Math.max(60, innerWidth * 0.2));
+    const timerSize = Number.isFinite(uiSettings.fontSizePx) ? uiSettings.fontSizePx
+        : legacyTimerScale > 0 && legacyTimerScale !== 100 ? legacyTimerBase * legacyTimerScale / 100 : defaultTimerSize;
+    const controls = [
+        ['--nb-timer-font-size', 'font-size', Math.min(120, Math.max(60, timerSize)), 60, 120],
+        ['--nb-scramble-font-size', 'scramble-size', uiSettings.scrambleSizePx, 12, 30]
+    ];
+    for (const [property, id, pixels, min, max] of controls) {
+        const hasPixels = Number.isFinite(pixels) && pixels > 0;
+        if (hasPixels) page.style.setProperty(property, `${pixels}px`);
+        else page.style.removeProperty(property);
+
+        const size = hasPixels ? pixels : parseFloat(getComputedStyle(document.getElementById('scramble-text')).fontSize);
+        const slider = document.getElementById(`${id}-slider`);
+        const rounded = Math.round(size);
+        slider.min = Math.min(min, rounded);
+        slider.max = Math.max(max, rounded);
+        slider.value = rounded;
+        const label = `${Number(size.toFixed(1))} px`;
+        document.getElementById(`${id}-val`).textContent = label;
+        slider.setAttribute('aria-valuetext', label);
+    }
 }
 
-// 👇 核心新增：控制打乱字体的函数 👇
-function updateScrambleSize(val) {
-    uiSettings.scrambleSize = parseInt(val);
-    applyUiSettings();
-    queueTimerOptionSave(); // 自动保存到本地，下次打开仍然生效
+function updateTimerFontPixels(key, pixels) {
+    uiSettings[key] = pixels;
+    syncTimerFontSizeControls();
+    queueTimerOptionSave();
 }
 
 function updateSmartCubeSize(val) {
@@ -9512,8 +9582,29 @@ const timerBoundsObserver=new ResizeObserver(()=>requestAnimationFrame(updateTim
 for(const id of ['timer-display','timer-main-area','scramble-text']){const el=document.getElementById(id);if(el)timerBoundsObserver.observe(el);}
 addEventListener('resize',updateTimerScrambleRoom);
 
-// Keep timer overlays outside transformed mobile tab containers.
-["timer-event-popup","nb-manual-modal","nb-delete-last-modal","nb-edit-last-modal","edit-score-popup","avg-score-popup","avg-details-popup"].forEach(id=>{const modal=document.getElementById(id);if(modal){document.body.append(modal);modal.classList.add('timer-screen-overlay');}});
+// Touch tabs need viewport overlays. Desktop project and score cards belong to the sidebar.
+const timerTouchLayout = matchMedia('(max-width: 768px), (pointer: coarse) and (max-width: 1400px)');
+const timerSidebarModals = ['timer-event-popup', 'edit-score-popup', 'avg-score-popup', 'avg-details-popup']
+    .map(id => document.getElementById(id))
+    .filter(Boolean)
+    .map(modal => ({ modal, parent: modal.parentElement }));
+function syncTimerSidebarModals() {
+    for (const { modal, parent } of timerSidebarModals) {
+        (timerTouchLayout.matches ? document.body : parent).append(modal);
+        modal.classList.toggle('timer-screen-overlay', timerTouchLayout.matches);
+    }
+}
+syncTimerSidebarModals();
+timerTouchLayout.addEventListener('change', syncTimerSidebarModals);
+timerTouchLayout.addEventListener('change', syncTimerFontSizeControls);
+addEventListener('resize', syncTimerFontSizeControls);
+for (const id of ['nb-manual-modal', 'nb-delete-last-modal', 'nb-edit-last-modal']) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        document.body.append(modal);
+        modal.classList.add('timer-screen-overlay');
+    }
+}
 
 let timerStorageWorker=null,timerStorageRevision=0,timerStoragePending=false;
 function saveTimerData(){
@@ -9539,7 +9630,40 @@ addEventListener('pagehide',()=>{if(timerStoragePending){++timerStorageRevision;
 function timerFontDefault(){return uiSettings.timerFontColor||getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim()||'#334155';}
 function syncTimerFontColor(){const p=document.getElementById('timer-page');if(!p)return;const c=timerFontDefault();p.style.setProperty('--timer-font-color',c);p.classList.toggle('timer-manual-color',!!uiSettings.timerFontColor);const f=document.getElementById('color-font-hex');if(f)f.value=c.toUpperCase();const b=document.getElementById('color-font-display');if(b)b.style.background=c;}
 function setTimerFontColor(c){if(!/^#[0-9a-f]{6}$/i.test(c))return;++timerContrastTask;delete uiSettings.timerFontBeforeAdapt;delete uiSettings.timerAutoContrast;uiSettings.timerFontColor=c;const p=document.getElementById('timer-page');p.classList.remove('timer-auto-contrast');p.style.removeProperty('--timer-contrast-overlay');syncTimerFontColor();syncTimerContrastButton();document.getElementById('custom-color-btn-text').textContent=c.toUpperCase();document.getElementById('native-color-picker').value=c;queueTimerOptionSave();}
-document.querySelectorAll('#sidebar-view-settings input[type=range]').forEach(input=>{let g;input.addEventListener('touchstart',e=>{const t=e.touches[0];g={x:t.clientX,y:t.clientY};},{passive:true});input.addEventListener('touchmove',e=>{if(!g)return;const t=e.touches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;if(!g.axis&&Math.max(Math.abs(dx),Math.abs(dy))>=8)g.axis=Math.abs(dx)>Math.abs(dy)*1.3?'x':'y';if(g.axis==='x'){e.preventDefault();const r=input.getBoundingClientRect(),min=+input.min,max=+input.max,step=+input.step||1;input.value=min+Math.round(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))*(max-min)/step)*step;input.dispatchEvent(new Event('input',{bubbles:true}));}},{passive:false});input.addEventListener('touchend',()=>{if(g?.axis==='x')input.dispatchEvent(new Event('change',{bubbles:true}));g=null;});input.addEventListener('touchcancel',()=>g=null);input.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')e.preventDefault();});});
+document.querySelectorAll('#sidebar-view-settings input[type=range]').forEach(input => {
+    const relativeDrag = input.hasAttribute('data-relative-drag');
+    let gesture;
+    input.addEventListener('touchstart', event => {
+        const touch = event.touches[0];
+        gesture = {x: touch.clientX, y: touch.clientY, value: input.valueAsNumber};
+    }, {passive: true});
+    input.addEventListener('touchmove', event => {
+        if (!gesture) return;
+        const touch = event.touches[0];
+        const dx = touch.clientX - gesture.x;
+        const dy = touch.clientY - gesture.y;
+        if (!gesture.axis && Math.max(Math.abs(dx), Math.abs(dy)) >= 8) {
+            gesture.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'x' : 'y';
+            gesture.dragStart = gesture.x + Math.sign(dx) * 8;
+        }
+        if (gesture.axis !== 'x') return;
+        event.preventDefault();
+        const rect = input.getBoundingClientRect();
+        const min = Number(input.min), max = Number(input.max), step = Number(input.step) || 1;
+        const value = relativeDrag
+            ? gesture.value + (touch.clientX - gesture.dragStart) * (max - min) / Math.max(100, rect.width)
+            : min + (touch.clientX - rect.left) * (max - min) / rect.width;
+        const previous = input.value;
+        input.value = min + Math.round((value - min) / step) * step;
+        if (!relativeDrag || input.value !== previous) input.dispatchEvent(new Event('input', {bubbles: true}));
+    }, {passive: false});
+    input.addEventListener('touchend', () => {
+        if (gesture?.axis === 'x') input.dispatchEvent(new Event('change', {bubbles: true}));
+        gesture = null;
+    });
+    input.addEventListener('touchcancel', () => { gesture = null; });
+    input.addEventListener('pointerdown', event => { if (event.pointerType === 'touch') event.preventDefault(); });
+});
 
 function getInspectionVoiceRate(){const value=Number(uiSettings.inspectionVoiceRate);return Number.isFinite(value)&&value>=0.5&&value<=2?value:1;}
 function syncInspectionVoiceRate(){const rate=getInspectionVoiceRate(),input=document.getElementById('inspection-voice-rate'),label=document.getElementById('inspection-voice-rate-value');if(input)input.value=rate;if(label)label.textContent=rate.toFixed(1)+'×';}

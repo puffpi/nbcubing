@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.62.1">
+    <link rel="stylesheet" href="style.css?v=1.65.0">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -487,7 +487,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.62.1</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.65.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -1167,8 +1167,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <div class="ios-setting-group custom-ui-group">
                         <span>计时器字体大小</span>
                         <div class="ui-control-right ui-slider-wrapper">
-                            <span id="font-size-val">100%</span>
-                            <input type="range" id="font-size-slider" min="50" max="150" value="100" oninput="updateFontSize(this.value)">
+                            <span id="font-size-val"></span>
+                            <input type="range" id="font-size-slider" step="1" data-relative-drag aria-label="计时器字号" oninput="updateTimerFontPixels('fontSizePx', this.valueAsNumber)">
                         </div>
                     </div>
 
@@ -1176,8 +1176,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <div class="ios-setting-group custom-ui-group">
                         <span>打乱字体大小</span>
                         <div class="ui-control-right ui-slider-wrapper">
-                            <span id="scramble-size-val">100%</span>
-                            <input type="range" id="scramble-size-slider" min="50" max="150" value="100" oninput="updateScrambleSize(this.value)">
+                            <span id="scramble-size-val"></span>
+                            <input type="range" id="scramble-size-slider" step="1" data-relative-drag aria-label="打乱字号" oninput="updateTimerFontPixels('scrambleSizePx', this.valueAsNumber)">
                         </div>
                     </div>
 
@@ -1681,7 +1681,16 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <!-- 玩家 A (上半屏) -->
             <div class="challenge-half top-half" id="challenge-top-area">
                 <div class="challenge-scramble" id="challenge-scramble-top">R U R' U'</div>
+                <div class="challenge-smart-panel" hidden>
+                    <div class="timer-virtual-cube" role="img" aria-label="智能魔方虚拟模型"></div>
+                    <div class="challenge-smart-stats"></div>
+                    <button type="button" class="btn btn-outline pk-action-btn pk-start-btn challenge-smart-dnf" aria-label="放弃本轮（DNF）" hidden>DNF</button>
+                    <button type="button" class="timer-bluetooth-status">
+                        <span class="challenge-bluetooth-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg><span class="timer-cube-battery" hidden><span class="timer-battery-body"><i></i><span class="timer-battery-percent"></span></span></span></span><span class="challenge-smart-connection-label">未连接</span>
+                    </button>
+                </div>
                 <div class="challenge-timer-wrap"><div class="challenge-timer" id="challenge-timer-top">0.00</div><span class="challenge-handicap-suffix" id="challenge-handicap-top" hidden></span></div>
+                <p class="challenge-smart-hint" hidden></p>
                 <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-top-after"></div>
             </div>
 
@@ -1715,7 +1724,16 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <!-- 玩家 B (下半屏) -->
             <div class="challenge-half bottom-half" id="challenge-bottom-area">
                 <div class="challenge-scramble" id="challenge-scramble-bottom">R U R' U'</div>
+                <div class="challenge-smart-panel" hidden>
+                    <div class="timer-virtual-cube" role="img" aria-label="智能魔方虚拟模型"></div>
+                    <div class="challenge-smart-stats"></div>
+                    <button type="button" class="btn btn-outline pk-action-btn pk-start-btn challenge-smart-dnf" aria-label="放弃本轮（DNF）" hidden>DNF</button>
+                    <button type="button" class="timer-bluetooth-status">
+                        <span class="challenge-bluetooth-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg><span class="timer-cube-battery" hidden><span class="timer-battery-body"><i></i><span class="timer-battery-percent"></span></span></span></span><span class="challenge-smart-connection-label">未连接</span>
+                    </button>
+                </div>
                 <div class="challenge-timer-wrap"><div class="challenge-timer" id="challenge-timer-bottom">0.00</div><span class="challenge-handicap-suffix" id="challenge-handicap-bottom" hidden></span></div>
+                <p class="challenge-smart-hint" hidden></p>
                 <div class="challenge-scramble challenge-scramble-after" id="challenge-scramble-bottom-after"></div>
             </div>
 
@@ -1724,8 +1742,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
                     <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择项目</h3>
                     <div id="chal-event-grid" class="chal-event-grid"></div>
-                    <div class="edit-popup-actions" style="margin-top: 15px;">
-                        <button class="edit-btn-cancel" onclick="closeChalEventPopup()">取消</button>
+                    <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
+                        <div id="chal-category-select" class="timer-category-select" role="group" aria-label="计时项目分类"><button type="button" aria-label="上一个分类" onclick="cycleChalCategory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="chal-category-label">WCA</span><button type="button" aria-label="下一个分类" onclick="cycleChalCategory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div>
                         <button class="edit-btn-confirm" onclick="confirmChalEvent()">确定</button>
                     </div>
                 </div>
@@ -1979,7 +1997,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.60.15"></script>
+    <script src="main.js?v=1.65.0"></script>
     <script src="forum.js?v=1.48.6"></script>
     <script src="account.js?v=1.60.13"></script>
     <script src="theme.js?v=1.48.14"></script>
@@ -1988,7 +2006,22 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 <div id="smart-result-delete-confirm" class="smart-delete-overlay" role="dialog" aria-modal="true" aria-labelledby="smart-delete-title" hidden><div class="smart-delete-card"><h3 id="smart-delete-title">删除本次成绩？</h3><p>删除后无法恢复。</p><div class="smart-delete-actions"><button type="button" onclick="cancelTimerSmartResultDelete()">取消</button><button type="button" class="smart-delete-confirm" onclick="confirmTimerSmartResultDelete()">确定删除</button></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
-    <script src="timer_smart.js?v=1.56.16"></script>
+<div id="challenge-bluetooth-dialog" class="cube-appearance-overlay" role="dialog" aria-modal="true" aria-labelledby="challenge-bluetooth-title" hidden>
+    <div class="cube-appearance-card">
+        <div class="timer-daily-heading"><h3 id="challenge-bluetooth-title">连接魔域智能三阶</h3><button type="button" data-close aria-label="关闭设备选择">×</button></div>
+        <div class="timer-bluetooth-devices"></div>
+        <div class="timer-bluetooth-actions">
+            <button type="button" class="timer-bluetooth-rescan" data-scan>搜寻设备</button>
+            <div class="timer-bluetooth-tools">
+                <button type="button" data-reset-gyro>重置陀螺仪</button>
+                <button type="button" data-sync-solved title="请先将实体魔方复原">复原同步</button>
+            </div>
+        </div>
+        <p class="challenge-bluetooth-feedback" role="status" hidden></p>
+    </div>
+</div>
+    <script src="timer_smart.js?v=1.62.23"></script>
+    <script src="challenge_smart.js?v=1.62.21"></script>
     <script src="cube_space_player.js?v=1.56.16"></script>
     <script src="formula_favorites.js?v=1.56.16"></script>
 </body>

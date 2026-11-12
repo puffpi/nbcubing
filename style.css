@@ -37,8 +37,6 @@ input, textarea, select {
     --scramble-font-scale: 1; /* 新增兜底缩放 */
 
     /* 👇 新增 Challenge 专属字体缩放变量 👇 */
-    --chal-scramble-scale: 1;
-    --chal-timer-scale: 1;
 }
 
 body {
@@ -1098,10 +1096,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 .desktop-sidebar-btn {
     flex: 1; display: flex; align-items: center; justify-content: center;
-    color: #94a3b8; cursor: pointer; transition: all 0.25s ease;
+    color: #94a3b8; cursor: pointer; transition: color 0.25s ease;
 }
 .desktop-sidebar-btn.active { color: #334155; }
-.desktop-sidebar-btn:active { transform: scale(0.9); }
+.desktop-sidebar-btn svg { width: 24px; height: 24px; }
 
 /* 3. 右侧主计时区 (桌面端) */
 .timer-main {
@@ -1300,7 +1298,6 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 #sidebar-view-settings :is(.desktop-prompt,.mobile-prompt) .custom-ui-group{min-height:28px;margin-bottom:4px;}
 #sidebar-view-settings :is(.desktop-prompt,.mobile-prompt) .custom-ui-group:last-child{margin-bottom:0;}
 #sidebar-view-settings .custom-ui-group > span { min-width: 0; }
-#sidebar-view-settings .ui-slider-wrapper { flex: 0 1 140px; min-width: 0; max-width: 100%; }
 
 .color-wrapper { background: transparent; padding: 0; width: 140px; gap: 6px; border: none; cursor: default; }
 .color-wrapper:hover { background: transparent; }
@@ -1671,8 +1668,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 
 /* 恢复了你最喜欢的灰蓝底色和无边框设计 */
-.challenge-divider {
+.challenge-divider, #challenge-bluetooth-dialog {
     --challenge-divider-height: 52px;
+}
+.challenge-divider {
     height: var(--challenge-divider-height);
     background: #e2e8f0;
     display: flex; align-items: center; justify-content: center;
@@ -1741,14 +1740,14 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .challenge-scramble {
     position: absolute;
     /* 核心修改：加入动态缩放计算 */
-    font-size: calc(15px * var(--chal-scramble-scale, 1));
+    font-size: var(--chal-scramble-font-size);
     font-weight: bold; text-align: center;
     font-family: 'SFMono-Regular', Consolas, monospace; width: 90%; color: var(--text-main); z-index: 5;
 }
 
 .challenge-timer {
     /* 核心修改：在原本自适应 clamp 尺寸外层包上缩放乘区 */
-    font-size: calc(clamp(65px, 12vw, 90px) * var(--chal-timer-scale, 1)) !important;
+    font-size: var(--chal-timer-font-size) !important;
     font-weight: 900;
     font-family: 'SFMono-Regular', Consolas, monospace; font-variant-numeric: tabular-nums;
     line-height: 1; color: var(--text-main); transition: color 0.15s ease; margin: 0;
@@ -1761,11 +1760,10 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .chal-handicap-choices { display: grid; gap: 8px; margin-bottom: 18px; }
 .chal-handicap-choices label { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-main); cursor: pointer; }
 .chal-handicap-choices input { accent-color: var(--primary-color); }
-.chal-handicap-amount { display: flex; align-items: center; justify-content: center; gap: 2px; color: var(--text-main); }
-.chal-handicap-amount input { width: 60px; text-align: center; margin: 0 2px; }
-.chal-handicap-amount input::-webkit-inner-spin-button,
-.chal-handicap-amount input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.chal-handicap-amount input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.chal-handicap-amount { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-main); }
+.chal-score-inputs { display: flex; justify-content: center; align-items: end; gap: 12px; }
+.chal-score-inputs label { display: grid; justify-items: center; gap: 8px; min-width: 0; font-size: 13px; color: var(--text-muted); }
+.chal-score-inputs > span { align-content: center; height: 38px; color: var(--text-muted); }
 
 .chal-event-content { max-width: 450px !important; }
 .chal-event-grid {
@@ -3174,21 +3172,21 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 }
 
 /* NB Timer smart-cube preview and event selector */
-.timer-event-actions { align-items: center; justify-content: space-between; }
-.timer-event-actions .edit-btn-confirm { flex: 0 0 104px; width: 104px; }
+.edit-popup-actions.timer-event-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; flex:0 0 auto; }
+.timer-event-actions > .edit-btn-confirm { min-width:0; height:40px; margin:0; padding:0; }
 .timer-mode-choice { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); align-items: center; gap: 3px; padding: 4px; border-radius: 999px; background: #edf1f5; min-width: 0; flex: 0 1 190px; overflow: hidden; }
 .timer-mode-choice::before { content: ''; position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 11px) / 2); border-radius: 999px; background: var(--primary-color); box-shadow: 0 2px 7px rgba(0,0,0,.12); transform: translateX(0); transition: transform .28s cubic-bezier(.22,.85,.35,1); }
 .timer-mode-choice:has(#timer-mode-smart.active)::before { transform: translateX(calc(100% + 3px)); }
 .timer-mode-choice button { position: relative; z-index: 1; min-width: 0; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); padding: 10px 0; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: color .2s ease, transform .2s ease; }
 .timer-mode-choice button:active { transform: scale(.96); }
 .timer-mode-choice button.active { background: transparent; color: white; box-shadow: none; }
-#timer-event-popup .chal-event-content { height: min(512px, calc(100vh - 32px)); overflow: hidden; align-items: stretch; }
-#timer-event-popup .chal-event-content h3 { text-align: center; flex: 0 0 auto; }
-#timer-event-grid { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; align-content: start; }
-#timer-event-grid { grid-auto-rows: auto; gap: 8px; }
-#timer-event-grid .chal-event-item { justify-content: center; height: 82px; min-height: 82px; padding: 5px 4px; box-sizing: border-box; }
-#timer-event-grid::-webkit-scrollbar { display: none; }
-#timer-event-popup .timer-event-actions { flex: 0 0 auto; }
+:is(#timer-event-popup,#chal-event-popup) .chal-event-content { height: min(512px, calc(100vh - 32px)); overflow: hidden; align-items: stretch; }
+#timer-event-popup:not(.timer-screen-overlay) .chal-event-content { max-height: 100%; }
+:is(#timer-event-popup,#chal-event-popup) .chal-event-content h3 { text-align: center; flex: 0 0 auto; }
+#chal-event-grid, #timer-event-grid { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; align-content: start; }
+#chal-event-grid, #timer-event-grid { grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-rows:auto; gap:8px; }
+:is(#chal-event-grid,#timer-event-grid) .chal-event-item { justify-content: center; height: 82px; min-height: 82px; padding: 5px 4px; box-sizing: border-box; }
+:is(#chal-event-grid,#timer-event-grid)::-webkit-scrollbar { display: none; }
 .timer-smart-group-title { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; font-weight: 700; margin: 2px 0 -2px; align-self: end; }
 .chal-event-item.timer-smart-disabled { color: #94a3b8; background: #f8fafc; cursor: not-allowed; pointer-events: none; }
 .chal-event-item.timer-smart-disabled .cubing-icon { color: #94a3b8; }
@@ -3313,7 +3311,6 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 .timer-bluetooth-devices button:hover { border-color: #7aa4d0; background: #edf5fe; }
 .timer-bluetooth-rescan { border: 0; background: transparent; color: #2875bd; font-weight: 700; cursor: pointer; padding: 4px 0; }
 @media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
-  .timer-event-actions .edit-btn-confirm { flex-basis: 76px; width: 76px; }
   .timer-mode-choice { flex-basis: 170px; }
   .timer-mode-choice button { padding: 9px 0; font-size: 11px; }
   #timer-page .timer-main.smart-cube-mode .timer-smart-stage { inset: 76px 0 52px; gap: 22px; padding: 0 12px; }
@@ -3635,7 +3632,7 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
     #monthly-timer-page.active #monthly-scramble-outer-wrapper { bottom: 8px !important; right: -3px !important; }
     #timer-page.active:has(#timer-event-icon.event-minx) #scramble-text,
     #monthly-timer-page.active:has(#monthly-event-watermark.event-minx) #monthly-scramble-text {
-        font-size: calc(17px * var(--scramble-font-scale, 1)) !important;
+        font-size: var(--nb-scramble-font-size, calc(17px * var(--scramble-font-scale, 1))) !important;
         line-height: 1 !important;
         max-height: none !important;
         overflow: visible !important;
@@ -3671,7 +3668,7 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 #challenge-page.active .challenge-scramble {
     left: 50%; transform: translateX(-50%); bottom: auto;
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-    font-size: calc(19px * var(--chal-scramble-scale, 1));
+    font-size: var(--chal-scramble-font-size);
     font-weight: 500; line-height: 1.1; letter-spacing: -.04em; word-spacing: 2px;
 }
 #challenge-page.active .challenge-scramble.minx-grid {
@@ -3714,11 +3711,9 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
     #monthly-timer-page.active #monthly-stats-panel,
     #monthly-timer-page.active #monthly-scramble-outer-wrapper { bottom: -1px !important; }
     #challenge-page.active .challenge-scramble {
-        font-size: calc(19px * var(--chal-scramble-scale, 1));
         width: calc(100% - 32px);
     }
     #challenge-page.active .challenge-scramble.minx-grid {
-        font-size: calc(17px * var(--chal-scramble-scale, 1));
         grid-template-columns: minmax(0, 1fr);
         row-gap: 3px;
     }
@@ -4584,7 +4579,7 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #timer-relay-navigation button { padding:0 8px; margin:0; border:0; background:transparent; box-shadow:none; color:var(--text-main); font-size:30px; line-height:1; cursor:pointer; }
 #timer-relay-navigation button:active { transform:scale(.9); }
 @media(max-width:1200px) {
- #timer-page.active #scramble-text { font-size:calc(19px * var(--scramble-font-scale,1))!important; line-height:1.25!important; letter-spacing:0; }
+ #timer-page.active #scramble-text { font-size:var(--nb-scramble-font-size,calc(19px * var(--scramble-font-scale,1)))!important; line-height:1.25!important; letter-spacing:0; }
  #timer-page.active .scramble-container { max-height:28%; overflow:auto; }
 }
 
@@ -4598,9 +4593,7 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #edit-scramble-display[hidden] {display:none!important;}
 
 /* Keep category labels inside the settings-style control. */
-#timer-event-popup .timer-event-actions { gap:12px; }
-#timer-event-popup .timer-category-select { display:flex; flex:1 1 0; width:auto; min-width:0; max-width:100%; align-items:center; justify-content:space-between; box-sizing:border-box; padding:8px 12px; gap:10px; line-height:1.2; }
-#timer-category-label { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+:is(#timer-category-label,#chal-category-label) { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #timer-category-select > span:last-child { flex:0 0 auto; }
 #timer-event-grid .timer-other-fullname { grid-column:span 2; }
 #timer-event-grid .timer-other-fullname span:last-child { font-size:12px!important; line-height:1.35; overflow-wrap:normal; word-break:normal; max-width:100%; }
@@ -4634,14 +4627,15 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #timer-bottom-event-icon.timer-other-event-icon { font-size:12px!important; width:48px; height:28px; white-space:nowrap; line-height:1; }
 
 /* Fixed category columns keep both arrows stationary across all labels. */
-#timer-event-popup #timer-category-select { display:grid; grid-template-columns:28px minmax(0,1fr) 28px; flex:1 1 0; height:40px; min-width:0; padding:0 6px; gap:0; box-sizing:border-box; }
-#timer-category-select button { display:flex; align-items:center; justify-content:center; width:28px; height:40px; margin:0; padding:0; border:0; border-radius:8px; background:transparent; box-shadow:none; color:var(--text-main); }
-#timer-category-select button svg { display:block; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
-#timer-category-label { display:flex; justify-content:center; align-items:center; height:40px; font-size:13px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; }
-#timer-category-select button:hover { background:rgba(148,163,184,.15); }
+.timer-event-actions > .timer-category-select { display:grid; grid-column:span 3; grid-template-columns:28px minmax(0,1fr) 28px; width:auto; height:40px; min-width:0; padding:0 6px; gap:0; box-sizing:border-box; }
+.timer-event-actions .timer-category-select button { display:flex; align-items:center; justify-content:center; width:28px; height:40px; margin:0; padding:0; border:0; border-radius:8px; background:transparent; box-shadow:none; color:var(--text-main); }
+.timer-event-actions .timer-category-select button svg { display:block; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+:is(#timer-category-label,#chal-category-label) { display:flex; justify-content:center; align-items:center; height:40px; font-size:13px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; }
+.timer-event-actions .timer-category-select button:is(:hover, :active) { background:transparent; box-shadow:none; transform:none; }
+.timer-event-actions .timer-category-select button { -webkit-tap-highlight-color:transparent; }
 #timer-bottom-event-icon.timer-other-event-icon { font-size:16px!important; width:56px; }
 
-#timer-category-select button, #timer-category-label { height:100%; min-height:0; }
+.timer-event-actions .timer-category-select button, :is(#timer-category-label,#chal-category-label) { height:100%; min-height:0; }
 
 /* Competition names remain emphasized without dominating news descriptions. */
 .news-desc strong { font-weight:500; }
@@ -4674,7 +4668,6 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #timer-page .timer-main.smart-cube-mode #timer-event-title{display:block!important;}
 .smart-scramble-token{display:inline-block;}
 .smart-scramble-token.smart-correct{color:#16975b;}
-.smart-scramble-token.smart-wrong{color:#e34444;}
 .smart-scramble-token.smart-undo{color:#b75c24;}
 .smart-scramble-token.smart-current{text-decoration:underline;text-underline-offset:5px;}
 .smart-result-overlay[hidden]{display:none!important;}
@@ -4991,7 +4984,7 @@ html[data-theme=dark] .timer-daily-tabs{background:#528bce15;}html[data-theme=da
 
 /* Cube battery replaces the Bluetooth glyph only after a valid device reading. */
 .timer-cube-battery[hidden],.timer-battery-notice[hidden]{display:none!important;}
-#timer-bluetooth-icon.has-battery>svg{display:none;}
+:is(#timer-bluetooth-icon,.challenge-bluetooth-icon).has-battery>svg{display:none;}
 .timer-cube-battery{display:inline-flex;align-items:center;justify-content:center;color:var(--cube-battery-color,#3c9570);min-width:30px;height:20px;}
 .timer-battery-percent{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:11px;line-height:1;font-weight:650;font-variant-numeric:tabular-nums;}
 .timer-battery-body{position:relative;display:block;width:26px;height:13px;box-sizing:border-box;border:1px solid currentColor;border-radius:2.5px;padding:1px;}
@@ -5012,7 +5005,7 @@ html[data-theme=dark] .timer-cube-battery[data-power=critical],html[data-theme=d
 #timer-bluetooth-status.connected.has-battery{color:var(--cube-battery-color,#3c9570);}
 #timer-bluetooth-status.has-battery #timer-bluetooth-label{color:inherit;}
 #timer-bluetooth-status{align-items:center;line-height:20px;}
-#timer-bluetooth-icon.has-battery{height:20px;display:inline-flex;align-items:center;align-self:center;}
+:is(#timer-bluetooth-icon,.challenge-bluetooth-icon).has-battery{height:20px;display:inline-flex;align-items:center;align-self:center;}
 #timer-bluetooth-label{display:inline-flex;align-items:center;line-height:20px;min-height:20px;}
 .timer-daily-card{padding:20px 22px;}
 .timer-daily-date button{display:flex;align-items:center;justify-content:center;padding:0;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:400;line-height:1;}
@@ -5424,9 +5417,9 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 
 
 /* Timer ranges reuse space settings' native control and value typography. */
-#sidebar-view-settings .ui-slider-wrapper { gap:12px; }
-#sidebar-view-settings .ui-slider-wrapper input[type="range"] { order:-1; appearance:auto; flex:1; min-width:0; accent-color:var(--primary-color); touch-action:none; }
-#sidebar-view-settings .ui-slider-wrapper > span { width:36px; flex-shrink:0; text-align:right; font-family:inherit; font-size:14px; font-weight:400; line-height:1.7; color:var(--text-main); }
+#sidebar-view-settings .ui-slider-wrapper { display:grid; grid-template-columns:minmax(0,1fr) 54px; flex:none; max-width:100%; border:0; gap:0; }
+#sidebar-view-settings .ui-slider-wrapper input[type="range"] { order:-1; appearance:auto; width:100%; min-width:0; margin:0; accent-color:var(--primary-color); touch-action:none; }
+#sidebar-view-settings .ui-slider-wrapper > span { width:auto; white-space:nowrap; text-align:right; font-family:inherit; font-size:14px; font-weight:400; line-height:1.7; color:var(--text-main); }
 
 #edit-score-popup #edit-scramble { -webkit-text-stroke:.18px currentColor; }
 #edit-score-popup .edit-share-actions [data-feedback="success"]::after { content:''; width:15px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:translateY(-2px) rotate(-45deg); }
@@ -5743,9 +5736,12 @@ body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="
 body:has(#timer-clear-modal[style*="display: flex"],#timer-import-modal[style*="display: flex"],#timer-export-modal[style*="display: flex"],#timer-dist-modal[style*="display: flex"],#timer-trend-modal[style*="display: flex"],#timer-db-result-modal[style*="display: flex"],#timer-daily-overlay:not([hidden])) #timer-page .timer-main > :not(.edit-score-popup){filter:blur(1px);pointer-events:none;}
 
 /* 1.50.21 touch timer */
+#timer-page{--nb-timer-default-font-size:90px;}
+#timer-page.active #timer-display:not(.nb-status-text){font-size:var(--nb-timer-font-size,var(--nb-timer-default-font-size))!important;}
+#timer-page.active #scramble-text{font-size:var(--nb-scramble-font-size,calc(19px * var(--scramble-font-scale,1)))!important;}
 @media(max-width:768px),(pointer:coarse) and (max-width:1400px){
-#timer-page.active #timer-display:not(.nb-status-text){font-size:calc(clamp(60px,20vw,85px) * var(--timer-font-scale,1))!important;}
-#timer-page.active .timer-main:not(.smart-cube-mode) #scramble-text{font-size:calc(18px * var(--scramble-font-scale,1))!important;max-height:var(--timer-scramble-room,35vh)!important;overflow-y:auto;scrollbar-width:none;}
+#timer-page{--nb-timer-default-font-size:80px;}
+#timer-page.active .timer-main:not(.smart-cube-mode) #scramble-text{font-size:var(--nb-scramble-font-size,calc(18px * var(--scramble-font-scale,1)))!important;max-height:var(--timer-scramble-room,35vh)!important;overflow-y:auto;scrollbar-width:none;}
 }
 #timer-page.timer-auto-contrast .timer-bluetooth-devices{--text-main:var(--timer-control-main);--text-muted:var(--timer-control-muted);}
 #timer-page.timer-auto-contrast #timer-bluetooth-status{color:var(--text-main)!important;}
@@ -5770,8 +5766,8 @@ body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="dis
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:#334155!important;}
 html[data-theme=dark] #timer-page #timer-more-dropdown,html[data-theme=dark] #timer-page.timer-auto-contrast #timer-more-dropdown{background:#24272d!important;color:#f1f5f9!important;border-color:#454a52!important;}
 html[data-theme=dark] #timer-page #timer-more-dropdown .timer-more-item{color:#f1f5f9!important;}
-:is(#edit-score-popup,#avg-score-popup,#avg-details-popup) > .edit-score-content{width:calc(100% - 64px);max-width:450px;box-sizing:border-box;}
-@media(min-width:769px) and (pointer:fine){:is(#edit-score-popup,#avg-score-popup,#avg-details-popup) > .edit-score-content{max-width:340px;}}
+:is(#edit-score-popup,#avg-score-popup,#avg-details-popup).timer-screen-overlay > .edit-score-content{width:calc(100% - 64px);max-width:450px;box-sizing:border-box;}
+
 
 /* 1.50.24: denser score-card scramble, unchanged card width. */
 #edit-score-popup #edit-scramble{line-height:1.25;letter-spacing:-.025em;word-spacing:-.08em;}
@@ -6177,6 +6173,7 @@ body:has(#search-page.active) #directory-pk-toggle{font-size:14px;font-family:in
 #comps-page .competition-list-table { border-collapse: separate; border-spacing: 0; }
 .inline-picker { position: relative; min-width: 0; }
 .inline-picker-trigger,
+.chal-number-input,
 :is(#comps-page, #cca-comps-page) .competition-search input {
     box-sizing: border-box;
     width: 100%;
@@ -6189,6 +6186,18 @@ body:has(#search-page.active) #directory-pk-toggle{font-size:14px;font-family:in
     font: inherit;
     font-size: 14px;
 }
+.chal-number-input {
+    width: 96px;
+    max-width: 100%;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+    appearance: textfield;
+}
+#chal-input-winscore { display: block; margin-inline: auto; }
+.chal-number-input:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.chal-number-input::-webkit-inner-spin-button,
+.chal-number-input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .inline-picker-trigger {
     display: flex;
     align-items: center;
@@ -6580,6 +6589,167 @@ body #challenge-page.active .challenge-wrapper {
 }
 #challenge-page .challenge-half { min-height: 0; }
 #challenge-page .challenge-divider { flex-shrink: 0; }
+#challenge-page {
+    --chal-timer-default-size: 80px;
+    --chal-scramble-default-size: 20px;
+    --chal-timer-font-size: var(--chal-timer-preview-size, var(--chal-timer-size, var(--chal-timer-default-size)));
+    --chal-scramble-font-size: var(--chal-scramble-preview-size, var(--chal-scramble-size, var(--chal-scramble-default-size)));
+    --challenge-dialog-blur: 2px;
+}
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
+    #challenge-page { --chal-timer-default-size: 90px; }
+}
+html[data-theme="dark"] #challenge-page:not(:has(#chal-event-popup[style*="display: flex"])) {
+    --challenge-dialog-blur: 3px;
+}
+
+/* Blur the scene itself to avoid mirrored samples at the overlay edges. */
+html :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 0;
+}
+#challenge-page .edit-score-popup {
+    animation: challenge-dialog-fade-in .12s ease-out !important;
+    will-change: auto;
+}
+@keyframes challenge-dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
+#challenge-page:has(.edit-score-popup[style*="display: flex"]) .challenge-wrapper > :is(.challenge-half, .challenge-divider),
+body:has(#challenge-bluetooth-dialog:not([hidden])) #challenge-page .challenge-wrapper > :is(.challenge-half, .challenge-divider) {
+    filter: blur(var(--challenge-dialog-blur));
+}
+#chal-settings-modal.challenge-font-preview .edit-score-content { max-height: 100%; overflow-y: auto; }
+.chal-font-label { display: block; margin-bottom: 8px; text-align: left; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+.chal-font-slider { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 8px; }
+.chal-font-slider + .chal-font-label { margin-top: 20px; }
+.chal-font-slider input { order: -1; width: 100%; min-width: 0; margin: 0; accent-color: var(--primary-color); cursor: pointer; touch-action: none; }
+.chal-font-slider output { text-align: right; font-size: 14px; white-space: nowrap; }
+.challenge-smart .challenge-wrapper:has(> #chal-settings-modal.challenge-font-preview) .challenge-scramble:not(.challenge-scramble-after):empty::before {
+    content: "R U R′ U′ F2 D2 L2";
+}
+
+#challenge-page.challenge-smart .challenge-half {
+    flex: 1 1 0;
+    container-type: size;
+    cursor: default;
+    --challenge-smart-scramble-height: clamp(34px, 17cqh, 90px);
+    --challenge-smart-block-gap: clamp(6px, 3cqh, 14px);
+}
+#challenge-page.challenge-smart .top-half { transform: rotate(180deg); }
+#challenge-page.challenge-smart .challenge-scramble:not(.challenge-scramble-after) {
+    position: static;
+    transform: none;
+    box-sizing: border-box;
+    flex: none;
+    height: var(--challenge-smart-scramble-height);
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-size: var(--chal-scramble-font-size) !important;
+    line-height: 1.2;
+}
+#challenge-page.challenge-smart .challenge-scramble,
+#challenge-page.challenge-smart .challenge-scramble * { touch-action: pan-y !important; }
+.challenge-smart .challenge-scramble-after,
+.challenge-smart-panel[hidden], .challenge-smart-hint[hidden] { display: none; }
+.challenge-smart .challenge-timer-wrap { margin-top: var(--challenge-smart-block-gap); }
+.challenge-smart .challenge-timer {
+    font-size: var(--chal-timer-font-size) !important;
+    line-height: 1;
+}
+.challenge-smart-panel { display: grid; justify-items: center; width: 100%; row-gap: 8px; }
+.challenge-smart-panel .timer-virtual-cube {
+    /* Reserve space for the scramble, timer, status, hint and their gaps. */
+    --challenge-smart-cube-room: calc(100cqh - var(--challenge-smart-scramble-height) - var(--chal-timer-font-size) - 2 * var(--challenge-smart-block-gap) - 70px);
+    --cube-side: clamp(20px, min(24cqh, 25cqw, var(--challenge-smart-cube-room) / 1.8), 104px);
+    --cube-half: calc(var(--cube-side) / 2);
+    width: calc(var(--cube-side) * 1.42);
+    height: calc(var(--cube-side) * 1.8);
+    margin: 0;
+    cursor: default;
+}
+.challenge-smart-panel :is(.timer-virtual-cube, .challenge-smart-stats, .challenge-smart-dnf) { grid-area: 1 / 1; }
+.challenge-smart-panel :is(.challenge-smart-stats, .challenge-smart-dnf) {
+    align-self: center;
+    justify-self: end;
+    margin-inline-end: clamp(8px, 4cqw, 20px);
+}
+.challenge-smart-stats {
+    display: grid;
+    gap: 2px;
+    color: var(--text-main);
+    font-size: 15px;
+    text-align: end;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+html:not([data-theme="dark"]) .challenge-smart-stats { color: #111; }
+.challenge-smart-panel .challenge-smart-dnf {
+    font-size: 14px !important;
+    padding: 7px 14px !important;
+    transform: none !important;
+}
+.challenge-smart-panel .challenge-smart-dnf[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+    .challenge-smart-panel [data-idle-spin] .timer-cube-body {
+        animation: challenge-cube-idle-spin 20s linear infinite;
+    }
+}
+@keyframes challenge-cube-idle-spin {
+    from { transform: rotateX(var(--cube-x, -25deg)) rotateY(var(--cube-y, -32deg)); }
+    to { transform: rotateX(var(--cube-x, -25deg)) rotateY(calc(var(--cube-y, -32deg) - 360deg)); }
+}
+.challenge-smart-panel .timer-bluetooth-status {
+    background: transparent;
+    border: 0;
+    line-height: 20px;
+    font-family: inherit;
+}
+.challenge-smart-panel .timer-bluetooth-status:disabled { cursor: default; }
+.challenge-bluetooth-icon { display: inline-flex; }
+.challenge-smart-hint {
+    margin: var(--challenge-smart-block-gap) 0 0;
+    min-height: 20px;
+    line-height: 20px;
+    max-width: 90vw;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+@container (max-height: 220px) {
+    /* Keep the cube, connection status and hint within short landscape halves. */
+    .challenge-smart .challenge-timer { font-size: min(var(--chal-timer-font-size), max(28px, 16cqh)) !important; }
+    .challenge-smart-panel { row-gap: 4px; }
+    .challenge-smart-panel .timer-virtual-cube { --cube-side: clamp(20px, 14cqh, 30px); }
+    .challenge-smart :is(.challenge-timer-wrap, .challenge-smart-hint) { margin-top: 4px; }
+}
+#challenge-bluetooth-dialog {
+    padding: 0 16px;
+    grid-template-rows: minmax(0, 1fr) var(--challenge-divider-height) minmax(0, 1fr);
+}
+#challenge-bluetooth-dialog .cube-appearance-card {
+    grid-row: 3;
+    width: min(340px, 100%);
+    max-height: calc(100% - 32px);
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    background: var(--card-bg, #fff);
+}
+#challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card {
+    grid-row: 1;
+    margin: 24px 0 0;
+    transform: rotate(180deg);
+}
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
+    #challenge-page.challenge-smart .top-half,
+    #challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card { transform: none; }
+}
+#challenge-bluetooth-dialog .timer-bluetooth-devices { min-height: 40px; overflow: auto; }
+#challenge-bluetooth-dialog .timer-bluetooth-actions button:disabled { color: var(--text-muted); cursor: default; }
+.challenge-bluetooth-feedback { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; }
+#challenge-bluetooth-dialog .timer-bluetooth-devices button { background: var(--bg-color); border-color: var(--border-color); }
+#challenge-bluetooth-dialog .timer-bluetooth-devices button:disabled { opacity: .65; cursor: default; }
 #cca-comps-page .cca-project-icon { display: block; width: 24px; height: 24px; }
 
 .competition-list-date time { white-space: nowrap; }

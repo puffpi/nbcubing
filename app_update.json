@@ -1,6 +1,6 @@
 {
-  "versionCode": 44,
-  "versionName": "1.62.1",
+  "versionCode": 45,
+  "versionName": "1.65.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "统一手机首页入口标题字号和设置页行距，优化关于本站的网址换行。"
+  "notes": "NB Challenge 新增魔域智能魔方对战与陪练「心之敌」，支持调节字号并实时预览。优化 NB Timer 智能打乱纠错、后台恢复及计时器字号设置。"
 }
