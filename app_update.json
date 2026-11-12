@@ -1,6 +1,6 @@
 {
-  "versionCode": 45,
-  "versionName": "1.65.0",
+  "versionCode": 46,
+  "versionName": "1.65.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "NB Challenge 新增魔域智能魔方对战与陪练「心之敌」，支持调节字号并实时预览。优化 NB Timer 智能打乱纠错、后台恢复及计时器字号设置。"
+  "notes": "优化 NB Challenge 智能魔方转动同步和半屏布局，调整更多卡片的文字样式。App 更新提示须点击按钮选择。"
 }

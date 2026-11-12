@@ -320,7 +320,15 @@ async function startMoyuSession(device, handlers){
     const send=(opcode,gyroEnabled)=>{const task=session.writeChain.then(async()=>{if(!session.active)return;const request=new Uint8Array(20);request[0]=opcode;if(gyroEnabled!==undefined)request[2]=gyroEnabled?1:0;const data=await cipher.encode(request);if(!session.active)return;if(write.properties.write)await write.writeValueWithResponse(data);else await write.writeValueWithoutResponse(data);});session.writeChain=task.catch(()=>{});return task;};
     session.send=send;
     session.listener=event=>{const receivedAt=timerMoyuNotificationStamp(event),value=event.target.value,raw=new Uint8Array(value.buffer,value.byteOffset,value.byteLength).slice();
-        session.chain=session.chain.then(async()=>{if(!session.active)return;diagnostic.packets++;if(!diagnostic.lengths.includes(raw.length))diagnostic.lengths.push(raw.length);const data=await cipher.decode(raw);if(!session.active)return;
+        if(!session.active)return;
+        // Start WebCrypto on receipt, but apply packets in notification order.
+        // A gyro packet's crypto round trips should not serialize the next move's decryption.
+        const decoded=cipher.decode(raw).then(data=>({data}),error=>({error}));
+        session.chain=session.chain.then(async()=>{if(!session.active)return;
+            const {data,error}=await decoded;
+            if(!session.active)return;
+            if(error)throw error;
+            diagnostic.packets++;if(!diagnostic.lengths.includes(raw.length))diagnostic.lengths.push(raw.length);
             if(!diagnostic.types.includes(data[0]))diagnostic.types.push(data[0]);
             if(data[0]===171){
                 if(handlers){

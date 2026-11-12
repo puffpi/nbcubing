@@ -219,10 +219,28 @@ const ChallengeSmart = (() => {
     }
 
     function renderCubeState(player, state) {
+        cancelAnimationFrame(player.cubeFrame);
+        player.cubeFrame = 0;
         player.visualMoves.length = 0;
         player.turnAnimation?.cancel();
         player.turnAnimation = null;
         if (state) renderMoyuCubeStickers(player.body, state);
+        player.renderedState = state;
+    }
+
+    function scheduleHumanCubeRender(player, connection) {
+        if (!canRender() || player.cubeFrame) return;
+        player.cubeFrame = requestAnimationFrame(() => {
+            player.cubeFrame = 0;
+            if (!canRender() || player.connection !== connection) return;
+            if (player.renderedState !== connection.state) {
+                renderMoyuCubeStickers(player.body, connection.state);
+                player.renderedState = connection.state;
+            }
+            if (connection.gyro && player.renderedGyro !== connection.gyro) {
+                renderGyro(player, connection);
+            }
+        });
     }
 
     function animateNextTurn(player) {
@@ -244,13 +262,17 @@ const ChallengeSmart = (() => {
     }
 
     function applyMove(player, move, stamp, duration) {
-        const previous = player.connection.state;
+        const connection = player.connection;
+        const previous = connection.state;
         const state = timerCubeTurn(previous, move);
-        player.connection.state = state;
+        connection.state = state;
         if (phase === 'round') processMove(player, move, stamp);
         else if (canRender() && ['idle', 'done'].includes(phase)) detectStartTurn(player, move, previous);
         if (!canRender()) return;
-        // Visual catch-up must not delay move processing or the clock.
+        if (!connection.bot) {
+            scheduleHumanCubeRender(player, connection);
+            return;
+        }
         if (player.visualMoves.length >= 3) renderCubeState(player, previous);
         player.visualMoves.push({move, state, duration});
         if (!player.turnAnimation) animateNextTurn(player);
@@ -371,6 +393,7 @@ const ChallengeSmart = (() => {
         const q = connection.gyro;
         player.cube.style.setProperty('--cube-gyro-transform',
             moyuGyroTransform(reference ? timerQuaternionProduct(reference, q) : q));
+        player.renderedGyro = q;
     }
 
     function closeChooser() {
@@ -608,7 +631,7 @@ const ChallengeSmart = (() => {
                         connection.lastActivity = performance.now();
                         syncNativeIdle(connection);
                     }
-                    if (canRender()) renderGyro(player, connection);
+                    scheduleHumanCubeRender(player, connection);
                 },
                 onGap(lostPackets) {
                     if (lostPackets) {

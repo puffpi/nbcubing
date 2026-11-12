@@ -1758,12 +1758,12 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 .challenge-handicap-suffix { position: absolute; left: calc(100% + 5px); top: 50%; transform: translateY(-50%); white-space: nowrap; font-family: 'SFMono-Regular', Consolas, monospace; font-size: clamp(22px, 5vw, 34px); font-weight: 700; line-height: 1; color: var(--text-muted); }
 .challenge-handicap-suffix[hidden] { display: none; }
 .chal-handicap-choices { display: grid; gap: 8px; margin-bottom: 18px; }
-.chal-handicap-choices label { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-main); cursor: pointer; }
+.chal-handicap-choices label { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; }
 .chal-handicap-choices input { accent-color: var(--primary-color); }
-.chal-handicap-amount { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-main); }
+.chal-handicap-amount { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .chal-score-inputs { display: flex; justify-content: center; align-items: end; gap: 12px; }
-.chal-score-inputs label { display: grid; justify-items: center; gap: 8px; min-width: 0; font-size: 13px; color: var(--text-muted); }
-.chal-score-inputs > span { align-content: center; height: 38px; color: var(--text-muted); }
+.chal-score-inputs label { display: grid; justify-items: center; gap: 8px; min-width: 0; }
+.chal-score-inputs > span { align-content: center; height: 38px; }
 
 .chal-event-content { max-width: 450px !important; }
 .chal-event-grid {
@@ -6619,11 +6619,17 @@ body:has(#challenge-bluetooth-dialog:not([hidden])) #challenge-page .challenge-w
     filter: blur(var(--challenge-dialog-blur));
 }
 #chal-settings-modal.challenge-font-preview .edit-score-content { max-height: 100%; overflow-y: auto; }
-.chal-font-label { display: block; margin-bottom: 8px; text-align: left; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+#chal-settings-body { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+#chal-settings-body :is(.chal-number-input, .chal-handicap-choices, .chal-handicap-amount, .chal-font-slider output) {
+    color: var(--text-main);
+}
+#chal-settings-body .chal-number-input { font: inherit; font-size: var(--chal-settings-title-size); }
+.chal-clear-message { margin: 10px 0; text-align: center; }
+.chal-font-label { display: block; margin-bottom: 8px; text-align: left; }
 .chal-font-slider { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 8px; }
 .chal-font-slider + .chal-font-label { margin-top: 20px; }
 .chal-font-slider input { order: -1; width: 100%; min-width: 0; margin: 0; accent-color: var(--primary-color); cursor: pointer; touch-action: none; }
-.chal-font-slider output { text-align: right; font-size: 14px; white-space: nowrap; }
+.chal-font-slider output { text-align: right; white-space: nowrap; }
 .challenge-smart .challenge-wrapper:has(> #chal-settings-modal.challenge-font-preview) .challenge-scramble:not(.challenge-scramble-after):empty::before {
     content: "R U R′ U′ F2 D2 L2";
 }
@@ -6631,6 +6637,8 @@ body:has(#challenge-bluetooth-dialog:not([hidden])) #challenge-page .challenge-w
 #challenge-page.challenge-smart .challenge-half {
     flex: 1 1 0;
     container-type: size;
+    box-sizing: border-box;
+    padding-block: 16px;
     cursor: default;
     --challenge-smart-scramble-height: clamp(34px, 17cqh, 90px);
     --challenge-smart-block-gap: clamp(6px, 3cqh, 14px);
@@ -6717,10 +6725,14 @@ html:not([data-theme="dark"]) .challenge-smart-stats { color: #111; }
 }
 @container (max-height: 220px) {
     /* Keep the cube, connection status and hint within short landscape halves. */
+    #challenge-page.challenge-smart .challenge-scramble:not(.challenge-scramble-after) { height: clamp(25px, 18cqh, 34px); }
     .challenge-smart .challenge-timer { font-size: min(var(--chal-timer-font-size), max(28px, 16cqh)) !important; }
     .challenge-smart-panel { row-gap: 4px; }
-    .challenge-smart-panel .timer-virtual-cube { --cube-side: clamp(20px, 14cqh, 30px); }
-    .challenge-smart :is(.challenge-timer-wrap, .challenge-smart-hint) { margin-top: 4px; }
+    .challenge-smart-panel .timer-virtual-cube { --cube-side: clamp(16px, 11cqh, 26px); }
+    .challenge-smart :is(.challenge-timer-wrap, .challenge-smart-hint) { margin-top: 2px; }
+}
+@media (max-height: 520px) {
+    #challenge-page.challenge-smart .challenge-half { padding-block-end: 8px; }
 }
 #challenge-bluetooth-dialog {
     padding: 0 16px;

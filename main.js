@@ -4635,7 +4635,7 @@ function openChalSettingsModal(type) {
 
     if (type === 'clear') {
         titleEl.innerText = '清空比分';
-        bodyEl.innerHTML = '<p style="margin: 10px 0; color: var(--text-main); font-size: 15px; text-align: center;">是否确认清空当前比分？</p>';
+        bodyEl.innerHTML = '<p class="chal-clear-message">是否确认清空当前比分？</p>';
         confirmBtn.onclick = () => {
             chalScoreTop = 0; chalScoreBottom = 0;
             // 核心修复：清空比分时重置所有状态
