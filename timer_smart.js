@@ -264,7 +264,7 @@ async function animateTimerLiveMoves(){
         const move=timerLiveCube.queue.shift();
         const body=document.querySelector('#timer-virtual-cube .timer-cube-body');
         if(body&&currentTimerMode==='smart'&&timerSmartEvent==='333'){
-            const animation = animateMoyuLayer(body, move, timerLiveCube.queue.length > 3 ? 75 : 120);
+            const animation = animateMoyuLayer(body, move, Math.max(24, 100 / (timerLiveCube.queue.length + 1)));
             if (animation) await animation.finished.catch(() => {});
         }
         if(epoch!==timerLiveCube.epoch)return;
@@ -402,25 +402,36 @@ function setTimerTempMode(mode) {
     renderTimerEventGrid();
 }
 
-function renderSmartTimerEventGrid() {
-    const grid = document.getElementById('timer-event-grid');
-    grid.innerHTML = '';
-    for (const [maker, enabled, events] of [['魔域智能', true, ['333', '222']], ['GAN 智能', false, ['333', '222']], ['奇艺智能', false, ['333']]]) {
-        const title = document.createElement('div');
-        title.className = 'timer-smart-group-title';
-        title.textContent = maker;
-        grid.appendChild(title);
-        for (const id of events) {
-            const item = eventDict.find(event => event.id === id);
-            const button = document.createElement('div');
-            button.className = 'chal-event-item' + (enabled && timerTempSmartEvent === id ? ' active' : '') + (enabled ? '' : ' timer-smart-disabled');
-            button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-            button.innerHTML = `<span class="cubing-icon event-${id}" style="font-size:24px;display:block;margin-bottom:5px"></span><span style="font-size:12px;font-weight:600">${item.name}</span>`;
-            if (enabled) button.onclick = () => { timerTempSmartEvent = id; renderTimerEventGrid(); };
-            grid.appendChild(button);
-        }
+function renderSmartTimerEventGrid(grid = document.getElementById('timer-event-grid')) {
+    grid.replaceChildren();
+    for (const [id, name, iconClass] of smartTimerProjects) {
+        const button = document.createElement('div');
+        button.className = 'chal-event-item' + (id === '333' ? ' active' : ' timer-smart-disabled');
+        if (id !== '333') button.setAttribute('aria-disabled', 'true');
+        button.setAttribute('aria-pressed', String(id === '333'));
+        const icon = document.createElement('span');
+        icon.className = 'cubing-icon ' + (id === 'maple' ? 'event-333 timer-maple-icon' : iconClass);
+        icon.style.cssText = 'font-size: 24px; display:block; margin-bottom:5px;';
+        if (id === 'maple') icon.append(document.querySelector('button[aria-label="枫叶"] .cca-project-icon').cloneNode(true));
+        icon.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:12px; font-weight:600;';
+        label.textContent = name;
+        button.append(icon, label);
+        grid.appendChild(button);
     }
+    const support = document.createElement('p');
+    support.className = 'timer-smart-support';
+    support.textContent = '目前支持连接：魔域智能三阶';
+    grid.appendChild(support);
 }
+
+const smartTimerProjects = [
+    ['333', '三阶', 'event-333'],
+    ['222', '二阶', 'event-222'],
+    ['maple', '枫叶', ''],
+    ['mirror', '镜面', 'unofficial-333_mirror_blocks']
+];
 
 function renderTimerModeChoice(){const select=document.getElementById('timer-category-select');if(select){select.dataset.value=timerTempMode;document.getElementById('timer-category-label').textContent={wca:'WCA',smart:'智能魔方',other:'其他'}[timerTempMode];}}
 
@@ -460,7 +471,8 @@ function applyTimerMode() {
     document.getElementById('timer-event-watermark').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-event-icon').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
-    document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + (item?.name || '三阶');
+    const projectName = (smart ? smartTimerProjects.find(([id]) => id === eventId)?.[1] : item?.name) || '三阶';
+    document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + projectName;
     document.getElementById('timer-event-title').textContent = `${smart ? '魔域智能' : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
     document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
     const other=timerOtherEvents.find(e=>e.id===eventId);
@@ -920,6 +932,8 @@ function handleTimerSmartMove(move,stamp=timerSmartClockNow()){
     }
 }
 
+const bluetoothDisconnectIcon = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 4V3l5 4-2 2M7 17l2-2M3 3l18 18"/></svg>';
+
 function renderTimerBluetoothCandidates() {
     const list = document.getElementById('timer-bluetooth-devices');
     list.innerHTML = '';
@@ -930,7 +944,7 @@ function renderTimerBluetoothCandidates() {
         row.textContent = `魔域智能魔方 · ${device.name || device.id.slice(0, 6)}`;
         row.onclick = () => connectTimerBluetoothDevice(device);
         line.appendChild(row);
-        if(device===timerBluetoothDevice&&device.gatt?.connected){const disconnect=document.createElement('button');disconnect.type='button';disconnect.className='timer-bluetooth-disconnect';disconnect.title='断开蓝牙连接';disconnect.setAttribute('aria-label','断开蓝牙连接');disconnect.textContent='⏻';disconnect.onclick=disconnectTimerBluetooth;line.appendChild(disconnect);}
+        if(device===timerBluetoothDevice&&device.gatt?.connected){const disconnect=document.createElement('button');disconnect.type='button';disconnect.className='timer-bluetooth-disconnect';disconnect.title='断开蓝牙连接';disconnect.setAttribute('aria-label','断开蓝牙连接');disconnect.innerHTML=bluetoothDisconnectIcon;disconnect.onclick=disconnectTimerBluetooth;line.appendChild(disconnect);}
         list.appendChild(line);
     }
 }

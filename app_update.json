@@ -1,6 +1,6 @@
 {
-  "versionCode": 47,
-  "versionName": "1.66.0",
+  "versionCode": 49,
+  "versionName": "1.67.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "优化 NB Challenge 智能魔方打乱同步、NB Timer 长成绩列表滚动与玻璃卡片，改进 Android 的 WCA 选手成绩查询。"
+  "notes": "同步 NB Timer 和 NB Challenge 的毛玻璃卡片、智能项目选择及蓝牙配对界面，优化智能魔方转层动画和 NB Timer 结算卡片。"
 }

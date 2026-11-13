@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.66.0">
+    <link rel="stylesheet" href="style.css?v=1.67.1">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -487,7 +487,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.66.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.67.1</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -866,7 +866,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <div id="nb-manual-modal" class="edit-score-popup" style="z-index: 2800; position: fixed; display: none;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
             <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 15px; width: 100%;">
-                <span style="position: absolute; left: 0; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeNbManualInput()">✕</span>
+                <span id="nb-manual-close" style="position: absolute; left: 0; font-size: 16px; cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeNbManualInput()">✕</span>
                 <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">输入成绩</h3>
             </div>
             <input type="text" id="nb-manual-input" readonly placeholder="0.00" style="width: 100%; text-align: center; font-size: 44px; font-weight: 900; font-family: 'SFMono-Regular', Consolas, monospace; border: none; background: transparent; padding: 0; margin-bottom: 15px; color: var(--text-main); outline: none; box-sizing: border-box;">
@@ -1360,7 +1360,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                     <div class="timer-bluetooth-actions"><button type="button" class="timer-bluetooth-rescan" onclick="scanTimerBluetooth()">搜寻设备</button><div class="timer-bluetooth-tools"><button type="button" onclick="resetTimerSmartGyro()">重置陀螺仪</button><button type="button" onclick="syncTimerSmartSolved()" title="请先将实体魔方复原">复原同步</button></div></div>
                 </div>
 
-                <div id="timer-smart-result" class="smart-result-overlay" role="dialog" aria-modal="true" aria-label="智能魔方复原成绩" hidden><div class="smart-result-card"><button type="button" class="smart-result-close" onclick="closeTimerSmartResult()" aria-label="关闭成绩卡片">×</button><h3 class="smart-result-project"><span class="cubing-icon event-333" aria-hidden="true"></span><span>魔域智能</span></h3><div id="timer-smart-result-time" class="smart-result-time">0.00</div><div class="smart-result-stats"><div><span>步数</span><strong id="timer-smart-result-steps">0</strong></div><div><span>TPS</span><strong id="timer-smart-result-tps">0.0</strong></div><div><span>停顿占比</span><strong id="timer-smart-result-pause">0.0%</strong></div></div><div class="smart-result-actions"><button type="button" class="smart-result-delete" onclick="requestTimerSmartResultDelete()">删除</button><button type="button" class="edit-btn-confirm" onclick="closeTimerSmartResult()">确定</button><button type="button" class="smart-result-analysis" onclick="openTimerSmartAnalysis()">数据分析</button></div></div></div>
+                <div id="timer-smart-result" class="smart-result-overlay" role="dialog" aria-modal="true" aria-label="智能魔方复原成绩" hidden><div class="smart-result-card"><button type="button" class="smart-result-close" onclick="closeTimerSmartResult()" aria-label="关闭成绩卡片">×</button><h3 class="smart-result-project"><span class="cubing-icon event-333" aria-hidden="true"></span><span>魔域智能</span></h3><div id="timer-smart-result-time" class="smart-result-time">0.00</div><div class="smart-result-stats"><div><span>步数</span><strong id="timer-smart-result-steps">0</strong></div><div><span>TPS</span><strong id="timer-smart-result-tps">0.0</strong></div><div><span>停顿率</span><strong id="timer-smart-result-pause">0.0%</strong></div></div><div class="smart-result-actions"><button type="button" class="smart-result-delete edit-btn-del" onclick="requestTimerSmartResultDelete()">删除</button><button type="button" class="edit-btn-confirm" onclick="closeTimerSmartResult()">确定</button><button type="button" class="smart-result-analysis" onclick="openTimerSmartAnalysis()">数据分析</button></div></div></div>
                 <!-- 右下角打乱图展示面板 (毛玻璃组件) -->
                 <div class="timer-scramble-draw-panel" id="timer-scramble-draw-panel">
                     <twisty-player id="timer-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
@@ -1997,7 +1997,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <script src="scramble_engine.js?v=1.40.0-longer"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.66.0"></script>
+    <script src="main.js?v=1.67.0"></script>
     <script src="forum.js?v=1.48.6"></script>
     <script src="account.js?v=1.60.13"></script>
     <script src="theme.js?v=1.48.14"></script>
@@ -2020,8 +2020,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         <p class="challenge-bluetooth-feedback" role="status" hidden></p>
     </div>
 </div>
-    <script src="timer_smart.js?v=1.66.0"></script>
-    <script src="challenge_smart.js?v=1.66.0"></script>
+    <script src="timer_smart.js?v=1.67.0"></script>
+    <script src="challenge_smart.js?v=1.67.0"></script>
     <script src="cube_space_player.js?v=1.56.16"></script>
     <script src="formula_favorites.js?v=1.56.16"></script>
 </body>

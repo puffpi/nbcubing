@@ -234,9 +234,9 @@ const fontOptions = [
     { id: 'default', name: '默认等宽', family: "'SFMono-Regular', Consolas, monospace" },
     { id: 'sevenSegment', name: '数码管', family: "'NB Seven Segment', 'SFMono-Regular', Consolas, monospace" },
     { id: 'arial', name: 'Arial', family: "Arial, Helvetica, sans-serif" },
-    { id: 'impact', name: 'Impact', family: "Impact, sans-serif" },
+    { id: 'impact', name: 'Impact', family: "Impact, sans-serif-condensed, sans-serif" },
     { id: 'georgia', name: 'Georgia', family: "Georgia, serif" },
-    { id: 'comic', name: 'Comic Sans', family: "'Comic Sans MS', 'Chalkboard SE', cursive" }
+    { id: 'comic', name: 'Comic Sans', family: "'Comic Sans MS', 'Chalkboard SE', casual, cursive" }
 ];
 
 const cubeAppearanceOptions = [
@@ -3743,7 +3743,33 @@ function getTimerRelayEvents(id){
 function renderOtherTimerEventGrid(){
  const grid=document.getElementById('timer-event-grid');grid.innerHTML='';
  for(const group of ['正阶','异形','连拧']){const title=document.createElement('div');title.className='timer-smart-group-title';title.textContent=group;grid.appendChild(title);
- for(const item of timerOtherEvents.filter(e=>e.group===group)){const button=document.createElement('button');button.type='button';button.className='chal-event-item'+(timerTempEvent===item.id?' active':'');const icon=document.createElement('span');icon.className=item.iconClass?'cubing-icon '+item.iconClass:'timer-other-icon';icon.textContent=item.icon;const label=document.createElement('span');label.textContent=item.name;if(item.fullName){button.classList.add('timer-other-fullname');button.append(label);}else button.append(icon,label);button.onclick=()=>{timerTempEvent=item.id;renderTimerEventGrid();};grid.appendChild(button);}}
+ for(const item of timerOtherEvents.filter(e=>e.group===group)){
+    const button=document.createElement(item.fullName?'button':'div');
+    if(item.fullName)button.type='button';
+    button.className='chal-event-item'+(timerTempEvent===item.id?' active':'');
+    const label=document.createElement('span');
+    label.textContent=item.name;
+    if(item.fullName){
+        button.classList.add('timer-other-fullname');
+        button.append(label);
+    }else{
+        button.classList.add('timer-other-project');
+        const icon=document.createElement('span');
+        icon.className='cubing-icon event-333 timer-other-project-icon';
+        const glyph=document.createElement('span');
+        glyph.className=item.iconClass?'cubing-icon '+item.iconClass:'timer-other-text-icon';
+        glyph.textContent=item.icon;
+        icon.append(glyph);
+        button.append(icon,label);
+        button.tabIndex=0;
+        button.setAttribute('role','button');
+        button.onkeydown=event=>{
+            if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();}
+        };
+    }
+    button.onclick=()=>{timerTempEvent=item.id;renderTimerEventGrid();};
+    grid.appendChild(button);
+ }}
 }
 function switchTimerRelay(direction,event){event?.stopPropagation();event?.preventDefault();if(timerState!=='IDLE'||!timerScrambleReady||!timerRelayScrambles.length)return;timerRelayIndex=(timerRelayIndex+direction+timerRelayScrambles.length)%timerRelayScrambles.length;const item=timerRelayScrambles[timerRelayIndex];renderTimerScramble(item.scramble,item.event);}
 function getTimerAttemptScramble(){return getTimerRelayEvents(currentTimerEvent)?timerRelayScrambles.map(item=>item.event+': '+item.scramble.replace(/<br>/g,' ')).join('\n'):document.getElementById('scramble-text').innerText;}
@@ -3780,7 +3806,7 @@ function openTimerEventPopup() {
 
 function renderTimerEventGrid() {
     renderTimerModeChoice();
-    if (timerTempMode === 'smart') { renderSmartTimerEventGrid(); return; }
+    if (timerTempMode === 'smart') { timerTempSmartEvent = '333'; renderSmartTimerEventGrid(); return; }
  if(timerTempMode==='other'){if(!timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='888';renderOtherTimerEventGrid();return;}
  if(timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='333';
     const grid = document.getElementById('timer-event-grid');
@@ -4845,9 +4871,6 @@ function openChalEventPopup() {
 
 function cycleChalCategory() {
     chalTempCategory = chalTempCategory === 'wca' ? 'smart' : 'wca';
-    if (chalTempCategory === 'smart' && !['333', '222'].includes(chalTempEvent)) {
-        chalTempEvent = '333';
-    }
     renderChalEventGrid();
     document.getElementById('chal-event-grid').scrollTop = 0;
 }
@@ -4856,11 +4879,16 @@ function cycleChalCategory() {
 function renderChalEventGrid() {
     const grid = document.getElementById('chal-event-grid');
     document.getElementById('chal-category-label').textContent = chalTempCategory === 'smart' ? '智能魔方' : 'WCA';
+    if (chalTempCategory === 'smart') {
+        chalTempEvent = '333';
+        renderSmartTimerEventGrid(grid);
+        return;
+    }
     grid.innerHTML = '';
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
 
     eventDict.forEach(ev => {
-        if (chalTempCategory === 'smart' ? ['333', '222'].includes(ev.id) : !excludedEvents.includes(ev.id)) {
+        if (!excludedEvents.includes(ev.id)) {
             let isActive = chalTempEvent === ev.id ? 'active' : '';
             let btn = document.createElement('div');
             btn.className = `chal-event-item ${isActive}`;
@@ -4901,7 +4929,7 @@ function confirmChalEvent() {
         if (chalCategory === 'wca') void generateChallengeScramble();
     }
 
-    const eventName = eventDict.find(event => event.id === chalCurrentEvent)?.name || '未知';
+    const eventName = (chalCategory === 'smart' ? smartTimerProjects.find(([id]) => id === chalCurrentEvent)?.[1] : eventDict.find(event => event.id === chalCurrentEvent)?.name) || '未知';
     document.getElementById('chal-event-name').textContent =
         chalCategory === 'smart' ? `智能${eventName}` : eventName;
 
@@ -9720,13 +9748,18 @@ function setInspectionVoiceRate(value){const rate=Number(value);if(!Number.isFin
  const cancel=()=>{if(hold)clearTimeout(hold.timeout);hold=null;};
  button.addEventListener('pointerdown',event=>{
   if(hold){cancel();return;}if(!event.isPrimary||event.button!==0||!allowed())return;
-  hold={id:event.pointerId,x:event.clientX,y:event.clientY,started:nbTimerInputStamp(event)};
+  hold={id:event.pointerId,x:event.clientX,y:event.clientY};
+  hold.timeout=setTimeout(()=>{
+   if(!allowed()){cancel();return;}
+   hold.opened=true;
+   openTimerEventPopup();
+  },Math.max(0,350-(performance.now()-nbTimerInputStamp(event))));
  });
  document.addEventListener('pointerdown',event=>{suppressClickUntil=0;if(hold&&event.pointerId!==hold.id)cancel();},true);
- document.addEventListener('pointermove',event=>{if(hold&&event.pointerId===hold.id&&Math.hypot(event.clientX-hold.x,event.clientY-hold.y)>10)cancel();},{passive:true});
- document.addEventListener('pointerup',event=>{if(!hold||event.pointerId!==hold.id)return;const open=nbTimerInputStamp(event)-hold.started>=350&&allowed();cancel();if(open){suppressClickUntil=performance.now()+700;openTimerEventPopup();}},true);
+ document.addEventListener('pointermove',event=>{if(hold&&!hold.opened&&event.pointerId===hold.id&&Math.hypot(event.clientX-hold.x,event.clientY-hold.y)>10)cancel();},{passive:true});
+ document.addEventListener('pointerup',event=>{if(!hold||event.pointerId!==hold.id)return;if(hold.opened)suppressClickUntil=performance.now()+700;cancel();},true);
  document.addEventListener('pointercancel',cancel,true);
- button.addEventListener('pointerleave',cancel);
+ button.addEventListener('pointerleave',()=>{if(!hold?.opened)cancel();});
  window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',cancel);
  document.addEventListener('click',event=>{if(performance.now()<suppressClickUntil&&!event.target.closest?.('.global-nav-header')){event.preventDefault();event.stopImmediatePropagation();suppressClickUntil=0;}},true);
  button.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();});

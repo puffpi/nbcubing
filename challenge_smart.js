@@ -225,7 +225,6 @@ const ChallengeSmart = (() => {
         player.turnAnimation?.cancel();
         player.turnAnimation = null;
         if (state) renderMoyuCubeStickers(player.body, state);
-        player.renderedState = state;
     }
 
     function scheduleHumanCubeRender(player, connection) {
@@ -234,10 +233,6 @@ const ChallengeSmart = (() => {
             player.cubeFrame = 0;
             if (!canRender() || player.connection !== connection) return;
             if (player.scrambleDirty) renderScramble(player);
-            if (player.renderedState !== connection.state) {
-                renderMoyuCubeStickers(player.body, connection.state);
-                player.renderedState = connection.state;
-            }
             if (connection.gyro && player.renderedGyro !== connection.gyro) {
                 renderGyro(player, connection);
             }
@@ -247,8 +242,10 @@ const ChallengeSmart = (() => {
     function animateNextTurn(player) {
         const step = player.visualMoves.shift();
         if (!step) return;
-        const animation = animateMoyuLayer(player.body, step.move, player.visualMoves.length ?
-            Math.min(55, step.duration ?? 55) : step.duration ?? 80);
+        const duration = player.connection.bot
+            ? (player.visualMoves.length ? Math.min(55, step.duration ?? 55) : step.duration ?? 80)
+            : Math.max(24, 80 / (player.visualMoves.length + 1));
+        const animation = animateMoyuLayer(player.body, step.move, duration);
         if (!animation) {
             renderCubeState(player, player.connection.state);
             return;
@@ -271,6 +268,15 @@ const ChallengeSmart = (() => {
         else if (canRender() && ['idle', 'done'].includes(phase)) detectStartTurn(player, move, previous);
         if (!canRender()) return;
         if (!connection.bot) {
+            if (player.attempt?.phase === 'done') {
+                renderCubeState(player, state);
+            } else {
+                player.visualMoves.push({move, state});
+                // Compress a notification burst without delaying logical moves or the clock.
+                if (player.visualMoves.length > 5) renderCubeState(player, state);
+                else if (!player.turnAnimation) animateNextTurn(player);
+                else if (player.visualMoves.length > 1) player.turnAnimation.playbackRate = 2;
+            }
             scheduleHumanCubeRender(player, connection);
             return;
         }
@@ -423,7 +429,7 @@ const ChallengeSmart = (() => {
             power.className = 'timer-bluetooth-disconnect';
             power.title = '断开连接';
             power.setAttribute('aria-label', power.title);
-            power.textContent = '⏻';
+            power.innerHTML = bluetoothDisconnectIcon;
             power.onclick = disconnectDevice;
             row.append(power);
         }

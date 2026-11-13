@@ -920,17 +920,21 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     font-size: 13px; color: var(--text-main); text-align: center;
     margin-bottom: 24px; line-height: 1.5; word-break: break-word;
 }
+:root {
+    --timer-secondary-button-bg: rgba(148, 163, 184, .15);
+    --timer-secondary-button-hover: rgba(148, 163, 184, .25);
+}
 .edit-popup-actions { display: flex; gap: 10px; width: 100%; justify-content: space-between; }
 .edit-popup-actions button {
     flex: 1; padding: 10px 0; border: none; border-radius: 10px;
     font-size: 14px; font-weight: 600; cursor: pointer;
     /* 核心修改：缩短了按钮按下的响应时间 */
     transition: all 0.05s ease !important;
-    background: rgba(148, 163, 184, 0.15); color: var(--text-main);
+    background: var(--timer-secondary-button-bg); color: var(--text-main);
 }
-.edit-popup-actions .edit-btn-del { color: #e63946; background: rgba(230, 57, 70, 0.1); }
-.edit-popup-actions .edit-btn-del:hover { background: rgba(230, 57, 70, 0.2); }
-.edit-popup-actions .edit-btn-cancel:hover { background: rgba(148, 163, 184, 0.25); }
+.edit-popup-actions .edit-btn-del, #timer-smart-result .smart-result-actions .edit-btn-del { color: #e63946; background: rgba(230, 57, 70, 0.1); }
+.edit-popup-actions .edit-btn-del:hover, #timer-smart-result .smart-result-actions .edit-btn-del:hover { background: rgba(230, 57, 70, 0.2); }
+.edit-popup-actions .edit-btn-cancel:hover { background: var(--timer-secondary-button-hover); }
 .edit-popup-actions .edit-btn-confirm { background: var(--primary-color); color: white; }
 .edit-popup-actions .edit-btn-confirm:hover { background: var(--primary-hover); }
 
@@ -1453,9 +1457,11 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
         animation: pageFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
     }
 
-    #timer-tab-main.active-tab {
-        /* A filled opacity animation isolates the diagram from the page wallpaper. */
+    #timer-tab-main.active-tab, #timer-tab-list.active-tab {
+        /* Release the opacity layer so glass can sample the page behind the tab. */
         animation-fill-mode: none;
+    }
+    #timer-tab-main.active-tab {
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -3185,8 +3191,26 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 :is(#chal-event-grid,#timer-event-grid) .chal-event-item { justify-content: center; height: 82px; min-height: 82px; padding: 5px 4px; box-sizing: border-box; }
 :is(#chal-event-grid,#timer-event-grid)::-webkit-scrollbar { display: none; }
 .timer-smart-group-title { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; font-weight: 700; margin: 2px 0 -2px; align-self: end; }
-.chal-event-item.timer-smart-disabled { color: #94a3b8; background: #f8fafc; cursor: not-allowed; pointer-events: none; }
-.chal-event-item.timer-smart-disabled .cubing-icon { color: #94a3b8; }
+:is(#timer-event-popup, #chal-event-popup) .chal-event-grid .timer-smart-disabled {
+    color: var(--text-muted) !important;
+    background: rgba(148, 163, 184, .15) !important;
+    cursor: default;
+}
+#chal-event-grid button.chal-event-item { border: 0; font: inherit; }
+#chal-event-grid .chal-event-item > .cubing-icon { font-size: 24px; margin-bottom: 5px; }
+#chal-event-grid .chal-event-item > span:last-child { font-size: 12px; font-weight: 600; }
+.timer-maple-icon { position: relative; min-width: 1em; }
+.timer-maple-icon::before { visibility: hidden; }
+.timer-maple-icon > .cca-project-icon {
+    position: absolute;
+    display: block;
+    width: 1em;
+    height: 1em;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+.timer-smart-support { grid-column: 1 / -1; margin: 4px 0 0; font-size: 14px; color: var(--timer-score-ink); }
 .timer-smart-stage { display: contents; }
 #timer-page.active:not(.smart-cube-page) #timer-event-title { display: none; }
 #timer-event-watermark {
@@ -4571,6 +4595,28 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #timer-event-grid button.chal-event-item.active { color:white; }
 .timer-other-icon { font-size:20px; font-weight:600; margin-bottom:5px; line-height:1.2; }
 #timer-event-grid button.chal-event-item span:last-child { font-size:11px; line-height:1.2; overflow-wrap:anywhere; }
+#timer-event-grid .timer-other-project > .timer-other-project-icon {
+    display: block;
+    font-size: 24px;
+    margin-bottom: 5px;
+    position: relative;
+    min-width: 1em;
+}
+.timer-other-project-icon::before { visibility: hidden; }
+#timer-event-grid .timer-other-project-icon > span:last-child {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: inherit !important;
+    white-space: nowrap;
+}
+#timer-event-grid .timer-other-project-icon > .timer-other-text-icon:last-child {
+    font: 600 17px/1.2 var(--font-family, system-ui) !important;
+}
+@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
+    #timer-event-grid .timer-other-project > .cubing-icon { margin-bottom: 3px; }
+}
 #timer-relay-navigation { position:absolute; top:calc(10px + var(--relay-scramble-height,80px)); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:16px; z-index:16; white-space:nowrap; color:var(--text-muted); font-size:13px; }
 #timer-relay-navigation[hidden],#timer-scramble-draw-panel[hidden] { display:none!important; }
 #timer-relay-navigation button { padding:0 8px; margin:0; border:0; background:transparent; box-shadow:none; color:var(--text-main); font-size:30px; line-height:1; cursor:pointer; }
@@ -4689,9 +4735,9 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 .smart-result-stats{gap:0;padding:19px 0;border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color);}
 .smart-result-stats div+div{border-left:1px solid var(--border-color);}
 .smart-result-card p{margin:21px 0 0;}
-.timer-bluetooth-device-row{display:flex;gap:7px;align-items:center;}
+.timer-bluetooth-device-row{display:flex;gap:7px;align-items:stretch;}
 .timer-bluetooth-device-row>button:first-child{flex:1;min-width:0;text-align:left;}
-.timer-bluetooth-device-row .timer-bluetooth-disconnect{flex:0 0 32px;width:32px;padding:8px 0;text-align:center;font-size:17px;color:var(--text-muted);}
+.timer-bluetooth-device-row .timer-bluetooth-disconnect{flex:0 0 40px;width:40px;padding:0;text-align:center;}
 .timer-bluetooth-actions button{font-family:inherit;font-size:13px;font-weight:700;line-height:20px;padding-top:4px;padding-bottom:4px;}
 html[data-theme="dark"] .smart-result-overlay{background:transparent!important;backdrop-filter:blur(2px);}
 @media(max-width:420px){.timer-bluetooth-tools{gap:10px;}.timer-bluetooth-actions button{font-size:12px;}.smart-result-card{padding:28px 20px 23px;}}
@@ -4889,7 +4935,7 @@ html[data-theme=dark] .smart-analysis-table tbody tr:hover td,html[data-theme=da
 .smart-analysis-orbit-frame{height:260px;}.smart-analysis-orbit{margin-top:34px;}
 .smart-analysis-summary{margin-top:0;}.smart-analysis-summary-time{font-size:52px;}.smart-analysis-summary-metrics{margin-top:10px;}
 .smart-analysis-tabs{margin:14px auto;}.smart-analysis-footer{margin-top:10px;padding-top:12px;}
-.smart-result-actions .smart-result-delete{background:#fcecef;color:#e04f66;}.smart-result-actions .smart-result-delete:hover{background:#f9d9e0;color:#c8344d;}
+.smart-result-actions .edit-btn-del { border-radius: 10px; padding: 10px 0; }
 .smart-delete-overlay[hidden]{display:none!important;}.smart-delete-overlay{position:fixed;inset:0;z-index:3500;display:grid;place-items:center;padding:20px;background:#f8fafc22;backdrop-filter:blur(2px);}
 .smart-delete-card{width:min(340px,100%);box-sizing:border-box;padding:24px;border:1px solid var(--border-color);border-radius:16px;background:var(--card-bg,#fff);color:var(--text-main);box-shadow:0 10px 30px #0001;animation:popupFastShow .12s ease-out;}
 .smart-delete-card h3{font-size:18px;margin:0 0 12px;}.smart-delete-card p{font-size:14px;color:var(--text-muted);margin:0 0 22px;}.smart-delete-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -5688,7 +5734,7 @@ html[data-theme="dark"] .cs-gender-segment { background:#353538; }
 /* Reuse the lab source-picker's soft blurred backdrop. */
 .news-page-picker::backdrop{background:#dfe8ef35;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
 /* Keep backdrop sampling stable: never scale the translucent overlay itself. */
-#edit-score-popup,#avg-score-popup,#avg-details-popup{
+#timer-event-popup,#edit-score-popup,#avg-score-popup,#avg-details-popup{
  animation:none!important;transform:none!important;will-change:auto;
  background:rgba(248,250,252,.15);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
 }
@@ -5711,7 +5757,6 @@ html[data-theme="dark"] .news-page-picker{background:#1c1c1e;}
 #timer-page :is(.timer-history-item,.timer-history-header) :is(.col-time,.col-stat){width:28%;}
 #timer-page .sidebar-header-row > .btn-more{background:rgba(255,255,255,.45)!important;border:1px solid rgba(71,85,105,.55)!important;color:var(--primary-color)!important;box-shadow:0 2px 8px rgba(0,0,0,.04);border-radius:9px;font-size:13px;font-weight:500;}
 #timer-page.timer-auto-contrast .sidebar-header-row > .btn-more{color:var(--text-main)!important;border-color:currentColor!important;}
-#timer-page.timer-auto-contrast #timer-more-dropdown{background:rgba(60,70,85,.25);border-color:var(--text-main);color:var(--text-main);}
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:var(--text-main)!important;}
 /* Keep the settings overlay clear so only the card samples the backdrop. */
 .cube-appearance-overlay.timer-settings-context,.edit-score-popup.timer-setting-overlay{
@@ -5754,15 +5799,30 @@ body:has(#timer-event-popup[style*="display: flex"],#nb-manual-modal[style*="dis
 #timer-bluetooth-icon.disconnected::after{box-shadow:none;}
 
 /* 1.50.23: opaque menu and preserve score-card margins after portaling. */
-#timer-page #timer-more-dropdown,#timer-page.timer-auto-contrast #timer-more-dropdown{background:#fff!important;color:#334155!important;border-color:#e2e8f0!important;backdrop-filter:none;-webkit-backdrop-filter:none;}
+#timer-page #timer-more-dropdown{color:#334155!important;}
 #timer-page.timer-auto-contrast #timer-more-dropdown .timer-more-item{color:#334155!important;}
-html[data-theme=dark] #timer-page #timer-more-dropdown,html[data-theme=dark] #timer-page.timer-auto-contrast #timer-more-dropdown{background:#24272d!important;color:#f1f5f9!important;border-color:#454a52!important;}
+html[data-theme=dark] #timer-page #timer-more-dropdown{color:#f1f5f9!important;}
 html[data-theme=dark] #timer-page #timer-more-dropdown .timer-more-item{color:#f1f5f9!important;}
-:is(#edit-score-popup,#avg-score-popup,#avg-details-popup).timer-screen-overlay > .edit-score-content{width:calc(100% - 64px);max-width:450px;box-sizing:border-box;}
-:is(#edit-score-popup,#avg-score-popup).timer-screen-overlay > .edit-score-content{width:calc(100% - 52px);max-width:462px;}
-:is(#edit-score-popup,#avg-score-popup):not(.timer-screen-overlay){padding-inline:4px;}
-#timer-page .smart-result-card { --text-main: #334155; --text-muted: #94a3b8; color: var(--text-main); }
-html[data-theme="dark"] #timer-page .smart-result-card { --text-main: #e5e5e7; --text-muted: #a0a0a5; }
+:is(#edit-score-popup,#avg-score-popup,#avg-details-popup).timer-screen-overlay{padding-inline:15px;}
+:is(#edit-score-popup,#avg-score-popup,#avg-details-popup).timer-screen-overlay > .edit-score-content{width:100%;max-width:478px;box-sizing:border-box;}
+:is(#edit-score-popup,#avg-score-popup,#avg-details-popup):not(.timer-screen-overlay){padding-inline:4px;}
+html[data-theme] { --timer-score-ink: var(--text-main); }
+#timer-dist-modal :is(.dist-y-tick-top, .dist-y-tick-bottom, .dist-bar-label),
+#timer-daily-overlay :is(.timer-daily-metrics span, .timer-daily-tabs button:not(.active)),
+#timer-import-modal :is(.timer-import-external-row, .timer-import-switch, #timer-import-help, #timer-import-file-hint),
+#timer-clear-modal :is(.pk-confirm-card > p, .timer-clear-project small),
+#timer-export-modal .pk-confirm-card > p,
+:is(#timer-dist-modal, #timer-daily-overlay) .timer-daily-heading button {
+    color: var(--timer-score-ink) !important;
+}
+#timer-daily-overlay .daily-axis { fill: var(--timer-score-ink); }
+#timer-daily-overlay .timer-daily-tabs button:not(.active) { opacity: 1; }
+#timer-import-textarea::placeholder { color: var(--timer-score-ink); opacity: 1; }
+:is(#edit-score-popup, #avg-score-popup, #avg-details-popup) :is(#edit-index, #edit-time, #edit-timestamp, #edit-scramble, #avg-index-range, #avg-main-value, #avg-timestamp, .avg-detail-time, .avg-detail-date, .avg-detail-scramble) {
+    color: var(--timer-score-ink) !important;
+}
+#timer-page .smart-result-card { --text-main: #334155; --text-muted: #334155; color: var(--text-main); }
+html[data-theme="dark"] #timer-page .smart-result-card { --text-main: #e5e5e7; --text-muted: #e5e5e7; }
 
 
 /* 1.50.24: denser score-card scramble, unchanged card width. */
@@ -5777,7 +5837,7 @@ html[data-theme="dark"] #timer-page .smart-result-card { --text-main: #e5e5e7; -
 #timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay{
 background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
-html[data-theme] :is(.timer-scramble-draw-panel, :is(#edit-score-popup, #avg-score-popup, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+html[data-theme] :is(.timer-scramble-draw-panel, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
     --scramble-glass: rgba(248, 250, 252, .65);
     --scramble-glass-edge: rgba(226, 232, 240, .8);
     background: var(--scramble-glass) !important;
@@ -5786,33 +5846,83 @@ html[data-theme] :is(.timer-scramble-draw-panel, :is(#edit-score-popup, #avg-sco
     backdrop-filter: blur(12px) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .06) !important;
 }
-html[data-theme="dark"] :is(.timer-scramble-draw-panel, :is(#edit-score-popup, #avg-score-popup, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+html[data-theme="dark"] :is(.timer-scramble-draw-panel, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
     --scramble-glass: rgba(28, 28, 30, .65);
     --scramble-glass-edge: rgba(53, 53, 56, .8);
 }
-.smart-result-overlay,.smart-analysis-overlay,.smart-delete-overlay{background:transparent!important;backdrop-filter:blur(1px)!important;-webkit-backdrop-filter:blur(1px)!important;}
+#timer-event-popup #timer-event-grid .chal-event-item:not(.active):not(.timer-smart-disabled),
+#timer-event-popup :is(#timer-category-label, #timer-category-select button) {
+    color: var(--timer-score-ink) !important;
+}
+html[data-theme="dark"] #timer-event-popup { --timer-score-ink: #e5e5e7; }
+#timer-event-popup .timer-smart-group-title { color: var(--timer-score-ink); }
+#timer-page .timer-bottom-bar .timer-tab-btn { color: var(--timer-score-ink); opacity: .76; }
+#timer-page .timer-bottom-bar .timer-tab-btn.active { opacity: 1; }
+#timer-smart-result .smart-result-stats span { opacity: 1; }
+#timer-smart-result .smart-result-stats,
+#timer-smart-result .smart-result-actions :is(.edit-btn-confirm, .smart-result-analysis) {
+    background: var(--timer-secondary-button-bg);
+    color: var(--text-main);
+}
+#timer-smart-result .smart-result-actions :is(.edit-btn-confirm, .smart-result-analysis):enabled:is(:hover, :active) {
+    background: var(--timer-secondary-button-hover);
+}
+#timer-smart-result .smart-result-analysis:disabled { opacity: .75; }
+#timer-smart-result .smart-result-close { color: var(--text-main); }
+#timer-smart-result { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.smart-delete-overlay{background:transparent!important;backdrop-filter:blur(1px)!important;-webkit-backdrop-filter:blur(1px)!important;}
+#smart-analysis-overlay { background: transparent !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+:is(#smart-analysis-overlay .smart-analysis-card, #timer-bluetooth-card, #challenge-bluetooth-dialog .cube-appearance-card) {
+    --text-main: var(--timer-score-ink);
+    --text-muted: var(--timer-score-ink);
+    color: var(--timer-score-ink);
+}
+#timer-page.timer-auto-contrast #timer-bluetooth-card .timer-bluetooth-devices {
+    --text-main: var(--timer-score-ink);
+    --text-muted: var(--timer-score-ink);
+}
+html[data-theme] { --timer-segment-surface: #edf1f670; }
+html[data-theme="dark"] { --timer-segment-surface: #528bce15; }
+:is(#timer-bluetooth-card, #challenge-bluetooth-dialog) .timer-bluetooth-devices button {
+    background: var(--timer-segment-surface);
+}
+:is(#timer-bluetooth-card, #challenge-bluetooth-dialog) .timer-bluetooth-device-row .timer-bluetooth-disconnect {
+    display: grid;
+    place-items: center;
+    color: #2877b8;
+}
+html[data-theme="dark"] :is(#timer-bluetooth-card, #challenge-bluetooth-dialog) .timer-bluetooth-device-row .timer-bluetooth-disconnect {
+    color: #91c5f2;
+}
+#smart-analysis-overlay :is(.smart-analysis-tabs, .smart-analysis-table-scroll, .smart-analysis-algorithms, .smart-analysis-orbit-label:not(.is-skip)) {
+    background: var(--timer-segment-surface);
+}
+#smart-analysis-overlay .smart-analysis-table thead {
+    background: transparent !important;
+    box-shadow: none;
+}
+#smart-analysis-overlay .smart-analysis-table th { background: transparent !important; box-shadow: none; border-bottom: 0 !important; }
+#smart-analysis-overlay .smart-analysis-table :is(thead, tbody, tr, th, td) { border: 0; }
+#smart-analysis-overlay .smart-analysis-table tr:not(tbody tr:last-child) { border-bottom: 1px solid var(--border-color); }
+#smart-analysis-overlay .smart-analysis-algorithms .smart-analysis-stage:not(:hover) { background: transparent; }
+#smart-analysis-overlay .smart-analysis-table tbody tr:hover td,
+#smart-analysis-overlay .smart-analysis-algorithms .smart-analysis-stage:hover {
+    background: rgba(0, 0, 0, .08) !important;
+}
+html[data-theme="dark"] #smart-analysis-overlay :is(.smart-analysis-table tbody tr:hover td, .smart-analysis-algorithms .smart-analysis-stage:hover) {
+    background: rgba(255, 255, 255, .08) !important;
+}
+.smart-analysis-card :is(.smart-analysis-tabs button, .smart-analysis-summary-metrics span) { opacity: 1; }
 :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay {
     will-change: auto;
 }
-html[data-theme] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
-    --nb-dialog-glass: rgba(243, 248, 252, .84);
-    --nb-dialog-solid: #f3f8fc;
-    background: var(--nb-dialog-solid) !important;
-    border-color: rgba(255, 255, 255, .64) !important;
-    box-shadow: 0 8px 24px rgba(26, 45, 65, .12), inset 0 1px rgba(255, 255, 255, .65) !important;
+html[data-theme] :is(#edit-score-popup, #nb-manual-modal, #nb-edit-last-modal) .ios-segment-control > .ios-segment-btn[id]:not(.active),
+html[data-theme] :is(#delete-last-index, #edit-last-index, #nb-manual-close) {
+    color: var(--timer-score-ink) !important;
 }
-html[data-theme="dark"] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
-    --nb-dialog-glass: rgba(29, 36, 45, .88);
-    --nb-dialog-solid: #1d242d;
-    border-color: rgba(255, 255, 255, .16) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08) !important;
-}
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    html[data-theme] :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay > .pk-confirm-card {
-        background: var(--nb-dialog-glass) !important;
-        -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
-        backdrop-filter: blur(28px) saturate(125%) !important;
-    }
+#nb-manual-input::placeholder {
+    color: var(--timer-score-ink);
+    opacity: 1;
 }
 #timer-page .timer-history-item:has(.col-time.timer-pb-single) .col-id{font-weight:800;}
 /* Navigation matches the upright app icon palette. */
@@ -6626,32 +6736,35 @@ body #challenge-page.active .challenge-wrapper {
     --chal-scramble-default-size: 20px;
     --chal-timer-font-size: var(--chal-timer-preview-size, var(--chal-timer-size, var(--chal-timer-default-size)));
     --chal-scramble-font-size: var(--chal-scramble-preview-size, var(--chal-scramble-size, var(--chal-scramble-default-size)));
-    --challenge-dialog-blur: 2px;
 }
 @media (min-width: 769px) and (hover: hover) and (pointer: fine) {
     #challenge-page { --chal-timer-default-size: 90px; }
 }
-html[data-theme="dark"] #challenge-page:not(:has(#chal-event-popup[style*="display: flex"])) {
-    --challenge-dialog-blur: 3px;
-}
 
-/* Blur the scene itself to avoid mirrored samples at the overlay edges. */
+/* The card samples the scene through a clear overlay. */
 html :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     border-radius: 0;
 }
 #challenge-page .edit-score-popup {
-    animation: challenge-dialog-fade-in .12s ease-out !important;
+    animation: none !important;
     will-change: auto;
 }
-@keyframes challenge-dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
 #challenge-page:has(.edit-score-popup[style*="display: flex"]) .challenge-wrapper > :is(.challenge-half, .challenge-divider),
 body:has(#challenge-bluetooth-dialog:not([hidden])) #challenge-page .challenge-wrapper > :is(.challenge-half, .challenge-divider) {
-    filter: blur(var(--challenge-dialog-blur));
+    pointer-events: none;
 }
 #chal-settings-modal.challenge-font-preview .edit-score-content { max-height: 100%; overflow-y: auto; }
-#chal-settings-body { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+#chal-settings-body { color: var(--timer-score-ink); font-size: 14px; font-weight: 500; }
+:is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog, #chal-more-dropdown) {
+    --text-main: var(--timer-score-ink);
+    --text-muted: var(--timer-score-ink);
+    color: var(--timer-score-ink);
+}
+#chal-event-popup #chal-event-grid .timer-smart-disabled { color: var(--challenge-disabled-project-ink, #64748b) !important; }
+html[data-theme="dark"] #chal-event-popup { --challenge-disabled-project-ink: #a0a0a5; }
 #chal-settings-body :is(.chal-number-input, .chal-handicap-choices, .chal-handicap-amount, .chal-font-slider output) {
     color: var(--text-main);
 }
@@ -6783,17 +6896,23 @@ html:not([data-theme="dark"]) .challenge-smart-stats { color: #111; }
 #challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card {
     grid-row: 1;
     margin: 24px 0 0;
-    transform: rotate(180deg);
+}
+@media not ((min-width: 769px) and (hover: hover) and (pointer: fine)) {
+    #challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card {
+        flex-direction: column-reverse;
+    }
+    #challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card > * {
+        transform: rotate(180deg);
+    }
 }
 @media (min-width: 769px) and (hover: hover) and (pointer: fine) {
-    #challenge-page.challenge-smart .top-half,
-    #challenge-bluetooth-dialog.challenge-bluetooth-top .cube-appearance-card { transform: none; }
+    #challenge-page.challenge-smart .top-half { transform: none; }
 }
 #challenge-bluetooth-dialog .timer-bluetooth-devices { min-height: 40px; overflow: auto; }
 #challenge-bluetooth-dialog .timer-bluetooth-actions button:disabled { color: var(--text-muted); cursor: default; }
 .challenge-bluetooth-feedback { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; }
-#challenge-bluetooth-dialog .timer-bluetooth-devices button { background: var(--bg-color); border-color: var(--border-color); }
-#challenge-bluetooth-dialog .timer-bluetooth-devices button:disabled { opacity: .65; cursor: default; }
+#challenge-bluetooth-dialog .timer-bluetooth-devices button { border-color: var(--border-color); }
+#challenge-bluetooth-dialog .timer-bluetooth-devices button:disabled { opacity: 1; cursor: default; }
 #cca-comps-page .cca-project-icon { display: block; width: 24px; height: 24px; }
 
 .competition-list-date time { white-space: nowrap; }
@@ -6803,6 +6922,8 @@ html:not([data-theme="dark"]) .challenge-smart-stats { color: #111; }
     left: auto;
     right: calc(-1px - var(--challenge-menu-padding));
     border-color: var(--border-color);
+    animation: none;
+    will-change: auto;
 }
 #chal-more-dropdown .timer-more-item {
     padding-inline: var(--challenge-menu-padding);
