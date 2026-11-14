@@ -146,11 +146,17 @@ renderMonthlyList=async function(){
 };
 
 let monthlyPageLoading=false;
-function setMonthlyEntryLoading(loading){
-    const modal=accountEl('monthly-entry-modal'),card=modal.querySelector('.pk-confirm-card');
-    card.classList.toggle('monthly-entry-busy',loading);card.setAttribute('aria-busy',String(loading));
-    card.querySelector('.monthly-entry-loading').hidden=!loading;
-    card.querySelectorAll('button').forEach(button=>button.disabled=loading);
+function setMonthlyEntryLoading(loading, message = '') {
+    const card = accountEl('monthly-entry-modal').querySelector('.monthly-entry-card');
+    const status = card.querySelector('.monthly-entry-loading');
+    const dismiss = status.querySelector('.monthly-entry-dismiss');
+    card.classList.toggle('monthly-entry-busy', loading || Boolean(message));
+    card.setAttribute('aria-busy', String(loading));
+    status.hidden = !loading && !message;
+    status.querySelector('.spinner').hidden = !loading;
+    status.querySelector('.monthly-entry-status').textContent = message || '载入中...';
+    dismiss.hidden = !message;
+    if (message) dismiss.focus();
 }
 initMonthly=async function(){
     if(monthlyPageLoading)return;
@@ -200,30 +206,60 @@ function openMonthlyAccountModal(after=initMonthly,allowGuest=false,mode='login'
 }
 openMonthlyEntry=async function(evId,cnName){
     if(monthlyEntryChecking)return;monthlyEntryChecking=true;
-    const modal=accountEl('monthly-entry-modal');modal.style.display='flex';setMonthlyEntryLoading(true);let ready=false;
-    try{await refreshAccount();if(!accountProfile){openMonthlyAccountModal();return;}if(getMonthlyAttempts(evId)){modal.style.display='none';alert('本月该项目已参加，不能再次参加。');return;}
-        currentMonthlyEventTarget=evId;currentMonthlyEventName=cnName;ready=true;
-    }catch(error){modal.style.display='none';alert(accountError(error));}finally{monthlyEntryChecking=false;setMonthlyEntryLoading(false);if(!ready)modal.style.display='none';}
+    const modal = accountEl('monthly-entry-modal');
+    modal.style.display = 'flex';
+    setMonthlyEntryLoading(true);
+    try {
+        await monthlyCloudRequest(refreshAccount());
+        if (!accountProfile) {
+            closeMonthlyEntry();
+            openMonthlyAccountModal();
+            return;
+        }
+        if (getMonthlyAttempts(evId)) {
+            setMonthlyEntryLoading(false, '本月该项目已参加，不能再次参加。');
+            return;
+        }
+        currentMonthlyEventTarget = evId;
+        currentMonthlyEventName = cnName;
+        setMonthlyEntryLoading(false);
+    } catch (error) {
+        setMonthlyEntryLoading(false, accountError(error));
+    } finally {
+        monthlyEntryChecking = false;
+    }
 };
 confirmMonthlyEntry=async function(){
     if(accountSaveBusy || monthlyEntryChecking)return;accountSaveBusy=true;setMonthlyEntryLoading(true);
     try{
-        const client=await accountClient(),scrambles=(await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
+        const client = await monthlyCloudRequest(accountClient());
+        const existing = accountMonthly.get(currentMonthlyEventTarget);
+        const scrambles = existing?.status === 'started' && existing.month_key === getCurrentMonthKey()
+            ? existing.scrambles
+            : (await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
         const {data,error}=await monthlyCloudRequest(client.rpc('account_monthly_start',{p_event:currentMonthlyEventTarget,p_scrambles:scrambles}));if(error)throw error;
-        accountMonthly.set(data.event_id,data);closeMonthlyEntry();
-        if(data.status==='completed'){alert('本月该项目已完成，不能再次参加。');renderMonthlyList();return;}
+        accountMonthly.set(data.event_id,data);
+        if (data.status === 'completed') {
+            setMonthlyEntryLoading(false, '本月该项目已完成，不能再次参加。');
+            renderMonthlyList();
+            return;
+        }
         accountActiveEntry=data;monthlyAttempts=[...data.attempts];monthlyHasFinished=false;monthlyTimerState='IDLE';
         accountEl('monthly-timer-display').textContent='0.00';accountEl('monthly-timer-display').className='timer-display';
         accountEl('monthly-timer-title').textContent=`巅峰月赛 - ${currentMonthlyEventName}`;accountEl('monthly-event-watermark').className=`cubing-icon event-${currentMonthlyEventTarget}`;
         renderMonthlyAttemptsList();renderMonthlyScramble(monthlyAttempts.length);navigateTo('monthly-timer-page',true);
-    }catch(error){setMonthlyEntryLoading(false);alert(accountError(error));}finally{accountSaveBusy=false;setMonthlyEntryLoading(false);}
+        closeMonthlyEntry();
+        setMonthlyEntryLoading(false);
+    } catch (error) {
+        setMonthlyEntryLoading(false, accountError(error));
+    } finally {
+        accountSaveBusy = false;
+    }
 };
 const accountOriginalRenderScramble=renderMonthlyScramble;
-renderMonthlyScramble=function(index){
-    if(accountActiveEntry?.event_id===currentMonthlyEventTarget){
-        const key='monthlyScrambles_v2_'+getCurrentMonthKey()+'_'+getCurrentWeekKey();let cached={};try{cached=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
-        cached[currentMonthlyEventTarget]=accountActiveEntry.scrambles;localStorage.setItem(key,JSON.stringify(cached));
-    }accountOriginalRenderScramble(index);
+renderMonthlyScramble = function(index) {
+    const savedScrambles = accountActiveEntry?.event_id === currentMonthlyEventTarget ? accountActiveEntry.scrambles : null;
+    return accountOriginalRenderScramble(index, savedScrambles);
 };
 async function accountAppendAttempt(rawMs,penalty,modalId){
     if(accountSaveBusy || !accountActiveEntry)return;accountSaveBusy=true;
@@ -240,10 +276,23 @@ confirmMonthlyManual=function(){
     return accountAppendAttempt(ms,currentManualPenalty,'monthly-manual-modal');
 };
 confirmMonthlyExit=async function(){
-    if(accountSaveBusy || !accountActiveEntry)return;accountSaveBusy=true;
-    try{const client=await accountClient(),result=await monthlyCloudRequest(client.rpc('account_monthly_abort',{p_entry:accountActiveEntry.id}));if(result.error)throw result.error;
-        accountMonthly.set(result.data.event_id,result.data);monthlyAttempts=result.data.attempts;monthlyTimerState='IDLE';monthlyHasFinished=true;closeMonthlyExit();renderMonthlyList();goBack();
-    }catch(error){alert(accountError(error));}finally{accountSaveBusy=false;}
+    if (accountSaveBusy || !accountActiveEntry) return;
+    accountSaveBusy = true;
+    const buttons = accountEl('monthly-exit-modal').querySelectorAll('button');
+    buttons.forEach(button => button.disabled = true);
+    try {
+        const client = await accountClient();
+        const result = await monthlyCloudRequest(client.rpc('account_monthly_abort', {p_entry: accountActiveEntry.id}));
+        if (result.error) throw result.error;
+        accountMonthly.set(result.data.event_id, result.data);
+        monthlyAttempts = result.data.attempts;
+        finishMonthlyExit();
+    } catch (error) {
+        alert(accountError(error));
+    } finally {
+        accountSaveBusy = false;
+        buttons.forEach(button => button.disabled = false);
+    }
 };
 // Retired email links must never restore credentials or open a password form.
 function discardRetiredAccountLink(){

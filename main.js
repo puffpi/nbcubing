@@ -686,6 +686,7 @@ let formulaDetailCube = null;
 let formulaCaseRequest = 0;
 
 function navigateTo(pageId, isForward = false) {
+    if (pageId !== 'monthly-timer-page' && requestMonthlyExit(() => navigateTo(pageId, isForward))) return;
     if (pageId !== 'cube-space-page' && csRequestExit(() => navigateTo(pageId, isForward))) return;
     const currentPage = document.querySelector('.page-container.active');
     if (isForward && currentPage) {
@@ -710,6 +711,7 @@ function goHome() {
 }
 
 function goBack() {
+    if (requestMonthlyExit(goBack)) return;
     if (csRequestExit(() => goBack())) return;
 
     // 强制关闭完赛撒花弹窗
@@ -718,15 +720,7 @@ function goBack() {
         closeMonthlyFinishAlert();
     }
 
-    // --- 核心拦截：巅峰月赛退出判定 ---
-    const activePage = document.querySelector('.page-container.active');
-    if (activePage?.id === 'challenge-page' && chalState === 'RUNNING') return;
-    if (activePage && activePage.id === 'monthly-timer-page') {
-        if (!monthlyHasFinished) {
-            document.getElementById('monthly-exit-modal').style.display = 'flex';
-            return; // 拦截住返回指令
-        }
-    }
+    if (document.querySelector('#challenge-page.active') && chalState === 'RUNNING') return;
 
     if (inlinePkState !== 0) cancelInlinePK(false);
 
@@ -740,6 +734,7 @@ function goBack() {
 }
 
 function showPage(pageId) {
+    if (pageId !== 'monthly-timer-page' && requestMonthlyExit(() => showPage(pageId))) return;
     if(pageId!=='timer-page'){const popup=document.getElementById('timer-event-popup');if(popup){popup.style.display='none';popup.classList.remove('popup-fade-out');}}
 
     if (pageId !== 'cube-space-page' && csRequestExit(() => showPage(pageId))) return;
@@ -3994,26 +3989,10 @@ function getSquare1Scramble() {
     return moves.join(' / ') + ' /';
 }
 
-function getFtoScramble() {
-    const faces = ['U', 'D', 'F', 'B', 'L', 'R', 'BL', 'BR'];
-    const opposite = { U:'D', D:'U', F:'B', B:'F', L:'BR', BR:'L', R:'BL', BL:'R' };
-    const result = [];
-    let previous = '', beforePrevious = '';
-    for (let index = 0; index < 25; index++) {
-        const choices = faces.filter(face => face !== previous &&
-            !(face === beforePrevious && opposite[face] === previous));
-        const face = choices[Math.floor(Math.random() * choices.length)];
-        result.push(face + (Math.random() < .5 ? "'" : ''));
-        beforePrevious = previous;
-        previous = face;
-    }
-    return result.join(' ');
-}
-
 // All practice entry points share Cube Space's own local generators.
 let timerScrambleReady = false, challengeScrambleReady = false, monthlyScrambleReady = false;
 let timerScrambleRequest = 0, challengeScrambleRequest = 0, monthlyScrambleRequest = 0;
-function getScrambleByEvent(ev) { return nbScrambleEngine.getScramble(ev); }
+function getScrambleByEvent(ev, legacyFto = false) { return nbScrambleEngine.getScramble(ev, legacyFto); }
 
 // =========================================
 // 官方打乱图组件事件映射与动态缩放补偿字典
@@ -5411,23 +5390,30 @@ function setNbTimingOption(option, value) {
 }
 
 function openNbTimingModal(kind) {
-    const options = kind === 'category' ? [['wca','WCA'],['smart','智能魔方'],['other','其他']] : kind === 'display' ? [
+    const options = kind === 'source' ? [
+        ['timer', '计时器'], [null, '蓝牙计时器（暂不支持）'],
+        [null, 'GAN 星环计时器（暂不支持）'], [null, '奇艺智能计时器（暂不支持）']
+    ] : kind === 'category' ? [['wca','WCA'],['smart','智能魔方'],['other','其他']] : kind === 'display' ? [
         ['realtime', '实时'], ['noDecimals', '不显示小数'], ['onlyInspection', '仅观察'], ['hidden', '隐藏']
     ] : [[2, '0.01 秒'], [3, '0.001 秒']];
-    document.getElementById('nb-timing-modal-title').innerText = kind === 'category' ? '计时项目分类' : kind === 'display' ? '计时器显示方式' : '计时器精确度';
+    const selected = { source: 'timer', category: timerTempMode, display: uiSettings.nbDisplayMode, precision: uiSettings.nbPrecision }[kind];
+    document.getElementById('nb-timing-modal-title').innerText = kind === 'source' ? '产生成绩通过' : kind === 'category' ? '计时项目分类' : kind === 'display' ? '计时器显示方式' : '计时器精确度';
     const list = document.getElementById('nb-timing-options');
     list.replaceChildren();
     for (const [value, label] of options) {
-        const button = document.createElement('div');
-        button.className = `chal-event-item ${(kind === 'category' ? timerTempMode : kind === 'display' ? uiSettings.nbDisplayMode : uiSettings.nbPrecision) === value ? 'active' : ''}`;
-        button.style.cssText = 'padding:14px 15px;text-align:center;cursor:pointer';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = value === selected ? 'chal-event-item active' : 'chal-event-item';
+        button.disabled = value === null;
+        button.setAttribute('aria-pressed', String(value === selected));
         button.innerText = label;
         button.onclick = () => {
             if (kind === 'display' && value === 'onlyInspection' && !uiSettings.inspection) {
                 window.alert('请先开启「使用 WCA 观察」');
                 return;
             }
-            if(kind==='category')setTimerTempMode(value);else setNbTimingOption(kind, value);
+            if (kind === 'category') setTimerTempMode(value);
+            else if (kind !== 'source') setNbTimingOption(kind, value);
             closeNbTimingModal();
         };
         list.appendChild(button);
@@ -5734,11 +5720,14 @@ function markMonthlyParticipated(eventId, attemptsArr) {
 }
 
 async function ensureMonthlyScrambles(eventId) {
-    const key = 'monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + getCurrentWeekKey();
+    const week = getCurrentWeekKey();
+    const key = 'monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + week;
     let cached = localStorage.getItem(key);
     const generated = cached ? JSON.parse(cached) : {};
     if (eventId && !generated[eventId]) {
-        generated[eventId] = await Promise.all(Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId)));
+        // Keep the old FTO rules for the current week and reuse all saved scrambles.
+        const legacyFto = eventId === 'fto' && week < '2026-11-16';
+        generated[eventId] = await Promise.all(Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId, legacyFto)));
         const latest = JSON.parse(localStorage.getItem(key) || '{}');
         if (latest[eventId]) generated[eventId] = latest[eventId];
         else { latest[eventId] = generated[eventId]; localStorage.setItem(key, JSON.stringify(latest)); }
@@ -5889,9 +5878,9 @@ async function renderMonthlyList() {
             btnAction = `event.stopPropagation(); alert('本月该项目已经参加过，不能再次参加。')`;
 
             resultHtml = `
-                <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
-                    <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${res.avgDisp}</div>
-                    <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${res.detailsStr}</div>
+                <div class="monthly-event-result">
+                    <div class="monthly-event-average">${res.avgDisp}</div>
+                    <div class="monthly-event-details">${res.detailsStr}</div>
                 </div>
             `;
         } else if (bestAttempts) {
@@ -5901,12 +5890,12 @@ async function renderMonthlyList() {
         }
 
         let row = document.createElement('div');
-        row.className = 'monthly-event-row';
+        row.className = attemptsData ? 'monthly-event-row monthly-event-completed' : 'monthly-event-row';
         row.style.cursor = 'pointer';
         row.onclick = () => { openMonthlyRanking(ev.id, cnName, monthKey); };
 
         row.innerHTML = `
-            <div style="display: flex; align-items: center; font-size: 16px; font-weight: bold; color: var(--text-main);">
+            <div class="monthly-event-identity">
                 <span class="cubing-icon event-${ev.id}" style="font-size: 24px; color: var(--primary-color); margin-right: 12px;"></span>
                 <span>${cnName}</span>
                 ${rankHtml}
@@ -6202,11 +6191,45 @@ async function openMonthlyEntry(evId, cnName) {
     document.getElementById('monthly-entry-modal').style.display = 'flex';
 }
 function closeMonthlyEntry() { document.getElementById('monthly-entry-modal').style.display = 'none'; }
-function closeMonthlyExit() { document.getElementById('monthly-exit-modal').style.display = 'none'; }
+let monthlyExitDestination = null;
+
+function requestMonthlyExit(destination) {
+    if (!document.querySelector('#monthly-timer-page.active') || monthlyHasFinished) return false;
+    const modal = document.getElementById('monthly-exit-modal');
+    if (modal.style.display !== 'flex') {
+        monthlyExitDestination = destination;
+        modal.style.display = 'flex';
+    }
+    return true;
+}
+
+// Defer the entire navigation action, including the destination's setup.
+document.querySelector('.global-nav-header').addEventListener('click', event => {
+    const link = event.target.closest('.nav-logo, .dropdown-content a, .nav-search [onclick], #autocomplete-home [onclick]');
+    if (!link || !requestMonthlyExit(() => link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })))) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+}, true);
+
+function closeMonthlyExit() {
+    monthlyExitDestination = null;
+    document.getElementById('monthly-exit-modal').style.display = 'none';
+}
+
+function finishMonthlyExit() {
+    const destination = monthlyExitDestination || goBack;
+    monthlyHasFinished = true;
+    monthlyTimerState = 'IDLE';
+    cancelAnimationFrame(monthlyAnimFrame);
+    for (const id of ['monthly-penalty-modal', 'monthly-manual-modal']) {
+        document.getElementById(id).style.display = 'none';
+    }
+    closeMonthlyExit();
+    renderMonthlyList();
+    destination();
+}
 
 function confirmMonthlyExit() {
-    document.getElementById('monthly-exit-modal').style.display = 'none';
-
     // 核心修复：自动给未完成的次数强行塞入 DNS 并立即封存本地成绩
     let format = getEventFormat(currentMonthlyEventTarget);
     let finalAttempts = [...monthlyAttempts];
@@ -6215,12 +6238,7 @@ function confirmMonthlyExit() {
     }
 
     markMonthlyParticipated(currentMonthlyEventTarget, finalAttempts);
-    monthlyTimerState = 'IDLE';
-    monthlyHasFinished = true;
-
-    // 强制后台刷新外部列表状态，保障返回后一眼看到 DNF 且无法重进
-    renderMonthlyList();
-    goBack();
+    finishMonthlyExit();
 }
 
 function confirmMonthlyEntry() {
@@ -6318,13 +6336,12 @@ function renderMonthlyAttemptsList() {
     }
 }
 
-async function renderMonthlyScramble(attemptIndex) {
+async function renderMonthlyScramble(attemptIndex, savedScrambles = null) {
     const request = ++monthlyScrambleRequest, event = currentMonthlyEventTarget;
     monthlyScrambleReady = false;
     try {
-        let allScrambles = await ensureMonthlyScrambles(event);
+        const scrambles = savedScrambles ?? (await ensureMonthlyScrambles(event))[event];
         if (request !== monthlyScrambleRequest || event !== currentMonthlyEventTarget) return;
-        let scrambles = allScrambles[currentMonthlyEventTarget];
 
         if (!scrambles || attemptIndex >= scrambles.length) return;
 

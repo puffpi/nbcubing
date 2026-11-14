@@ -427,8 +427,14 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 #monthly-page-loading[hidden],.monthly-entry-loading[hidden]{display:none;}
 .monthly-date-range{font-size:14px;color:var(--text-muted);font-weight:normal;font-family:SFMono-Regular,Consolas,monospace;}
-.monthly-entry-card{position:relative;}
-.monthly-entry-loading{position:absolute;inset:0;justify-content:center;}
+.monthly-entry-card{position:relative;box-sizing:border-box;width:min(352px,calc(100% - 32px));margin:0;padding:16px;text-align:center;}
+.monthly-entry-dismiss[hidden]{display:none;}
+#monthly-entry-modal{background:rgba(0,0,0,.6);}
+.monthly-entry-loading{position:absolute;inset:0;justify-content:center;padding:16px;overflow:auto;color:var(--text-main);}
+.monthly-entry-status{margin:0;font-size:15px;line-height:1.55;overflow-wrap:anywhere;}
+.monthly-entry-actions{display:flex;gap:10px;margin-top:20px;}
+.monthly-entry-actions .btn{flex:1;min-width:0;}
+.monthly-entry-card .btn{font-size:14px;min-height:40px;padding:8px 14px;border-radius:10px;box-sizing:border-box;}
 .monthly-entry-busy > :not(.monthly-entry-loading){visibility:hidden;pointer-events:none;}
 .monthly-entry-card .btn{transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s,transform .2s;}
 
@@ -1594,9 +1600,6 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
    ========================================= */
     #monthly-manual-modal,
     #nb-manual-modal {
-        background: rgba(248, 250, 252, 0.15) !important; /* 恢复原版的淡淡模糊背景 */
-        backdrop-filter: blur(4px) !important;
-        -webkit-backdrop-filter: blur(4px) !important;
         align-items: flex-end !important;
         padding: 12px !important;
     }
@@ -1989,6 +1992,17 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
 }
 .monthly-event-row:last-child { border-bottom: none; }
 .monthly-event-row:hover { background: #f8fafc; }
+.monthly-event-identity{display:flex;align-items:center;font-size:16px;font-weight:bold;color:var(--text-main);white-space:nowrap;}
+.monthly-event-result{text-align:right;line-height:1.3;}
+.monthly-event-average{font-size:16px;font-weight:bold;color:var(--primary-color);}
+.monthly-event-details{font:13px/1.3 SFMono-Regular,Consolas,monospace;color:var(--text-muted);margin-top:2px;}
+@media(max-width:768px){
+    #monthly-event-list .monthly-event-completed{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding-block:11px;}
+    .monthly-event-completed .monthly-event-identity{line-height:1.3;}
+    .monthly-event-completed .monthly-event-result{display:contents;}
+    .monthly-event-completed :is(.monthly-event-average,.monthly-event-details){text-align:right;}
+    .monthly-event-completed .monthly-event-details{grid-column:1/-1;margin:0;}
+}
 .monthly-btn {
     padding: 6px 18px !important;
     font-size: 13px !important;
@@ -5831,13 +5845,13 @@ html[data-theme="dark"] #timer-page .smart-result-card { --text-main: #e5e5e7; -
 /* 1.50.26 */
 .nav-logo .nav-app-icon{display:block;width:38px;height:38px;object-fit:contain;border-radius:10px;}
 #timer-page .timer-history-item .col-id{font-family:inherit;font-size:inherit;font-weight:600;}
-#nb-manual-modal,#nb-delete-last-modal,#nb-edit-last-modal,
+#monthly-penalty-modal,#monthly-manual-modal,#post-solve-modal,#nb-manual-modal,#nb-delete-last-modal,#nb-edit-last-modal,
 #timer-event-popup,#edit-score-popup,#avg-score-popup,#avg-details-popup,
 .timer-setting-overlay,#cube-appearance-modal.timer-settings-context,
 #timer-clear-modal,#timer-import-modal,#timer-export-modal,#timer-dist-modal,#timer-trend-modal,#timer-db-result-modal,#timer-daily-overlay{
 background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
-html[data-theme] :is(.timer-scramble-draw-panel, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+html[data-theme] :is(.timer-scramble-draw-panel, :is(#monthly-entry-modal, #monthly-exit-modal, #monthly-finish-modal, #monthly-penalty-modal, #post-solve-modal) > .pk-confirm-card, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #monthly-manual-modal, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
     --scramble-glass: rgba(248, 250, 252, .65);
     --scramble-glass-edge: rgba(226, 232, 240, .8);
     background: var(--scramble-glass) !important;
@@ -5846,10 +5860,33 @@ html[data-theme] :is(.timer-scramble-draw-panel, #timer-bluetooth-card, #timer-s
     backdrop-filter: blur(12px) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .06) !important;
 }
-html[data-theme="dark"] :is(.timer-scramble-draw-panel, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
+html[data-theme="dark"] :is(.timer-scramble-draw-panel, :is(#monthly-entry-modal, #monthly-exit-modal, #monthly-finish-modal, #monthly-penalty-modal, #post-solve-modal) > .pk-confirm-card, #timer-bluetooth-card, #timer-smart-result > .smart-result-card, #smart-analysis-overlay > .smart-analysis-card, #chal-more-dropdown, #timer-page #timer-more-dropdown, :is(#chal-event-popup, #chal-settings-modal, #chal-alert-modal, #challenge-bluetooth-dialog) > :is(.edit-score-content, .cube-appearance-card), #timer-page .timer-bottom-bar, :is(#timer-event-popup, #edit-score-popup, #avg-score-popup, #avg-details-popup, #monthly-manual-modal, #nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal, :is(#nb-timing-modal.timer-frosted, #font-select-modal.timer-setting-overlay, #cube-appearance-modal.timer-settings-context), :is(#timer-clear-modal, #timer-import-modal, #timer-export-modal, #timer-dist-modal, #timer-trend-modal, #timer-db-result-modal, #timer-daily-overlay)) > :is(.edit-score-content, .pk-confirm-card, .cube-appearance-card, .timer-daily-card)) {
     --scramble-glass: rgba(28, 28, 30, .65);
     --scramble-glass-edge: rgba(53, 53, 56, .8);
 }
+#post-solve-modal { animation:none !important; transform:none !important; will-change:auto; }
+.solve-confirm-card {
+    width:340px;
+    max-width:95%;
+    margin:0;
+    padding:20px;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    max-height:calc(100dvh - 24px);
+    overflow:auto;
+}
+.solve-confirm-card h3 { margin:0 0 15px; font-size:17px; color:var(--timer-score-ink); }
+.solve-confirm-time { margin:8px 0; font-size:46px; font-weight:900; color:var(--timer-score-ink); line-height:1; font-variant-numeric:tabular-nums; }
+#monthly-penalty-index { color:var(--timer-score-ink); font-size:14px; font-weight:600; }
+.solve-confirm-card .ios-segment-btn:not(.active) { color:var(--timer-score-ink) !important; }
+:is(#monthly-penalty-modal,#monthly-manual-modal).timer-screen-overlay { will-change:auto; }
+#monthly-manual-modal > .pk-confirm-card { max-height:calc(100dvh - 24px); overflow:auto; }
+#nb-timing-options > button.chal-event-item { padding:14px 15px; text-align:center; }
+#nb-timing-options > button:disabled,
+#nb-timing-options > button:disabled:hover { cursor:default; background:rgba(0,0,0,.04); color:var(--text-muted); }
+html[data-theme="dark"] #nb-timing-options > button:disabled { background:rgba(255,255,255,.05); }
 #timer-event-popup #timer-event-grid .chal-event-item:not(.active):not(.timer-smart-disabled),
 #timer-event-popup :is(#timer-category-label, #timer-category-select button) {
     color: var(--timer-score-ink) !important;
@@ -5916,11 +5953,11 @@ html[data-theme="dark"] #smart-analysis-overlay :is(.smart-analysis-table tbody 
 :is(#nb-manual-modal, #nb-delete-last-modal, #nb-edit-last-modal).timer-screen-overlay {
     will-change: auto;
 }
-html[data-theme] :is(#edit-score-popup, #nb-manual-modal, #nb-edit-last-modal) .ios-segment-control > .ios-segment-btn[id]:not(.active),
-html[data-theme] :is(#delete-last-index, #edit-last-index, #nb-manual-close) {
+html[data-theme] :is(#edit-score-popup, #monthly-manual-modal, #nb-manual-modal, #nb-edit-last-modal) .ios-segment-control > .ios-segment-btn[id]:not(.active),
+html[data-theme] :is(#delete-last-index, #edit-last-index, #monthly-manual-close, #nb-manual-close) {
     color: var(--timer-score-ink) !important;
 }
-#nb-manual-input::placeholder {
+:is(#monthly-manual-input,#nb-manual-input)::placeholder {
     color: var(--timer-score-ink);
     opacity: 1;
 }

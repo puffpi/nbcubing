@@ -231,7 +231,7 @@ function randomOrientation(right,up,front) {
     const horizontal=['',up,up+'2',up+"'"][randomInt(4)];
     return [vertical,horizontal].filter(Boolean).join(' ');
 }
-function generate(event) {
+function generate(event, legacyFto) {
  if(event==='mirror')return generate('333');
  if(event==='gear')return randomMoves(['R','U','F'],10,['','2','3','4','5','6',"5'","4'","3'","2'","'"]);
  const n={'888':8,'999':9,'101010':10,'111111':11,'121212':12,'131313':13}[event];
@@ -255,7 +255,7 @@ function generate(event) {
     }
     if(event==='skewb') return checkedMoves('skewb',['R','L','U','B'],11,['',"'"]);
     if(event==='sq1') return getSquare1Scramble();
-    if(event==='fto') return getFtoScramble();
+    if(event==='fto') return getFtoScramble(legacyFto);
     if(event==='minx') return Array.from({length:7},()=>{
         const turns=Array.from({length:10},(_,i)=>(i%2?'D':'R')+(randomInt(2)?'++':'--'));
         return turns.join(' ')+(turns.at(-1)==='D++'?" U":" U'");
@@ -267,7 +267,7 @@ function generate(event) {
     throw new Error('不支持的打乱项目：'+event);
 }
 self.onmessage=({data:[id,type,args]})=>{
-    try { self.postMessage([id,type,generate(args[0])]); }
+    try { self.postMessage([id,type,generate(...args)]); }
     catch(error) { self.postMessage([id,type,null,error.message]); }
 };
 function randomInt(bound) {
@@ -340,14 +340,15 @@ function getSquare1Scramble() {
     return moves.join(' / ') + ' /';
 }
 
-function getFtoScramble() {
+function getFtoScramble(legacy) {
     const faces = ['U', 'D', 'F', 'B', 'L', 'R', 'BL', 'BR'];
     const opposite = { U:'D', D:'U', F:'B', B:'F', L:'BR', BR:'L', R:'BL', BL:'R' };
     const result = [];
-    const length=25+randomInt(6);
+    const length = legacy ? 25 + randomInt(6) : 27 + randomInt(3);
     let previous = '', beforePrevious = '';
     for (let index = 0; index < length; index++) {
-        const choices = faces.filter(face => face !== previous &&
+        const availableFaces = legacy || index >= 20 ? faces : faces.slice(0, 6);
+        const choices = availableFaces.filter(face => face !== previous &&
             !(face === beforePrevious && opposite[face] === previous));
         const face = choices[Math.floor(randomUnit() * choices.length)];
         result.push(face + (randomUnit() < .5 ? "'" : ''));

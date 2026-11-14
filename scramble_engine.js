@@ -11,7 +11,7 @@ window.nbScrambleEngine = (() => {
     }
     function getWorker() {
         if (!worker) {
-            worker = new Worker('scramble_worker.js?v=1.40.0-longer');
+            worker = new Worker('scramble_worker.js?v=1.68.0');
             worker.onmessage = ({data}) => {
                 const request = pending.get(data[0]);
                 if (!request) return;
@@ -24,8 +24,8 @@ window.nbScrambleEngine = (() => {
         }
         return worker;
     }
-    async function createScramble(event) {
-        const args = events[event];
+    async function createScramble(event, legacyFto) {
+        const args = legacyFto ? [event, true] : events[event];
         if (!args) throw new Error('不支持的打乱项目：' + event);
         const text = await new Promise((resolve,reject) => {
             try {
@@ -39,10 +39,11 @@ window.nbScrambleEngine = (() => {
         const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return event === 'minx' ? escaped.replace(/\r?\n/g,'<br>') : escaped.replace(/\s+/g,' ');
     }
-    async function getScramble(event) {
+    async function getScramble(event, legacyFto = false) {
         if(!events[event]) throw new Error('不支持的打乱项目：'+event);
-        const pool=pools.get(event)||[];pools.set(event,pool);
-        while(pool.length<3)pool.push(createScramble(event).then(value=>({value}),error=>({error})));
+        const key = legacyFto ? 'fto-legacy' : event;
+        const pool=pools.get(key)||[];pools.set(key,pool);
+        while(pool.length<3)pool.push(createScramble(event, legacyFto).then(value=>({value}),error=>({error})));
         const result=await pool.shift();
         if(result.error)throw result.error;
         return result.value;

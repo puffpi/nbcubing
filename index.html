@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.67.1">
+    <link rel="stylesheet" href="style.css?v=1.68.0">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -487,7 +487,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.67.1</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.68.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -601,36 +601,41 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     </div>
 
     <!-- 2. 参赛确认弹窗 -->
-    <div id="monthly-entry-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
-        <div class="card pk-confirm-card monthly-entry-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
-            <div class="monthly-entry-loading" role="status" aria-label="载入中..." hidden><div class="spinner" aria-hidden="true"></div><span>载入中...</span></div>
+    <div id="monthly-entry-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:2600; justify-content:center; align-items:center;" role="dialog" aria-modal="true" aria-label="参赛确认">
+        <div class="card pk-confirm-card monthly-entry-card">
+            <div class="monthly-entry-loading" hidden>
+                <div class="spinner" aria-hidden="true"></div>
+                <p class="monthly-entry-status" role="status">载入中...</p>
+                <button type="button" class="btn monthly-entry-dismiss" onclick="closeMonthlyEntry()" hidden>关闭</button>
+            </div>
             <h3 style="margin-top:0;">参赛确认</h3>
             <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">每月每个项目只能参加一次。成绩逐次保存，刷新或换设备可继续；确认退出则将剩余尝试记为 DNS。是否参加？</p>
-            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
-                <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyEntry()">取消</button>
-                <button class="btn" style="flex:1;" onclick="confirmMonthlyEntry()">确定</button>
+            <div class="monthly-entry-actions">
+                <button class="btn btn-outline" onclick="closeMonthlyEntry()">取消</button>
+                <button class="btn" onclick="confirmMonthlyEntry()">确定</button>
             </div>
         </div>
     </div>
 
     <!-- 3. 中途退出警告弹窗 -->
     <div id="monthly-exit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2600; justify-content:center; align-items:center;">
-        <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
+        <div class="card pk-confirm-card monthly-entry-card">
             <h3 style="margin-top:0;">警 告</h3>
             <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">确认退出后，剩余尝试记为 DNS，本月不能再次参加此项目。</p>
-            <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
-                <button class="btn btn-outline" style="flex:1;" onclick="closeMonthlyExit()">取消</button>
-                <button class="btn" style="flex:1;" onclick="confirmMonthlyExit()">确定</button>
+            <div class="monthly-entry-actions">
+                <button class="btn btn-outline" onclick="closeMonthlyExit()">取消</button>
+                <button class="btn" onclick="confirmMonthlyExit()">确定</button>
             </div>
         </div>
     </div>
 
     <!-- 4. 单次成绩确认与惩罚弹窗 (已修复滑动条震动 Bug) -->
-    <div id="monthly-penalty-modal" class="edit-score-popup" style="z-index: 2600; position: fixed;">
-        <div class="edit-score-content" style="max-width: 320px;">
-            <div id="monthly-penalty-index" style="color: var(--text-muted); font-size: 14px; font-weight: 600;">#1</div>
-            <div id="monthly-penalty-time" style="font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums;">0.00</div>
-            <div class="ios-segment-control" style="width: 100%; max-width: 220px; margin: 15px auto 20px auto; display: flex;">
+    <div id="monthly-penalty-modal" class="edit-score-popup timer-screen-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="monthly-penalty-title">
+        <div class="card pk-confirm-card solve-confirm-card">
+            <h3 id="monthly-penalty-title">记录本次成绩</h3>
+            <div id="monthly-penalty-index">#1</div>
+            <div id="monthly-penalty-time" class="solve-confirm-time">0.00</div>
+            <div class="ios-segment-control" style="width: 100%; margin: 15px 0 20px 0; display: flex;">
                 <div class="ios-segment-btn active" style="flex:1; text-align:center;" id="monthly-pen-none" onclick="setMonthlyPenalty('')">无惩罚</div>
                 <div class="ios-segment-btn" style="flex:1; text-align:center;" id="monthly-pen-plus2" onclick="setMonthlyPenalty('+2')">+2</div>
                 <div class="ios-segment-btn" style="flex:1; text-align:center;" id="monthly-pen-dnf" onclick="setMonthlyPenalty('DNF')">DNF</div>
@@ -641,7 +646,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
     </div>
 
-    <!-- 5. 完赛提示弹窗 (替换为统一的深色不透明卡片，去除表情包) -->
+    <!-- 5. 完赛提示弹窗 -->
     <div id="monthly-finish-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2700; justify-content:center; align-items:center;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; text-align: center;">
             <h3 style="margin-top:0;">项目结束通知</h3>
@@ -740,10 +745,10 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     </div>
 
     <!-- 巅峰月赛：手动输入成绩弹窗 (采用标准的 pk-confirm-card 毛玻璃与圆角风格) -->
-    <div id="monthly-manual-modal" class="edit-score-popup" style="z-index: 2800; position: fixed; display: none;">
+    <div id="monthly-manual-modal" class="edit-score-popup timer-screen-overlay" style="z-index: 2800; position: fixed; display: none;">
         <div class="card pk-confirm-card" style="width: 320px; max-width: 90%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
             <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 15px; width: 100%;">
-                <span style="position: absolute; left: 0; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeMonthlyManualInput()">✕</span>
+                <span id="monthly-manual-close" style="position: absolute; left: 0; font-size: 16px; cursor: pointer; padding: 5px; font-weight: bold;" onclick="closeMonthlyManualInput()">✕</span>
                 <h3 style="margin: 0; font-size: 17px; color: var(--text-main);">输入成绩</h3>
             </div>
 
@@ -935,9 +940,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <!-- 外层加了 onclick="confirmPostSolve()"，实现点击空白处直接记录成绩的效果 -->
     <div id="post-solve-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;" onclick="confirmPostSolve()">
         <!-- 内层加了 event.stopPropagation() 防止点击卡片内部触发关闭 -->
-        <div class="card pk-confirm-card" style="width: 340px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;" onclick="event.stopPropagation()">
-            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 17px; color: var(--text-main);">记录本次成绩</h3>
-            <div id="post-solve-time" style="font-size: 46px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums;">0.00</div>
+        <div class="card pk-confirm-card solve-confirm-card" onclick="event.stopPropagation()">
+            <h3>记录本次成绩</h3>
+            <div id="post-solve-time" class="solve-confirm-time">0.00</div>
 
             <div class="ios-segment-control" style="width: 100%; margin: 15px 0 20px 0; display: flex;">
                 <div class="ios-segment-btn active" id="post-pen-none" onclick="setPostPenalty('')" style="flex:1; text-align:center;">无惩罚</div>
@@ -1150,6 +1155,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 <div class="ios-setting-group custom-ui-group"><span>语速</span><div class="ui-control-right ui-slider-wrapper" id="inspection-voice-rate-control"><span id="inspection-voice-rate-value">1.0×</span><input type="range" id="inspection-voice-rate" aria-label="观察语音语速" min="0.5" max="2" step="0.1" value="1" oninput="setInspectionVoiceRate(this.value)"></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>计时器显示方式</span><div class="ui-control-right" onclick="openNbTimingModal('display')"><span id="nb-display-mode-label">实时</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
                     <div class="ios-setting-group custom-ui-group"><span>计时器精确度</span><div class="ui-control-right" onclick="openNbTimingModal('precision')"><span id="nb-precision-label">0.01 秒</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></div></div>
+                    <div class="ios-setting-group custom-ui-group"><span>产生成绩通过</span><button type="button" class="ui-control-right" aria-haspopup="dialog" onclick="openNbTimingModal('source')"><span>计时器</span><span class="setting-chevron-wrap" aria-hidden="true"><svg class="setting-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></span></button></div>
 
                     <!-- 核心新增：界面设置模块 -->
                     <hr class="settings-divider">
@@ -1245,7 +1251,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 </div> <!-- 闭合 sidebar-view-settings -->
 
                 <!-- 字体选择专属弹窗 (毛玻璃) -->
-                <div id="nb-timing-modal" class="edit-score-popup" onclick="closeNbTimingModal(event)">
+                <div id="nb-timing-modal" class="edit-score-popup" role="dialog" aria-modal="true" aria-labelledby="nb-timing-modal-title" onclick="closeNbTimingModal(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
                         <div class="timer-setting-modal-heading"><h3 id="nb-timing-modal-title"></h3><button type="button" aria-label="关闭" onclick="closeNbTimingModal()">×</button></div>
                         <div id="nb-timing-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
@@ -1994,12 +2000,12 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     </div>
 
     <script src="database.js?v=1.60.0"></script>
-    <script src="scramble_engine.js?v=1.40.0-longer"></script>
+    <script src="scramble_engine.js?v=1.68.0"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.67.0"></script>
+    <script src="main.js?v=1.68.0"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.60.13"></script>
+    <script src="account.js?v=1.68.0"></script>
     <script src="theme.js?v=1.48.14"></script>
 
 <div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
