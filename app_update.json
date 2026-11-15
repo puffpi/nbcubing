@@ -1,6 +1,6 @@
 {
-  "versionCode": 50,
-  "versionName": "1.68.0",
+  "versionCode": 51,
+  "versionName": "1.69.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "更新 NB Timer 成绩卡片和计时设置，调整巅峰月赛成绩布局、参赛与退出流程，并更新 FTO 打乱。"
+  "notes": "NB Timer 和 NB Challenge 加入 GAN Gen4 智能三阶连接，更新智能成绩删除流程，调整首页和手机端 NB Timer 的顶部导航。"
 }

@@ -64,7 +64,7 @@ function handleTimerCubeBatteryDisconnect(){
     if(timerCubeBattery.level!==null&&timerCubeBattery.level<20)timerCubeBattery.pending=2;
     scheduleTimerBatteryNotice();
 }
-const timerBluetoothIdleOptions=[[0,'切换界面自动断开'],[3,'3 分钟'],[5,'5 分钟'],[10,'10 分钟'],[-1,'保持连接']];
+const timerBluetoothIdleOptions=[[0,'切换界面'],[3,'3 分钟'],[5,'5 分钟'],[10,'10 分钟'],[-1,'保持连接']];
 function timerBluetoothIdleMinutes(){const value=Number(uiSettings.bluetoothAutoDisconnect??5);return timerBluetoothIdleOptions.some(([n])=>n===value)?value:5;}
 function updateTimerBluetoothIdleLabel(){const label=document.getElementById('timer-bluetooth-idle-label');if(label)label.textContent=timerBluetoothIdleOptions.find(([n])=>n===timerBluetoothIdleMinutes())[1];}
 function timerSmartContextActive(){return currentTimerMode==='smart'&&timerSmartEvent==='333'&&document.getElementById('timer-page')?.classList.contains?.('active');}
@@ -165,7 +165,9 @@ function moyuGyroTransform(q){
     return `matrix3d(${matrix.join(',')})`;
 }
 function timerMoyuGyro(data){
-    const q=decodeMoyuGyro(data);
+    return applyTimerCubeGyro(decodeMoyuGyro(data));
+}
+function applyTimerCubeGyro(q) {
     if(!q)return false;
     timerCubeGyro.last=q;
     if(!timerCubeGyro.reference)timerCubeGyro.reference=q;
@@ -274,10 +276,17 @@ async function animateTimerLiveMoves(){
 }
 function queueTimerLiveMove(move){timerLiveCube.queue.push(move);void animateTimerLiveMoves();}
 
-async function timerMoyuCipher(mac){
+async function timerMoyuCipher(mac) {
+    const cipher = await timerCubePacketCipher(mac, [21,119,58,92,103,14,45,31,23,103,42,19,155,103,82,87],
+        [17,35,38,37,134,42,44,59,85,6,127,49,126,103,33,87]);
+    const verifyLength = async (value, transform) => {
+        if (value.length !== 20) throw Error('MY32 数据长度不符');
+        return transform(value);
+    };
+    return {encode: value => verifyLength(value, cipher.encode), decode: value => verifyLength(value, cipher.decode)};
+}
+async function timerCubePacketCipher(mac, baseKey, baseIv) {
     const bytes=mac.split(':').map(v=>parseInt(v,16)).reverse();
-    const baseKey=[21,119,58,92,103,14,45,31,23,103,42,19,155,103,82,87];
-    const baseIv=[17,35,38,37,134,42,44,59,85,6,127,49,126,103,33,87];
     for(let i=0;i<6;i++){baseKey[i]=(baseKey[i]+bytes[i])%255;baseIv[i]=(baseIv[i]+bytes[i])%255;}
     const key=await crypto.subtle.importKey('raw',new Uint8Array(baseKey),'AES-CBC',false,['encrypt','decrypt']);
     const zero=new Uint8Array(16),iv=new Uint8Array(baseIv);
@@ -290,12 +299,363 @@ async function timerMoyuCipher(mac){
         return new Uint8Array(await crypto.subtle.decrypt({name:'AES-CBC',iv:zero},key,joined));
     }
     async function transform(value,decrypt){
-        const result=new Uint8Array(value);if(result.length!==20)throw Error('MY32 数据长度不符');
+        const result=new Uint8Array(value);if(result.length<16)throw Error('魔方数据长度不符');
         const part=async offset=>{let data=result.slice(offset,offset+16);if(!decrypt)data=data.map((x,i)=>x^iv[i]);data=await block(data,decrypt);if(decrypt)data=data.map((x,i)=>x^iv[i]);result.set(data,offset);};
-        if(decrypt){await part(4);await part(0);}else{await part(0);await part(4);}return result;
+        const tail=result.length-16;
+        if(decrypt){if(tail)await part(tail);await part(0);}else{await part(0);if(tail)await part(tail);}return result;
     }
     return {encode:v=>transform(v,false),decode:v=>transform(v,true)};
 }
+// GAN Gen4 packet layout: gan-web-bluetooth (Andy Fedotov), and csTimer.
+const timerGanService = '00000010-0000-fff7-fff6-fff5fff4fff0';
+const timerGanManufacturerIds = Array.from({length:256}, (_, i) => (i << 8) | 1);
+const timerGanDevice = device => /^GAN/i.test(device?.name || '');
+const timerSupportsGan = () => globalThis.__nbNativeBluetooth
+    ? globalThis.__nbNativeGanGen4 === true
+    : !globalThis.NBApp;
+const timerGanStateRequest = [0xDD, 4, 0, 0xED];
+const timerGanAddresses = new Map();
+
+async function timerGanAddress(device) {
+    const storageKey = 'nbTimerGanAddress:' + device.id;
+    let address = timerGanAddresses.get(device.id);
+    try { address ||= localStorage.getItem(storageKey); } catch {}
+    if (/^(?:[A-F\d]{2}:){5}[A-F\d]{2}$/i.test(address || '')) return address;
+    if (typeof device.watchAdvertisements === 'function') {
+        const controller = new AbortController();
+        let listener, timeout;
+        try {
+            address = await new Promise(resolve => {
+                listener = ({manufacturerData}) => {
+                    for (const [id, data] of manufacturerData || []) {
+                        if ((id & 255) !== 1 || data.byteLength < 6) continue;
+                        const end = Math.min(data.byteLength, 9);
+                        resolve(Array.from({length:6}, (_, i) => data.getUint8(end - 1 - i).toString(16).padStart(2, '0')).join(':'));
+                        break;
+                    }
+                };
+                device.addEventListener('advertisementreceived', listener);
+                timeout = setTimeout(resolve, 4500);
+                Promise.resolve(device.watchAdvertisements({signal:controller.signal})).catch(() => resolve());
+            });
+        } catch {} finally {
+            clearTimeout(timeout);
+            controller.abort();
+            device.removeEventListener('advertisementreceived', listener);
+        }
+    }
+    if (!address) address = window.prompt('请输入 GAN 魔方的蓝牙地址（MAC）。电脑 Chrome 可在 chrome://bluetooth-internals 的 Devices 查到。', '')?.trim();
+    if (!/^(?:[A-F\d]{2}:){5}[A-F\d]{2}$/i.test(address || '')) throw Error('未取得有效的 GAN 蓝牙地址。可点击设备重试。');
+    return address;
+}
+
+function decodeTimerGanState(data) {
+    if (data.length * 8 < 124) return null;
+    const bits = Array.from(data, byte => byte.toString(2).padStart(8, '0')).join('');
+    const field = (start, width) => parseInt(bits.slice(start, start + width), 2);
+    const corners = [[8,9,20],[6,18,38],[0,36,47],[2,45,11],[29,26,15],[27,44,24],[33,53,42],[35,17,51]];
+    const edges = [[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]];
+    const facelets = [...timerSmartSolved];
+    for (const [slots, permutationOffset, orientationOffset, permutationBits, orientationBits] of [
+        [corners, 32, 53, 3, 2], [edges, 69, 113, 4, 1]
+    ]) {
+        const count = slots.length, sides = slots[0].length;
+        const permutation = Array.from({length:count - 1}, (_, i) => field(permutationOffset + i * permutationBits, permutationBits));
+        const orientation = Array.from({length:count - 1}, (_, i) => field(orientationOffset + i * orientationBits, orientationBits));
+        permutation.push(count * (count - 1) / 2 - permutation.reduce((sum, index) => sum + index, 0));
+        orientation.push((sides - orientation.reduce((sum, turns) => sum + turns, 0) % sides) % sides);
+        if (new Set(permutation).size !== count || permutation.some(i => i < 0 || i >= count) || orientation.some(i => i >= sides)) return null;
+        slots.forEach((slot, i) => slots[permutation[i]].forEach((source, j) => {
+            facelets[slot[(j + orientation[i]) % sides]] = timerSmartSolved[source];
+        }));
+    }
+    return facelets.join('');
+}
+
+function decodeTimerGanGyro(view) {
+    if (view.byteLength < 10) return null;
+    const component = offset => {
+        const word = view.getUint16(offset);
+        return (word & 0x7fff) * (word & 0x8000 ? -1 : 1) / 0x7fff;
+    };
+    // GAN axes: red, blue, white. The timer model uses red, white, green.
+    const q = [component(4), component(8), -component(6), component(2)];
+    const norm = Math.hypot(...q);
+    return norm >= .75 && norm <= 1.25 ? q.map(value => value / norm) : null;
+}
+
+async function startTimerGan(device, address, handlers) {
+    const isActive = handlers?.isActive ?? (() => timerBluetoothDevice === device);
+    if (!isActive()) throw Error('连接已取消');
+    if (!device.gatt.connected) {
+        await (handlers && device.gatt.connectForChallenge
+            ? device.gatt.connectForChallenge() : device.gatt.connect());
+    }
+    let service;
+    try { service = await device.gatt.getPrimaryService(timerGanService); }
+    catch { throw Error('设备没有提供 GAN Gen4 蓝牙服务'); }
+    const read = await service.getCharacteristic(0xfff6);
+    const write = await service.getCharacteristic(0xfff5);
+    const cipher = await timerCubePacketCipher(address,
+        [1,2,66,40,49,145,22,7,32,5,24,84,66,17,18,83],
+        [17,3,50,40,33,1,118,39,32,149,120,20,50,18,2,67]);
+    if (!isActive() || !device.gatt.connected) throw Error('设备已断开');
+    let count = null, previousTick = null, packetChain = Promise.resolve(), writeChain = Promise.resolve(), timeout;
+    let onReady, onFail, initialized = false;
+    let latestSerial = null, historyTimer, gapTimer, requestedHistory = false, snapshot = null;
+    let lastLiveStamp = null, closing = false, gyroFrame = null, pendingGyro;
+    const pendingMoves = new Map();
+    let physicalState = null;
+    const initial = new Promise((resolve, reject) => { onReady = resolve; onFail = reject; });
+    const send = bytes => {
+        const task = writeChain.then(async () => {
+            if (!session.active) return;
+            const packet = new Uint8Array(20);
+            packet.set(bytes);
+            const encrypted = await cipher.encode(packet);
+            if (!session.active) return;
+            if (write.properties.write) await write.writeValueWithResponse(encrypted);
+            else await write.writeValueWithoutResponse(encrypted);
+        });
+        writeChain = task.catch(() => {});
+        return task;
+    };
+    const title = document.getElementById('timer-bluetooth-card-title');
+    const fail = error => {
+        if (!session.active) return;
+        if (!initialized) onFail(error);
+        else if (handlers) handlers.onError(error);
+        else {
+            stopTimerMoyu();
+            document.getElementById('timer-bluetooth-label').textContent = '已连接，转动未同步';
+            document.getElementById('timer-bluetooth-card').hidden = false;
+            title.textContent = error.message;
+        }
+    };
+    const requestState = () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fail(Error('GAN 未返回有效状态，请核对蓝牙地址后重试')), 6500);
+        return send(timerGanStateRequest);
+    };
+    const session = {
+        protocol: 'gan', active: true, ready: false,
+        stop() {
+            session.active = false;
+            clearTimeout(timeout);
+            clearTimeout(historyTimer);
+            clearTimeout(gapTimer);
+            clearInterval(statePoll);
+            if (gyroFrame !== null) cancelAnimationFrame(gyroFrame);
+            read.removeEventListener('characteristicvaluechanged', notify);
+            onFail(Error('GAN 同步已停止'));
+            return device.gatt.connected ? read.stopNotifications().catch(() => {}) : Promise.resolve();
+        },
+        async drainOnDisconnect() {
+            closing = true;
+            let deadline;
+            try {
+                await Promise.race([packetChain, new Promise(resolve => { deadline = setTimeout(resolve, 750); })]);
+            } finally { clearTimeout(deadline); }
+        },
+        refresh() {
+            clearTimeout(historyTimer);
+            clearTimeout(gapTimer);
+            requestedHistory = false;
+            pendingMoves.clear();
+            snapshot = null;
+            latestSerial = null;
+            lastLiveStamp = null;
+            session.ready = false;
+            count = null;
+            previousTick = null;
+            return requestState();
+        }
+    };
+    const forward = (to, from) => (to - from) & 255;
+    const recover = () => {
+        const missing = forward(latestSerial, count);
+        if (closing || !device.gatt.connected || !missing || missing > 127 || requestedHistory) return;
+        // GAN history is aligned to an odd serial and never crosses the 255 → 0 boundary.
+        const first = (count + 1) & 255;
+        const end = Math.min(255, (first + Math.min(15, missing - 1)) | 1);
+        const length = Math.min(end + 1, (end - first + 2) & ~1 || 2);
+        requestedHistory = true;
+        void send([0xD1, 4, end, 0, length, 0]).catch(() => {});
+        historyTimer = setTimeout(() => { requestedHistory = false; recover(); }, 250);
+        if (!gapTimer) gapTimer = setTimeout(() => {
+            gapTimer = null;
+            resyncAfterLoss();
+        }, 2200);
+    };
+
+    const resyncAfterLoss = () => {
+        if (handlers) handlers.onGap(true);
+        else {
+            cancelTimerSmartAttempt();
+            document.getElementById('timer-bluetooth-card').hidden = false;
+            title.textContent = '部分转动未能补齐，本次成绩未记录，正在同步魔方状态…';
+        }
+        void session.refresh().catch(fail);
+    };
+
+    const drain = () => {
+        if (snapshot) {
+            let cursor = count, projected = physicalState;
+            while (cursor !== snapshot.serial && pendingMoves.has((cursor + 1) & 255)) {
+                cursor = (cursor + 1) & 255;
+                projected = timerCubeTurn(projected, pendingMoves.get(cursor).move);
+            }
+            if (cursor === snapshot.serial) {
+                if (projected !== snapshot.state) { resyncAfterLoss(); return; }
+                snapshot = null;
+            }
+        }
+        while (pendingMoves.has((count + 1) & 255)) {
+            count = (count + 1) & 255;
+            const {move, stamp} = pendingMoves.get(count);
+            pendingMoves.delete(count);
+            session.lastMoveStamp = Math.max(session.lastMoveStamp ?? stamp, stamp);
+            session.lastPacketReceivedAt = performance.now();
+            physicalState = timerCubeTurn(physicalState, move);
+            if (handlers) handlers.onMove(move, session.lastMoveStamp);
+            else {
+                timerSmartPhysicalState = physicalState;
+                handleTimerSmartMove(move, session.lastMoveStamp);
+                queueTimerLiveMove(move);
+            }
+        }
+        if (!forward(latestSerial, count)) {
+            clearTimeout(gapTimer);
+            gapTimer = null;
+            clearTimeout(historyTimer);
+            requestedHistory = false;
+        } else recover();
+    };
+
+    const statePoll = setInterval(() => {
+        const tracking = handlers ? handlers.shouldPollState() : timerSmartContextActive() &&
+            ['SCRAMBLING','INSPECTION','SOLVING'].includes(timerSmartAttempt.phase);
+        if (session.ready && !closing && device.gatt.connected && tracking &&
+            performance.now() - (lastLiveStamp ?? 0) > 650 && !requestedHistory) {
+            void send(timerGanStateRequest).catch(() => {});
+        }
+    }, 1000);
+
+    const notify = event => {
+        if (!session.active || closing) return;
+        const receivedAt = timerMoyuNotificationStamp(event);
+        const value = read.value;
+        const raw = new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice();
+        if (raw.length < 16) return;
+        const decoded = cipher.decode(raw).then(data => ({data}), error => ({error}));
+        packetChain = packetChain.then(async () => {
+            const {data, error} = await decoded;
+            if (!session.active) return;
+            if (error) throw error;
+            const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            if (data[0] === 0xEC) {
+                const q = decodeTimerGanGyro(view);
+                if (!q) return;
+                pendingGyro = q;
+                if (gyroFrame === null) gyroFrame = requestAnimationFrame(() => {
+                    gyroFrame = null;
+                    if (!session.active) return;
+                    if (handlers) handlers.onGyro(pendingGyro);
+                    else applyTimerCubeGyro(pendingGyro);
+                });
+            } else if (data[0] === 0xED) {
+                const state = decodeTimerGanState(data);
+                if (!state) return;
+                const serial = view.getUint16(2, true) & 255;
+                if (session.ready) {
+                    const delta = forward(serial, count);
+                    if (delta > 127) return;
+                    if (delta > 0) {
+                        snapshot = {serial, receivedAt, state};
+                        if (forward(serial, count) > forward(latestSerial, count)) latestSerial = serial;
+                        recover();
+                        return;
+                    }
+                    if (state === physicalState) return;
+                    resyncAfterLoss();
+                    return;
+                }
+                physicalState = state;
+                latestSerial = count = serial;
+                previousTick = null;
+                lastLiveStamp = null;
+                resetTimerMoyuClock(session);
+                session.ready = true;
+                clearTimeout(timeout);
+                if (handlers) handlers.onState(state);
+                else {
+                    timerSmartPhysicalState = state;
+                    setTimerLiveState(state);
+                    title.textContent = title.textContent.startsWith('部分转动未能补齐')
+                        ? '已重新同步，本次成绩未记录' : '已连接，转动已同步';
+                }
+                initialized = true;
+                onReady();
+            } else if (data[0] === 1 && session.ready) {
+                const next = view.getUint16(6, true) & 255;
+                const delta = forward(next, count);
+                if (!delta || delta > 127 || pendingMoves.has(next)) return;
+                if (delta > forward(latestSerial, count)) latestSerial = next;
+                const face = [2,32,8,1,16,4].indexOf(data[8] & 63), direction = data[8] >> 6;
+                if (face < 0 || direction > 1) { recover(); return; }
+                const tick = view.getUint32(2, true);
+                const elapsed = previousTick === null ? 0 : (tick - previousTick) >>> 0;
+                const stamp = lastLiveStamp === null || elapsed > receivedAt - lastLiveStamp + 2000 ? receivedAt : lastLiveStamp + elapsed;
+                previousTick = tick;
+                lastLiveStamp = stamp;
+                pendingMoves.set(next, {move:'URFDLB'[face] + (direction ? "'" : ''), stamp});
+                drain();
+            } else if (data[0] === 0xD1 && session.ready) {
+                const size = Math.min((data[1] - 1) * 2, (data.length - 3) * 2);
+                for (let i = 0; i < size; i++) {
+                    const serial = (data[2] - i) & 255, offset = forward(serial, count);
+                    if (!offset || offset > forward(latestSerial, count) || pendingMoves.has(serial)) continue;
+                    const packed = (data[3 + (i >> 1)] >> (i % 2 ? 0 : 4)) & 15;
+                    const face = [1,5,3,0,4,2].indexOf(packed >> 1);
+                    if (face < 0) continue;
+                    const nextLive = [...pendingMoves.entries()].find(([next, entry]) => forward(next, count) > offset && !entry.recovered);
+                    const end = nextLive?.[1].stamp ?? snapshot?.receivedAt ?? receivedAt;
+                    const steps = nextLive ? forward(nextLive[0], count) : forward(latestSerial, count);
+                    const start = session.lastMoveStamp ?? end;
+                    const stamp = start + Math.max(0, end - start) * offset / steps;
+                    pendingMoves.set(serial, {move:'URFDLB'[face] + (packed & 1 ? "'" : ''), stamp, recovered:true});
+                }
+                clearTimeout(historyTimer);
+                // A delayed or empty response must not create a tight loop of GATT requests.
+                historyTimer = setTimeout(() => { requestedHistory = false; recover(); }, 120);
+                drain();
+            } else if (data[0] === 0xEF && session.ready && data[1] + 1 < data.length) {
+                const level = Math.min(data[data[1] + 1], 100);
+                if (handlers) handlers.onBattery(level);
+                else acceptTimerCubeBattery(level);
+            }
+        }).catch(fail);
+    };
+    if (handlers) handlers.onSession(session);
+    else timerMoyuSession = session;
+    read.addEventListener('characteristicvaluechanged', notify);
+    // Attach the handshake rejection handler while notifications and writes are pending.
+    try {
+        timeout = setTimeout(() => onFail(Error('等待 GAN 蓝牙通知超时')), 6500);
+        await Promise.all([initial, (async () => {
+            await read.startNotifications();
+            if (session.active) await requestState();
+        })()]);
+        timerGanAddresses.set(device.id, address);
+        try { localStorage.setItem('nbTimerGanAddress:' + device.id, address); } catch {}
+        void send([0xDD, 4, 0, 0xEF]).catch(() => {});
+    } catch (error) {
+        timerGanAddresses.delete(device.id);
+        try { localStorage.removeItem('nbTimerGanAddress:' + device.id); } catch {}
+        throw error;
+    }
+}
+
 async function startTimerMoyu(device){
     if(timerSmartEvent!=='333')throw Error('这只设备是三阶，请先选择智能三阶');
     return startMoyuSession(device);
@@ -423,6 +783,11 @@ function renderSmartTimerEventGrid(grid = document.getElementById('timer-event-g
     const support = document.createElement('p');
     support.className = 'timer-smart-support';
     support.textContent = '目前支持连接：魔域智能三阶';
+    if (timerSupportsGan()) support.append(
+        '、GAN 智能三阶（GAN Gen4 协议）',
+        document.createElement('br'),
+        '支持 GAN Gen4 协议魔方：GAN i4、GAN12 ui Maglev、GAN14 ui FreePlay'
+    );
     grid.appendChild(support);
 }
 
@@ -473,7 +838,7 @@ function applyTimerMode() {
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
     const projectName = (smart ? smartTimerProjects.find(([id]) => id === eventId)?.[1] : item?.name) || '三阶';
     document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + projectName;
-    document.getElementById('timer-event-title').textContent = `${smart ? '魔域智能' : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
+    document.getElementById('timer-event-title').textContent = `${smart ? (timerGanDevice(timerBluetoothDevice) ? 'GAN 智能' : '魔域智能') : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
     document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
     const other=timerOtherEvents.find(e=>e.id===eventId);
     for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';icon.classList.toggle('timer-word-event-icon',!!other&&/[a-z]/i.test(other.icon));}
@@ -586,6 +951,10 @@ function resumeTimerSmartCube(){
     const session=timerMoyuSession;
     if(!session?.active||!session.ready)return;
     if(['GENERATING','SCRAMBLING','INSPECTION','SOLVING'].includes(timerSmartAttempt.phase))return;
+    if (session.protocol === 'gan') {
+        session.refresh().catch(() => {});
+        return;
+    }
     session.count=null;
     session.send(163).catch(()=>{});
     resetTimerCubeGyro();
@@ -600,7 +969,11 @@ function timerBluetoothSuccess(text){
 }
 function syncTimerSmartSolved(){
     if(!timerMoyuSession?.ready)return;
-    
+    if (timerMoyuSession.protocol === 'gan') {
+        cancelTimerSmartAttempt();
+        timerMoyuSession.refresh().catch(() => {});
+        return;
+    }
     cancelTimerSmartAttempt();timerSmartPhysicalState=timerSmartSolved;setTimerLiveState(timerSmartSolved);
     timerBluetoothSuccess('复原同步成功');
 }
@@ -633,7 +1006,8 @@ function cancelTimerSmartAttempt(){
     const attempt=timerSmartAttempt;attempt.generation++;attempt.phase='IDLE';attempt.lastGesture=null;attempt.tokens=[];attempt.errors=[];attempt.partial=null;attempt.result=null;
     if(attempt.frame!==null&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(attempt.frame);attempt.frame=null;
     const page=document.getElementById('timer-page');page?.classList?.remove?.('smart-attempt-active');
-    const result=document.getElementById('timer-smart-result');if(result)result.hidden=true;if(typeof timerSmartDeleteRecord!=='undefined'){timerSmartDeleteRecord=null;const confirmation=document.getElementById('smart-result-delete-confirm');if(confirmation)confirmation.hidden=true;}
+    const result=document.getElementById('timer-smart-result');if(result)result.hidden=true;
+    cancelTimerSmartResultDelete();
     const display=document.getElementById('timer-display');if(display){display.classList?.remove?.('inspecting','nb-status-text');display.textContent=typeof formatNbTimerOutput==='function'?formatNbTimerOutput(0):'0.00';}
     const stage=document.querySelector('.timer-main.smart-cube-mode .timer-smart-stage');if(stage)stage.style.removeProperty('top');
 }
@@ -698,7 +1072,7 @@ function finishTimerSmartSolve(stamp,aborted=false){
     const attempt=timerSmartAttempt;attempt.result=timerSmartSolveStats(stamp);attempt.phase='RESULT';attempt.lastGesture=null;cancelAnimationFrame(attempt.frame);attempt.frame=null;
     const result=attempt.result;document.getElementById('timer-display').classList.remove('inspecting','nb-status-text');document.getElementById('timer-display').textContent=aborted?'DNF':formatNbTimerOutput(result.ms);
     attempt.record={rawMs:result.ms,penalty:aborted?'DNF':'',smartAborted:aborted,timestamp:getNowFormatted(),scramble:attempt.tokens.join(' '),smartStats:{steps:result.steps,tps:Number(result.tps),pausePercent:Number(result.pausePercent)},smartTrace:{version:1,initialState:attempt.initialState,moves:attempt.trace.map(item=>({...item}))}};
-    if(aborted)delete attempt.record.smartTrace;configureTimerSmartAnalysisEntry(document.querySelector('.smart-result-analysis'),attempt.record);const card=document.getElementById('timer-smart-result');card.hidden=false;card.querySelector('.smart-result-card').animate([{opacity:0,transform:'scale(.96)'},{opacity:1,transform:'scale(1)'}],{duration:120,easing:'cubic-bezier(.1,.9,.2,1)'});
+    if(aborted)delete attempt.record.smartTrace;configureTimerSmartAnalysisEntry(document.querySelector('.smart-result-analysis'),attempt.record);const card=document.getElementById('timer-smart-result');card.hidden=false;const project=card.querySelector('.smart-result-project span:last-child');if(project)project.textContent=timerGanDevice(timerBluetoothDevice)?'GAN 智能':'魔域智能';card.querySelector('.smart-result-card').animate([{opacity:0,transform:'scale(.96)'},{opacity:1,transform:'scale(1)'}],{duration:120,easing:'cubic-bezier(.1,.9,.2,1)'});
     document.getElementById('timer-smart-result-time').textContent=aborted?'DNF':formatNbTimerOutput(result.ms);document.getElementById('timer-smart-result-time').classList.toggle('smart-result-dnf',aborted);
     document.getElementById('timer-smart-result-steps').textContent=String(result.steps);
     document.getElementById('timer-smart-result-tps').textContent=result.tps;
@@ -728,11 +1102,33 @@ function installTimerSmartAbortGesture(){
     for(const type of ['contextmenu','selectstart'])document.addEventListener(type,event=>{if(canTimerSmartAbort()&&event.target.closest?.('#timer-tab-main')&&!event.target.closest?.(interactive))event.preventDefault();},true);
     window.addEventListener('blur',resetTimerSmartAbortHold);
 }
-let timerSmartDeleteRecord=null;
-function requestTimerSmartResultDelete(){const record=timerSmartAttempt.record;if(!record||timerSmartAttempt.phase!=='RESULT')return;timerSmartDeleteRecord=record;document.getElementById('smart-result-delete-confirm').hidden=false;document.querySelector('#smart-result-delete-confirm button').focus();}
-function cancelTimerSmartResultDelete(){timerSmartDeleteRecord=null;document.getElementById('smart-result-delete-confirm').hidden=true;document.querySelector('.smart-result-delete')?.focus();}
-function confirmTimerSmartResultDelete(){const record=timerSmartDeleteRecord;cancelTimerSmartResultDelete();if(!record)return;const history=timerHistoryData['smart-333']||[],index=history.indexOf(record);if(index>=0){history.splice(index,1);recalculateSessionStats();saveTimerData();}closeTimerSmartResult();}
-function closeTimerSmartResult(){cancelTimerSmartResultDelete();cancelTimerSmartAttempt();}
+let timerSmartDeleteRecord = null;
+function requestTimerSmartResultDelete(button) {
+    const record = timerSmartAttempt.record;
+    if (!record || timerSmartAttempt.phase !== 'RESULT') return;
+    if (timerSmartDeleteRecord !== record) {
+        timerSmartDeleteRecord = record;
+        timerSmartAttempt.lastGesture = null;
+        button.textContent = '确认删除';
+        return;
+    }
+    const history = timerHistoryData['smart-333'] || [];
+    const index = history.indexOf(record);
+    if (index >= 0) {
+        history.splice(index, 1);
+        recalculateSessionStats();
+        saveTimerData();
+    }
+    closeTimerSmartResult();
+}
+function cancelTimerSmartResultDelete() {
+    if (!timerSmartDeleteRecord) return;
+    timerSmartDeleteRecord = null;
+    const button = document.querySelector('.smart-result-delete');
+    if (button) button.textContent = '删除';
+}
+function closeTimerSmartResult() { cancelTimerSmartAttempt(); }
+
 const timerSmartAnalysis={open:false,record:null,report:null,tab:'data',cursor:0,playing:null,replayEpoch:0,animation:null,clockFrame:null,replayTime:0,returnResult:false};
 function timerSmartOrientation(bottom){
     const normals={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]},down=normals[bottom],up=down.map(v=>-v),front=normals['FB'.includes(bottom)?'U':'F'];
@@ -795,7 +1191,7 @@ function morphTimerSmartCards(sourceOverlay,targetOverlay,sourceSelector,targetS
     timerSmartCardMorph=motion.finished.catch(()=>{}).then(()=>{cleanup();timerSmartCardMorph=null;timerSmartCardMorphCancel=null;});return timerSmartCardMorph;
 }
 function openTimerSmartAnalysis(record=timerSmartAttempt.record){
-    if(!record||record.smartAborted||timerSmartCardMorph)return;if(timerSmartAttempt.phase!=='RESULT')cancelTimerSmartAttempt();timerSmartAnalysis.open=true;timerSmartAnalysis.record=record;timerSmartAnalysis.report=analyseTimerSmartRecord(record);timerSmartAnalysis.cursor=0;const result=document.getElementById('timer-smart-result');timerSmartAnalysis.returnResult=!result.hidden;
+    if(!record||record.smartAborted||timerSmartCardMorph)return;cancelTimerSmartResultDelete();if(timerSmartAttempt.phase!=='RESULT')cancelTimerSmartAttempt();timerSmartAnalysis.open=true;timerSmartAnalysis.record=record;timerSmartAnalysis.report=analyseTimerSmartRecord(record);timerSmartAnalysis.cursor=0;const result=document.getElementById('timer-smart-result');timerSmartAnalysis.returnResult=!result.hidden;
     renderTimerSmartAnalysis();setTimerSmartAnalysisTab('data');const overlay=document.getElementById('smart-analysis-overlay');
     if(timerSmartAnalysis.returnResult)void morphTimerSmartCards(result,overlay,'.smart-result-card','.smart-analysis-card');else{overlay.hidden=false;overlay.querySelector('.smart-analysis-card').animate([{opacity:0,transform:'scale(.96)'},{opacity:1,transform:'scale(1)'}],{duration:120,easing:'cubic-bezier(.1,.9,.2,1)'});}timerSmartAttempt.lastGesture=null;
 }
@@ -941,7 +1337,8 @@ function renderTimerBluetoothCandidates() {
         const line=document.createElement('div');line.className='timer-bluetooth-device-row';
         const row = document.createElement('button');
         row.type = 'button';
-        row.textContent = `魔域智能魔方 · ${device.name || device.id.slice(0, 6)}`;
+        const brand = timerGanDevice(device) ? 'GAN 智能魔方' : '魔域智能魔方';
+        row.textContent = `${brand} · ${device.name || device.id.slice(0, 6)}`;
         row.onclick = () => connectTimerBluetoothDevice(device);
         line.appendChild(row);
         if(device===timerBluetoothDevice&&device.gatt?.connected){const disconnect=document.createElement('button');disconnect.type='button';disconnect.className='timer-bluetooth-disconnect';disconnect.title='断开蓝牙连接';disconnect.setAttribute('aria-label','断开蓝牙连接');disconnect.innerHTML=bluetoothDisconnectIcon;disconnect.onclick=disconnectTimerBluetooth;line.appendChild(disconnect);}
@@ -959,7 +1356,7 @@ async function openTimerBluetoothCard() {
     if(typeof navigator.bluetooth?.getDevices==='function'){
         title.textContent='读取已授权设备...';
         try{const devices=await navigator.bluetooth.getDevices();
-            for(const device of devices)if(/^WCU_MY/i.test(device.name||'')&&!timerBluetoothCandidates.some(d=>d.id===device.id))timerBluetoothCandidates.push(device);
+            for(const device of devices)if((/^WCU_MY/i.test(device.name||'') || (timerSupportsGan() && timerGanDevice(device)))&&!timerBluetoothCandidates.some(d=>d.id===device.id))timerBluetoothCandidates.push(device);
             if(card.hidden)return;renderTimerBluetoothCandidates();
             title.textContent=timerBluetoothCandidates.length?'选择已授权的智能魔方':'点击搜寻设备进行首次配对';
         }catch{title.textContent='点击搜寻设备进行配对';}
@@ -978,20 +1375,24 @@ function scanTimerBluetooth() {
     document.getElementById('timer-bluetooth-scan-help')?.remove?.();
     if(globalThis.isSecureContext===false){showTimerBluetoothScanIssue('蓝牙连接需要 HTTPS 安全页面');return;}
     if (!navigator.bluetooth?.requestDevice) {showTimerBluetoothScanIssue('当前浏览器未提供网页蓝牙接口');return;}
-    title.textContent = '搜寻魔域智能魔方...';
+    const supportsGan = timerSupportsGan();
+    title.textContent = supportsGan ? '搜寻智能魔方…' : '搜寻魔域智能魔方…';
     // The browser's native chooser performs discovery. Web Bluetooth does not expose
     // an arbitrary nearby-device list to a website before the user grants access.
     let selection;try{selection=navigator.bluetooth.requestDevice({
-        // The currently selectable smart-cube family is MoYu. Match its advertised
-        // name or dedicated service; never use shared battery/device-info services.
         filters: [{namePrefix:'WCU_MY'}, {services:['0783b03e-7735-b5a0-1760-a305d2795cb0']}],
         optionalServices:['0783b03e-7735-b5a0-1760-a305d2795cb0'],
-        optionalManufacturerData:timerMoyuManufacturerIds()
+        optionalManufacturerData:timerMoyuManufacturerIds(),
+        ...(supportsGan && {
+            filters: [{namePrefix:'WCU_MY'}, {services:['0783b03e-7735-b5a0-1760-a305d2795cb0']}, {namePrefix:'GAN'}],
+            optionalServices:['0783b03e-7735-b5a0-1760-a305d2795cb0', timerGanService],
+            optionalManufacturerData:[...timerMoyuManufacturerIds(), ...timerGanManufacturerIds]
+        })
     });}catch(error){showTimerBluetoothScanIssue('浏览器拒绝启动蓝牙设备选择',error);return;}
     return Promise.resolve(selection).then(async device => {
         title.textContent='正在自动识别魔方...';
         timerMoyuDiagnostic.advertisements=0;
-        await timerMoyuAdvertisementMac(device);
+        if (!timerGanDevice(device)) await timerMoyuAdvertisementMac(device);
         if (!timerBluetoothCandidates.some(candidate => candidate.id === device.id)) timerBluetoothCandidates.push(device);
         renderTimerBluetoothCandidates();
         await connectTimerBluetoothDevice(device);
@@ -1001,7 +1402,8 @@ function scanTimerBluetooth() {
 }
 
 async function connectTimerBluetoothDevice(device) {
-    if(/^WCU_MY32_/i.test(device.name||'')&&timerSmartEvent!=='333'){document.getElementById('timer-bluetooth-card-title').textContent='这是三阶魔方，请先切换到智能三阶';return;}
+    const gan = timerSupportsGan() && timerGanDevice(device);
+    if((gan || /^WCU_MY32_/i.test(device.name||''))&&timerSmartEvent!=='333'){document.getElementById('timer-bluetooth-card-title').textContent='这是三阶魔方，请先切换到智能三阶';return;}
     if(timerBluetoothConnecting)return;timerBluetoothConnecting=true;
     const title = document.getElementById('timer-bluetooth-card-title');
     title.textContent = '连接中...';
@@ -1010,17 +1412,29 @@ async function connectTimerBluetoothDevice(device) {
         Object.assign(timerMoyuDiagnostic,{stage:'连接中',packets:0,lengths:[],types:[],error:''});
         await stopTimerMoyu();
         if(typeof ChallengeSmart!=='undefined')await ChallengeSmart.releaseDeviceForTimer(device.id);
-        if(!timerMoyuAddresses.get(device.id))await timerMoyuAdvertisementMac(device);
+        let address;
+        if (gan) address = await timerGanAddress(device);
+        else if(!timerMoyuAddresses.get(device.id))await timerMoyuAdvertisementMac(device);
         await device.gatt.connect();
         resetTimerCubeBattery(device);timerBluetoothDevice=device;updateTimerBluetoothStatus(true);
         timerCubeView.x=-25;timerCubeView.y=-32;const view=document.getElementById('timer-virtual-cube');view.style.setProperty('--cube-x','-25deg');view.style.setProperty('--cube-y','-32deg');
-        if(!device.__nbDisconnectInstalled){device.__nbDisconnectInstalled=true;device.addEventListener('gattserverdisconnected',()=>{
-            if(timerBluetoothDevice!==device)return;stopTimerMoyu(true);timerBluetoothDevice=null;if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothStatus(false);title.textContent='连接已断开';handleTimerCubeBatteryDisconnect();
+        if(!device.__nbDisconnectInstalled){device.__nbDisconnectInstalled=true;device.addEventListener('gattserverdisconnected',async()=>{
+            if(timerBluetoothDevice!==device || device.gatt.connected)return;
+            const session = timerMoyuSession;
+            const interrupted = session?.protocol === 'gan' && ['INSPECTION','SOLVING'].includes(timerSmartAttempt.phase);
+            if (session?.drainOnDisconnect) await session.drainOnDisconnect();
+            if(timerBluetoothDevice!==device || timerMoyuSession!==session || device.gatt.connected)return;
+            const completed = timerSmartAttempt.phase === 'RESULT';
+            if (interrupted && !completed) document.getElementById('timer-bluetooth-card').hidden=false;
+            stopTimerMoyu(true);timerBluetoothDevice=null;if(timerBluetoothIdleTimer!==null)clearTimeout(timerBluetoothIdleTimer);timerBluetoothIdleTimer=null;updateTimerBluetoothStatus(false);title.textContent=interrupted&&!completed?'GAN 连接中断，未能确认复原，本次成绩未记录':'连接已断开';handleTimerCubeBatteryDisconnect();
         });}
         title.textContent='已连接，正在同步转动数据...';
         try {
-            await startTimerMoyu(device);
+            if (gan) await startTimerGan(device, address);
+            else await startTimerMoyu(device);
             if(timerBluetoothDevice!==device||!device.gatt.connected)return;
+            const project = document.getElementById('timer-event-title');
+            if (project && currentTimerMode === 'smart') project.textContent = (gan ? 'GAN 智能' : '魔域智能') + ' - 三阶';
             title.textContent='已连接，转动已同步';closeTimerBluetoothCard();
             updateTimerBluetoothContext();
         } catch(error) {
@@ -1029,8 +1443,8 @@ async function connectTimerBluetoothDevice(device) {
             if(device.gatt.connected){
                 updateTimerBluetoothStatus(true);
                 document.getElementById('timer-bluetooth-label').textContent='已连接，转动未同步';
-                title.textContent='蓝牙已连接，转动数据暂未同步；点击设备重试';
-                console.warn('MY32 初始化失败',error);
+                title.textContent=gan ? error.message : '蓝牙已连接，转动数据暂未同步；点击设备重试';
+                console.warn('智能魔方初始化失败',error);
                 renderTimerBluetoothCandidates();
                 const list=document.getElementById('timer-bluetooth-devices'),copy=document.createElement('button');
                 copy.type='button';copy.textContent='复制连接诊断';
@@ -1039,7 +1453,7 @@ async function connectTimerBluetoothDevice(device) {
                 list.appendChild(copy);
             }else{updateTimerBluetoothStatus(false);title.textContent='连接已断开，请重试';}
         }
-    }catch(error){updateTimerBluetoothStatus(false);title.textContent='蓝牙连接失败，请重试';console.warn('蓝牙连接失败',error);}
+    }catch(error){updateTimerBluetoothStatus(false);title.textContent=gan ? (error.message || 'GAN 蓝牙连接失败，请重试') : '蓝牙连接失败，请重试';console.warn('蓝牙连接失败',error);}
     finally{timerBluetoothConnecting=false;updateTimerBluetoothContext();}
 }
 

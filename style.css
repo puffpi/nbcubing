@@ -2328,11 +2328,11 @@ table.table-historical th:nth-child(8) { width: 42% !important; } /* 比赛与�
     align-items: center;
     padding: 0 40px;
     height: 64px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    background: var(--nav-background, rgba(255, 255, 255, .85));
+    backdrop-filter: blur(var(--nav-blur, 16px));
+    -webkit-backdrop-filter: blur(var(--nav-blur, 16px));
+    border-bottom: 1px solid var(--nav-border, rgba(226, 232, 240, .8));
+    box-shadow: var(--nav-shadow, 0 4px 20px rgba(0, 0, 0, .03));
 }
 
 .nav-left, .nav-right {
@@ -3040,12 +3040,13 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 @media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
     /* 1. 完美恢复手机端 Timer 的沉浸式全屏布局 */
     #timer-page.active, #monthly-timer-page.active {
+        --timer-nav-offset: 64px;
         position: fixed !important;
-        top: 64px !important; /* 避开全局导航栏的高度 */
+        top: var(--timer-nav-offset) !important; /* 避开全局导航栏的高度 */
         left: 0 !important;
         right: 0 !important;
         bottom: 0 !important;
-        height: calc(100dvh - 64px) !important;
+        height: calc(100dvh - var(--timer-nav-offset)) !important;
         width: 100vw !important;
         overflow: visible !important;
         /* 核心修复：强行干掉电脑端的 85px 顶部间距，并给底部留出 90px 防遮挡 */
@@ -4950,10 +4951,6 @@ html[data-theme=dark] .smart-analysis-table tbody tr:hover td,html[data-theme=da
 .smart-analysis-summary{margin-top:0;}.smart-analysis-summary-time{font-size:52px;}.smart-analysis-summary-metrics{margin-top:10px;}
 .smart-analysis-tabs{margin:14px auto;}.smart-analysis-footer{margin-top:10px;padding-top:12px;}
 .smart-result-actions .edit-btn-del { border-radius: 10px; padding: 10px 0; }
-.smart-delete-overlay[hidden]{display:none!important;}.smart-delete-overlay{position:fixed;inset:0;z-index:3500;display:grid;place-items:center;padding:20px;background:#f8fafc22;backdrop-filter:blur(2px);}
-.smart-delete-card{width:min(340px,100%);box-sizing:border-box;padding:24px;border:1px solid var(--border-color);border-radius:16px;background:var(--card-bg,#fff);color:var(--text-main);box-shadow:0 10px 30px #0001;animation:popupFastShow .12s ease-out;}
-.smart-delete-card h3{font-size:18px;margin:0 0 12px;}.smart-delete-card p{font-size:14px;color:var(--text-muted);margin:0 0 22px;}.smart-delete-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.smart-delete-actions button{border:0;border-radius:9px;background:#edf1f6;color:var(--text-main);padding:11px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;}.smart-delete-actions .smart-delete-confirm{background:#fcecef;color:#e04f66;}.smart-delete-actions .smart-delete-confirm:hover{background:#f9d9e0;}
 @media(max-width:768px){
  .smart-analysis-card{padding:16px 12px;}.smart-analysis-tabs{margin:10px auto;}.smart-analysis-content{gap:10px;}
  .smart-analysis-chart{display:grid;grid-template-columns:150px minmax(0,1fr);align-items:center;gap:8px;}
@@ -4966,7 +4963,6 @@ html[data-theme=dark] .smart-analysis-table tbody tr:hover td,html[data-theme=da
  .smart-analysis-algorithms .smart-analysis-stage{min-height:30px;padding:6px 10px;line-height:1.4;font-size:12px;}
  .smart-analysis-footer .smart-analysis-scramble{font-size:calc(17px * var(--scramble-font-scale,1));}
 }
-html[data-theme=dark] .smart-delete-card{background:#1c1c1e;}html[data-theme=dark] .smart-delete-actions button{background:#30343b;}
 @media(max-width:768px){.smart-analysis-table th:first-child{width:14%;padding-left:6px;}.smart-analysis-table th:nth-child(2){width:17%;}.smart-analysis-table th:nth-child(3){width:20%;}.smart-analysis-table th:nth-child(4){width:12%;}.smart-analysis-table th:nth-child(5){width:14%;}.smart-analysis-table th:last-child{width:23%;padding-right:6px;}}
 /* Keep every mobile callout inside its chart column. */
 @media(max-width:768px){
@@ -5907,7 +5903,6 @@ html[data-theme="dark"] #timer-event-popup { --timer-score-ink: #e5e5e7; }
 #timer-smart-result .smart-result-analysis:disabled { opacity: .75; }
 #timer-smart-result .smart-result-close { color: var(--text-main); }
 #timer-smart-result { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-.smart-delete-overlay{background:transparent!important;backdrop-filter:blur(1px)!important;-webkit-backdrop-filter:blur(1px)!important;}
 #smart-analysis-overlay { background: transparent !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
 :is(#smart-analysis-overlay .smart-analysis-card, #timer-bluetooth-card, #challenge-bluetooth-dialog .cube-appearance-card) {
     --text-main: var(--timer-score-ink);
@@ -6951,6 +6946,39 @@ html:not([data-theme="dark"]) .challenge-smart-stats { color: #111; }
 #challenge-bluetooth-dialog .timer-bluetooth-devices button { border-color: var(--border-color); }
 #challenge-bluetooth-dialog .timer-bluetooth-devices button:disabled { opacity: 1; cursor: default; }
 #cca-comps-page .cca-project-icon { display: block; width: 24px; height: 24px; }
+
+body > .global-nav-header {
+    --nav-glass-fill: rgba(248, 250, 252, .65);
+    --nav-glass-edge: rgba(226, 232, 240, .8);
+    --nav-glass-shadow: 0 8px 24px rgba(0, 0, 0, .06), inset 0 1px 0 #ffffff8c;
+}
+html[data-theme="dark"] body > .global-nav-header {
+    --nav-glass-fill: rgba(28, 28, 30, .65);
+    --nav-glass-edge: rgba(53, 53, 56, .8);
+    --nav-glass-shadow: 0 8px 24px #0004, inset 0 1px 0 #ffffff12;
+}
+body:has(> #home-page.active) > .global-nav-header {
+    --nav-background: var(--nav-glass-fill);
+    --nav-border: var(--nav-glass-edge);
+    --nav-shadow: var(--nav-glass-shadow);
+    --nav-blur: 12px;
+}
+@media (max-width: 768px) {
+    /* Extend the same background layer above the timer without moving its controls. */
+    #timer-page.active.timer-custom-background {
+        --timer-background-top: calc(-1 * var(--timer-nav-offset));
+        clip-path: inset(var(--timer-background-top) 0 0);
+    }
+    #timer-page.active.timer-custom-background::before {
+        top: var(--timer-background-top);
+    }
+    body:has(> #timer-page.active.timer-custom-background) > .global-nav-header {
+        --nav-background: var(--nav-glass-fill);
+        --nav-border: var(--nav-glass-edge);
+        --nav-shadow: var(--nav-glass-shadow);
+        --nav-blur: 12px;
+    }
+}
 
 .competition-list-date time { white-space: nowrap; }
 #chal-more-dropdown {

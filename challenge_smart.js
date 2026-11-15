@@ -436,6 +436,10 @@ const ChallengeSmart = (() => {
         deviceList.append(row);
     }
 
+    function canConnectGan(device) {
+        return timerSupportsGan() && timerGanDevice(device);
+    }
+
     function renderDevices(choice) {
         if (selection !== choice) return;
         const {player} = choice;
@@ -445,7 +449,7 @@ const ChallengeSmart = (() => {
         for (const device of knownDevices.values()) {
             const active = connection?.device?.id === device.id;
             const inUse = !active && owners.has(device.id);
-            appendDeviceRow(`魔域智能魔方 · ${device.name}${inUse ? ' · 使用中' : ''}`,
+            appendDeviceRow(`${canConnectGan(device) ? 'GAN 智能魔方' : '魔域智能魔方'} · ${device.name}${inUse ? ' · 使用中' : ''}`,
                 active ? null : () => void connect(choice, device), active ? remove : null,
                 inUse || (!active && Boolean(connection?.device)));
         }
@@ -460,7 +464,7 @@ const ChallengeSmart = (() => {
     }
 
     function addDevice(choice, device) {
-        if (selection !== choice || !/^WCU_MY32_[0-9A-F]{4}$/i.test(device.name || '')) return;
+        if (selection !== choice || (!canConnectGan(device) && !/^WCU_MY32_[0-9A-F]{4}$/i.test(device.name || ''))) return;
         choice.devices.add(device.id);
         if (knownDevices.get(device.id) === device) return;
         knownDevices.set(device.id, device);
@@ -479,7 +483,7 @@ const ChallengeSmart = (() => {
         resetGyroButton.disabled = !player.connection?.ready || Boolean(player.connection.bot);
         syncSolvedButton.disabled = resetGyroButton.disabled || phase === 'round' || phase === 'generating';
         dialogTitle.textContent = player.connection?.bot ? '心之敌 · 已加入' : player.connection?.ready ? '已连接，转动已同步' :
-            player.connection ? '已连接，转动未同步' : '连接魔域智能三阶';
+            player.connection ? '已连接，转动未同步' : window.NBApp ? '连接魔域智能三阶' : '连接智能三阶';
         renderDevices(choice);
         navigator.bluetooth?.getDevices?.().then(devices => {
             devices.forEach(device => addDevice(choice, device));
@@ -511,6 +515,16 @@ const ChallengeSmart = (() => {
         const player = selection?.player;
         const connection = player?.connection;
         if (!connection?.ready || phase === 'round' || phase === 'generating') return;
+        if (connection.session?.protocol === 'gan') {
+            connection.ready = false;
+            renderConnection(player);
+            updateStartHints();
+            void connection.session.refresh().catch(error => {
+                if (player.connection === connection) disconnect(player, `同步失败：${error.message}`);
+            });
+            showBluetoothFeedback('正在读取魔方状态…');
+            return;
+        }
         connection.state = timerSmartSolved;
         renderCubeState(player, connection.state);
         updateStartHints();
@@ -530,17 +544,21 @@ const ChallengeSmart = (() => {
             return;
         }
         choice.scanning = true;
-        dialogTitle.textContent = '搜寻魔域智能三阶…';
+        dialogTitle.textContent = '搜寻智能三阶…';
         try {
             if (window.scanChallengeBluetooth) {
                 await window.scanChallengeBluetooth(device => addDevice(choice, device), choice.controller.signal);
                 if (selection === choice) dialogTitle.textContent = choice.devices.size ? '选择智能魔方' : '未找到魔方，请唤醒后重试';
             } else {
-                const device = await bluetooth.requestDevice({
-                    filters: [{namePrefix: 'WCU_MY32_'}],
-                    optionalServices: ['0783b03e-7735-b5a0-1760-a305d2795cb0'],
-                    optionalManufacturerData: timerMoyuManufacturerIds()
-                });
+                const filters = [{namePrefix: 'WCU_MY32_'}];
+                const optionalServices = ['0783b03e-7735-b5a0-1760-a305d2795cb0'];
+                const optionalManufacturerData = timerMoyuManufacturerIds();
+                if (!window.NBApp && !window.__nbNativeBluetooth) {
+                    filters.push({namePrefix:'GAN'});
+                    optionalServices.push(timerGanService);
+                    optionalManufacturerData.push(...timerGanManufacturerIds);
+                }
+                const device = await bluetooth.requestDevice({filters, optionalServices, optionalManufacturerData});
                 if (selection === choice) await connect(choice, device);
             }
         } catch (error) {
@@ -577,12 +595,13 @@ const ChallengeSmart = (() => {
             dialogTitle.textContent = '当前 App 版本不支持双魔方连接';
             return;
         }
-        if (!/^WCU_MY32_[0-9A-F]{4}$/i.test(device.name || '')) {
-            dialogTitle.textContent = '请选择魔域 MY32 智能三阶';
+        const gan = canConnectGan(device);
+        if (!gan && !/^WCU_MY32_[0-9A-F]{4}$/i.test(device.name || '')) {
+            dialogTitle.textContent = '请选择支持的智能三阶';
             return;
         }
         if (owners.has(device.id)) {
-            dialogTitle.textContent = '这个魔方已在使用，请选择另一只';
+            dialogTitle.textContent = '使用中，不可选择该魔方';
             return;
         }
         const player = choice.player;
@@ -595,7 +614,10 @@ const ChallengeSmart = (() => {
         let finishConnection;
         connection.finished = new Promise(resolve => { finishConnection = resolve; });
         const isActive = () => player.connection === connection;
-        connection.onDisconnect = () => { if (isActive()) disconnect(player); };
+        connection.onDisconnect = async () => {
+            if (connection.session?.drainOnDisconnect) await connection.session.drainOnDisconnect();
+            if (isActive() && !device.gatt.connected) disconnect(player);
+        };
         player.connection = connection;
         owners.set(device.id, connection);
         device.addEventListener('gattserverdisconnected', connection.onDisconnect);
@@ -603,9 +625,11 @@ const ChallengeSmart = (() => {
         renderConnection(player);
         checkIdle(player);
         try {
-            await timerMoyuAdvertisementMac(device);
+            let address;
+            if (gan) address = await timerGanAddress(device);
+            else await timerMoyuAdvertisementMac(device);
             if (!isActive()) return;
-            await startMoyuSession(device, {
+            const handlers = {
                 isActive,
                 onSession(session) { connection.session = session; },
                 onState(state) {
@@ -615,6 +639,12 @@ const ChallengeSmart = (() => {
                     renderConnection(player);
                     renderCubeState(player, state);
                     startTurn = null;
+                    if (gan && selection?.player === player) {
+                        dialogTitle.textContent = '已连接，转动已同步';
+                        resetGyroButton.disabled = false;
+                        syncSolvedButton.disabled = phase === 'round' || phase === 'generating';
+                        showBluetoothFeedback(state === timerSmartSolved ? '复原同步成功' : '已同步当前魔方状态');
+                    }
                     if (firstState) {
                         player.lastHumanId = device.id;
                         syncNativeIdle(connection, true);
@@ -630,6 +660,7 @@ const ChallengeSmart = (() => {
                     connection.level = level;
                     renderConnection(player);
                 },
+                shouldPollState() { return phase === 'round'; },
                 shouldPollBattery() {
                     return canRender() && !['inspection', 'solving'].includes(player.attempt?.phase);
                 },
@@ -657,7 +688,9 @@ const ChallengeSmart = (() => {
                 onError(error) {
                     if (isActive()) disconnect(player, `同步失败：${error.message}`);
                 }
-            });
+            };
+            if (gan) await startTimerGan(device, address, handlers);
+            else await startMoyuSession(device, handlers);
         } catch (error) {
             if (isActive()) disconnect(player, `连接失败：${error.message}`);
         } finally {
