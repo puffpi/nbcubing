@@ -842,7 +842,16 @@ tbody tr:hover .action-btn, body.pk-mode .action-btn { opacity: 1; }
     flex-direction: column;
     align-items: center;
 }
-#edit-index { color: var(--text-muted); font-size: 14px; font-weight: 600; }
+.timer-score-heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4em;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+.timer-score-heading .cubing-icon { flex: none; }
 #edit-time { font-size: 42px; font-weight: 900; color: var(--text-main); line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums; }
 #edit-timestamp { color: var(--text-muted); font-size: 12px; margin-bottom: 16px; }
 

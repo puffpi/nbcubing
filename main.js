@@ -3413,9 +3413,26 @@ async function loadEditScramblePreview(record, puzzleEvent, unsupported) {
         if (editScramblePreviewTask === task) preview.setAttribute('aria-busy', 'false');
     }
 }
+function renderTimerScoreHeading(id, historyKey, record, number) {
+    const smart = historyKey.startsWith('smart-');
+    const eventId = smart ? historyKey.slice('smart-'.length) : historyKey;
+    const other = timerOtherEvents.find(event => event.id === eventId);
+    const event = other || eventDict.find(item => item.id === eventId);
+    const name = smart ? timerSmartBrandName(record?.smartCubeBrand) : event?.name || eventId;
+    const icon = document.createElement('span');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.className = other && !other.iconClass ? 'timer-other-event-icon'
+        : `cubing-icon ${other?.iconClass || 'event-' + eventId}`;
+    if (other) icon.textContent = other.fullName ? (eventId === 'guildford' ? 'GC' : 'Mini GC') : other.icon;
+    const label = document.createElement('span');
+    label.textContent = `${name} ${number}`;
+    document.getElementById(id).replaceChildren(icon, label);
+}
+
 function openEditPopup(index) {
     editScoreIndex = index;
-    const records = timerHistoryData[getTimerHistoryKey()];
+    const historyKey = getTimerHistoryKey();
+    const records = timerHistoryData[historyKey];
     const r = records[index];
     const locked=getTimerHistoryKey().startsWith('smart-')&&Boolean(r.smartAborted);if(locked)r.penalty='DNF';currentEditPenalty = r.penalty;
     const penaltyChoice=document.querySelector('.edit-penalty-choice');penaltyChoice.classList.toggle('smart-penalty-locked',locked);penaltyChoice.setAttribute('aria-disabled',String(locked));penaltyChoice.title=locked?'终止还原的 DNF 成绩无法改判':'';
@@ -3423,7 +3440,7 @@ function openEditPopup(index) {
     penaltyChoice.querySelector('.smart-penalty-chain')?.remove();
     const smartAnalysisEntry=document.getElementById('edit-smart-analysis');if(smartAnalysisEntry){smartAnalysisEntry.hidden=!getTimerHistoryKey().startsWith('smart-');if(typeof configureTimerSmartAnalysisEntry==='function')configureTimerSmartAnalysisEntry(smartAnalysisEntry,timerHistoryData[getTimerHistoryKey()]?.[editScoreIndex]);}
 
-    document.getElementById('edit-index').innerText = `#${records.length - index}`;
+    renderTimerScoreHeading('edit-index', historyKey, r, `# ${records.length - index}`);
     document.getElementById('edit-time').innerText = r.displayTime;
     document.getElementById('edit-timestamp').innerText = timerRecordDateLabel(r);
     document.getElementById('edit-scramble').innerText = r.scramble;
@@ -3440,7 +3457,8 @@ let currentAvgData = null; // 缓存当前打开的平均成绩数据
 
 // 参数: index(最新单次在数组中的索引), count(如5/12), typeLabel(如"ao5"), avgValue(成绩文本)
 function openAvgPopup(index, count, typeLabel, avgValue) {
-    const records = timerHistoryData[getTimerHistoryKey()];
+    const historyKey = getTimerHistoryKey();
+    const records = timerHistoryData[historyKey];
     if (index + count > records.length) return; // 容错拦截
 
     // 截取该组平均包含的所有单次成绩 (按最新到最旧的顺序)
@@ -3450,7 +3468,7 @@ function openAvgPopup(index, count, typeLabel, avgValue) {
     const total = records.length;
     const endNum = total - index;
     const startNum = total - (index + count - 1);
-    const rangeStr = `#${startNum} ~ ${endNum}`;
+    const rangeStr = `# ${startNum} ~ ${endNum}`;
 
     let isAo = typeLabel.toLowerCase().startsWith('ao');
 
@@ -3539,7 +3557,7 @@ function openAvgPopup(index, count, typeLabel, avgValue) {
     };
 
     // 渲染文字
-    document.getElementById('avg-index-range').innerText = currentAvgData.range;
+    renderTimerScoreHeading('avg-index-range', historyKey, solves[0], currentAvgData.range);
     document.getElementById('avg-main-value').innerText = currentAvgData.title;
     document.getElementById('avg-timestamp').innerText = currentAvgData.timestamp;
     document.getElementById('avg-best-single').innerText = `最快单次：${currentAvgData.best}`;

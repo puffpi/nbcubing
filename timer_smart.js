@@ -403,17 +403,20 @@ async function startTimerGan(device, address, handlers) {
     let count = null, previousTick = null, packetChain = Promise.resolve(), writeChain = Promise.resolve(), timeout;
     let onReady, onFail, initialized = false;
     let latestSerial = null, historyTimer, gapTimer, requestedHistory = false, snapshot = null;
-    let lastLiveStamp = null, closing = false, gyroFrame = null, pendingGyro;
+    let lastLiveStamp = null, lastLiveReceivedAt = null, lastLiveSerial = null;
+    let lastConfirmedAt = null, pollSentAt = null;
+    let closing = false, gyroFrame = null, pendingGyro;
     const pendingMoves = new Map();
     let physicalState = null;
     const initial = new Promise((resolve, reject) => { onReady = resolve; onFail = reject; });
-    const send = bytes => {
+    const send = (bytes, onWrite) => {
         const task = writeChain.then(async () => {
             if (!session.active) return;
             const packet = new Uint8Array(20);
             packet.set(bytes);
             const encrypted = await cipher.encode(packet);
             if (!session.active) return;
+            onWrite?.();
             if (write.properties.write) await write.writeValueWithResponse(encrypted);
             else await write.writeValueWithoutResponse(encrypted);
         });
@@ -465,6 +468,10 @@ async function startTimerGan(device, address, handlers) {
             snapshot = null;
             latestSerial = null;
             lastLiveStamp = null;
+            lastLiveReceivedAt = null;
+            lastLiveSerial = null;
+            lastConfirmedAt = null;
+            pollSentAt = null;
             session.ready = false;
             count = null;
             previousTick = null;
@@ -512,10 +519,10 @@ async function startTimerGan(device, address, handlers) {
         }
         while (pendingMoves.has((count + 1) & 255)) {
             count = (count + 1) & 255;
-            const {move, stamp} = pendingMoves.get(count);
+            const {move, stamp, receivedAt} = pendingMoves.get(count);
             pendingMoves.delete(count);
             session.lastMoveStamp = Math.max(session.lastMoveStamp ?? stamp, stamp);
-            session.lastPacketReceivedAt = performance.now();
+            session.lastPacketReceivedAt = receivedAt;
             physicalState = timerCubeTurn(physicalState, move);
             if (handlers) handlers.onMove(move, session.lastMoveStamp);
             else {
@@ -532,14 +539,30 @@ async function startTimerGan(device, address, handlers) {
         } else recover();
     };
 
+    const pollInterval = 120;
+    let pollQueued = false;
     const statePoll = setInterval(() => {
         const tracking = handlers ? handlers.shouldPollState() : timerSmartContextActive() &&
             ['SCRAMBLING','INSPECTION','SOLVING'].includes(timerSmartAttempt.phase);
-        if (session.ready && !closing && device.gatt.connected && tracking &&
-            performance.now() - (lastLiveStamp ?? 0) > 650 && !requestedHistory) {
-            void send(timerGanStateRequest).catch(() => {});
-        }
-    }, 1000);
+        const now = performance.now();
+        if (!session.ready || closing || !device.gatt.connected || !tracking || requestedHistory ||
+            pollQueued || now - (lastLiveReceivedAt ?? -Infinity) < 90 ||
+            (pollSentAt !== null && now - pollSentAt < 360)) return;
+        pollQueued = true;
+        void send(timerGanStateRequest, () => { pollSentAt = performance.now(); })
+            .catch(() => { pollSentAt = null; })
+            .finally(() => { pollQueued = false; });
+    }, pollInterval);
+
+    const estimateSnapshotStamp = (receivedAt, requestAt) => {
+        // A history packet has no turn timestamps. Estimate within the interval
+        // between observations, then map onto the live device clock.
+        const earliest = Math.max(lastConfirmedAt ?? 0, receivedAt - pollInterval);
+        const latest = requestAt === null ? receivedAt
+            : Math.max(earliest, (requestAt + receivedAt) / 2);
+        const clockOffset = (lastLiveStamp ?? 0) - (lastLiveReceivedAt ?? 0);
+        return Math.max(session.lastMoveStamp ?? 0, (earliest + latest) / 2 + clockOffset);
+    };
 
     const notify = event => {
         if (!session.active || closing) return;
@@ -566,17 +589,35 @@ async function startTimerGan(device, address, handlers) {
             } else if (data[0] === 0xED) {
                 const state = decodeTimerGanState(data);
                 if (!state) return;
+                const requestAt = pollSentAt !== null && pollSentAt <= receivedAt ? pollSentAt : null;
+                if (requestAt !== null) pollSentAt = null;
                 const serial = view.getUint16(2, true) & 255;
                 if (session.ready) {
                     const delta = forward(serial, count);
                     if (delta > 127) return;
                     if (delta > 0) {
-                        snapshot = {serial, receivedAt, state};
+                        const observation = snapshot?.serial === serial ? snapshot
+                            : {serial, receivedAt, state, stamp: estimateSnapshotStamp(receivedAt, requestAt)};
+                        if (!snapshot || forward(snapshot.serial, serial) > 127) snapshot = observation;
                         if (forward(serial, count) > forward(latestSerial, count)) latestSerial = serial;
+                        // A solved state exactly one turn ahead can identify the
+                        // missing final move without a second BLE round trip.
+                        if (delta === 1 && state === timerSmartSolved && !pendingMoves.has(serial)) {
+                            const moves = [...'URFDLB'].flatMap(face => [face, face + "'"])
+                                .filter(move => timerCubeTurn(physicalState, move) === state);
+                            if (moves.length === 1) {
+                                pendingMoves.set(serial, {move: moves[0], stamp: observation.stamp, receivedAt: observation.receivedAt, recovered: true});
+                                drain();
+                                return;
+                            }
+                        }
                         recover();
                         return;
                     }
-                    if (state === physicalState) return;
+                    if (state === physicalState) {
+                        lastConfirmedAt = requestAt ?? receivedAt;
+                        return;
+                    }
                     resyncAfterLoss();
                     return;
                 }
@@ -584,6 +625,9 @@ async function startTimerGan(device, address, handlers) {
                 latestSerial = count = serial;
                 previousTick = null;
                 lastLiveStamp = null;
+                lastLiveReceivedAt = null;
+                lastLiveSerial = null;
+                lastConfirmedAt = receivedAt;
                 resetTimerMoyuClock(session);
                 session.ready = true;
                 clearTimeout(timeout);
@@ -604,11 +648,19 @@ async function startTimerGan(device, address, handlers) {
                 const face = [2,32,8,1,16,4].indexOf(data[8] & 63), direction = data[8] >> 6;
                 if (face < 0 || direction > 1) { recover(); return; }
                 const tick = view.getUint32(2, true);
-                const elapsed = previousTick === null ? 0 : (tick - previousTick) >>> 0;
-                const stamp = lastLiveStamp === null || elapsed > receivedAt - lastLiveStamp + 2000 ? receivedAt : lastLiveStamp + elapsed;
-                previousTick = tick;
-                lastLiveStamp = stamp;
-                pendingMoves.set(next, {move:'URFDLB'[face] + (direction ? "'" : ''), stamp});
+                const elapsed = previousTick === null ? 0 : (tick - previousTick) | 0;
+                const newerLive = lastLiveSerial === null || forward(next, lastLiveSerial) < 128;
+                const stamp = lastLiveStamp === null || (newerLive && elapsed < 0) ||
+                    Math.abs(elapsed) > Math.abs(receivedAt - lastLiveReceivedAt) + 2000
+                    ? receivedAt : Math.min(receivedAt, lastLiveStamp + elapsed);
+                if (newerLive) {
+                    previousTick = tick;
+                    lastLiveStamp = stamp;
+                    lastLiveReceivedAt = receivedAt;
+                    lastLiveSerial = next;
+                    lastConfirmedAt = receivedAt;
+                }
+                pendingMoves.set(next, {move:'URFDLB'[face] + (direction ? "'" : ''), stamp, receivedAt});
                 drain();
             } else if (data[0] === 0xD1 && session.ready) {
                 const size = Math.min((data[1] - 1) * 2, (data.length - 3) * 2);
@@ -618,12 +670,19 @@ async function startTimerGan(device, address, handlers) {
                     const packed = (data[3 + (i >> 1)] >> (i % 2 ? 0 : 4)) & 15;
                     const face = [1,5,3,0,4,2].indexOf(packed >> 1);
                     if (face < 0) continue;
-                    const nextLive = [...pendingMoves.entries()].find(([next, entry]) => forward(next, count) > offset && !entry.recovered);
-                    const end = nextLive?.[1].stamp ?? snapshot?.receivedAt ?? receivedAt;
-                    const steps = nextLive ? forward(nextLive[0], count) : forward(latestSerial, count);
+                    let nextLive;
+                    for (const [next, entry] of pendingMoves) {
+                        const distance = forward(next, count);
+                        if (!entry.recovered && distance > offset && (!nextLive || distance < nextLive.distance)) {
+                            nextLive = {...entry, distance};
+                        }
+                    }
+                    const stateAnchor = snapshot && forward(snapshot.serial, count) >= offset ? snapshot : null;
+                    const end = nextLive?.stamp ?? stateAnchor?.stamp ?? estimateSnapshotStamp(receivedAt, null);
+                    const steps = nextLive?.distance ?? forward(stateAnchor?.serial ?? latestSerial, count);
                     const start = session.lastMoveStamp ?? end;
                     const stamp = start + Math.max(0, end - start) * offset / steps;
-                    pendingMoves.set(serial, {move:'URFDLB'[face] + (packed & 1 ? "'" : ''), stamp, recovered:true});
+                    pendingMoves.set(serial, {move:'URFDLB'[face] + (packed & 1 ? "'" : ''), stamp, receivedAt:stateAnchor?.receivedAt ?? nextLive?.receivedAt ?? receivedAt, recovered:true});
                 }
                 clearTimeout(historyTimer);
                 // A delayed or empty response must not create a tight loop of GATT requests.
@@ -681,7 +740,7 @@ async function startMoyuSession(device, handlers){
     assertActive();
     let resolveInitial,rejectInitial;const initial=new Promise((resolve,reject)=>{resolveInitial=resolve;rejectInitial=reject;});
     initial.catch(()=>{});
-    const session={read,write,cipher,count:null,active:true,chain:Promise.resolve(),ready:false};
+    const session={protocol:'moyu',read,write,cipher,count:null,active:true,chain:Promise.resolve(),ready:false};
     session.stop=()=>{
         if(!session.active)return Promise.resolve();
         session.active=false;
@@ -826,6 +885,17 @@ function buildTimerCube(root, order) {
     return body;
 }
 
+function timerSmartBrandName(brand) {
+    return brand === 'gan' ? 'GAN 智能' : brand === 'moyu' ? '魔域智能' : '智能魔方';
+}
+
+function syncTimerSmartProjectTitle(connected) {
+    if (currentTimerMode !== 'smart') return;
+    const brand = connected && timerMoyuSession?.ready ? timerMoyuSession.protocol : null;
+    const project = smartTimerProjects.find(([id]) => id === timerSmartEvent)?.[1] || '三阶';
+    document.getElementById('timer-event-title').textContent = `${timerSmartBrandName(brand)} - ${project}`;
+}
+
 function applyTimerMode() {
     const smart = currentTimerMode === 'smart';
     const main = document.getElementById('timer-tab-main');
@@ -838,7 +908,7 @@ function applyTimerMode() {
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
     const projectName = (smart ? smartTimerProjects.find(([id]) => id === eventId)?.[1] : item?.name) || '三阶';
     document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + projectName;
-    document.getElementById('timer-event-title').textContent = `${smart ? (timerGanDevice(timerBluetoothDevice) ? 'GAN 智能' : '魔域智能') : currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
+    if (!smart) document.getElementById('timer-event-title').textContent = `${currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
     document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
     const other=timerOtherEvents.find(e=>e.id===eventId);
     for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';icon.classList.toggle('timer-word-event-icon',!!other&&/[a-z]/i.test(other.icon));}
@@ -937,6 +1007,7 @@ function updateTimerBluetoothStatus(connected) {
     document.getElementById('timer-bluetooth-icon').classList.toggle('disconnected', !connected);
     renderTimerCubeBattery(connected);
     document.getElementById('timer-virtual-cube').setAttribute('aria-label', `虚拟${timerSmartEvent === '222' ? 2 : 3}阶魔方，${connected ? '已连接' : '未连接'}，可拖动旋转`);
+    syncTimerSmartProjectTitle(connected);
 }
 
 function closeTimerBluetoothCard() {
@@ -1071,8 +1142,8 @@ function finishTimerSmartSolve(stamp,aborted=false){
     resetTimerSmartAbortHold();
     const attempt=timerSmartAttempt;attempt.result=timerSmartSolveStats(stamp);attempt.phase='RESULT';attempt.lastGesture=null;cancelAnimationFrame(attempt.frame);attempt.frame=null;
     const result=attempt.result;document.getElementById('timer-display').classList.remove('inspecting','nb-status-text');document.getElementById('timer-display').textContent=aborted?'DNF':formatNbTimerOutput(result.ms);
-    attempt.record={rawMs:result.ms,penalty:aborted?'DNF':'',smartAborted:aborted,timestamp:getNowFormatted(),scramble:attempt.tokens.join(' '),smartStats:{steps:result.steps,tps:Number(result.tps),pausePercent:Number(result.pausePercent)},smartTrace:{version:1,initialState:attempt.initialState,moves:attempt.trace.map(item=>({...item}))}};
-    if(aborted)delete attempt.record.smartTrace;configureTimerSmartAnalysisEntry(document.querySelector('.smart-result-analysis'),attempt.record);const card=document.getElementById('timer-smart-result');card.hidden=false;const project=card.querySelector('.smart-result-project span:last-child');if(project)project.textContent=timerGanDevice(timerBluetoothDevice)?'GAN 智能':'魔域智能';card.querySelector('.smart-result-card').animate([{opacity:0,transform:'scale(.96)'},{opacity:1,transform:'scale(1)'}],{duration:120,easing:'cubic-bezier(.1,.9,.2,1)'});
+    attempt.record={rawMs:result.ms,penalty:aborted?'DNF':'',smartAborted:aborted,smartCubeBrand:timerMoyuSession?.protocol,timestamp:getNowFormatted(),scramble:attempt.tokens.join(' '),smartStats:{steps:result.steps,tps:Number(result.tps),pausePercent:Number(result.pausePercent)},smartTrace:{version:1,initialState:attempt.initialState,moves:attempt.trace.map(item=>({...item}))}};
+    if(aborted)delete attempt.record.smartTrace;configureTimerSmartAnalysisEntry(document.querySelector('.smart-result-analysis'),attempt.record);const card=document.getElementById('timer-smart-result');card.hidden=false;const project=card.querySelector('.smart-result-project span:last-child');if(project)project.textContent=timerSmartBrandName(attempt.record.smartCubeBrand);card.querySelector('.smart-result-card').animate([{opacity:0,transform:'scale(.96)'},{opacity:1,transform:'scale(1)'}],{duration:120,easing:'cubic-bezier(.1,.9,.2,1)'});
     document.getElementById('timer-smart-result-time').textContent=aborted?'DNF':formatNbTimerOutput(result.ms);document.getElementById('timer-smart-result-time').classList.toggle('smart-result-dnf',aborted);
     document.getElementById('timer-smart-result-steps').textContent=String(result.steps);
     document.getElementById('timer-smart-result-tps').textContent=result.tps;
@@ -1433,8 +1504,7 @@ async function connectTimerBluetoothDevice(device) {
             if (gan) await startTimerGan(device, address);
             else await startTimerMoyu(device);
             if(timerBluetoothDevice!==device||!device.gatt.connected)return;
-            const project = document.getElementById('timer-event-title');
-            if (project && currentTimerMode === 'smart') project.textContent = (gan ? 'GAN 智能' : '魔域智能') + ' - 三阶';
+            syncTimerSmartProjectTitle(true);
             title.textContent='已连接，转动已同步';closeTimerBluetoothCard();
             updateTimerBluetoothContext();
         } catch(error) {

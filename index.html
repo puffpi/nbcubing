@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.68.0-timer-nav-glass">
+    <link rel="stylesheet" href="style.css?v=1.69.0-score-heading">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -1025,7 +1025,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <!-- 成绩编辑专属悬浮卡片 (默认隐藏) -->
                 <div id="edit-score-popup" class="edit-score-popup">
                     <div class="edit-score-content">
-                        <div id="edit-index">#1</div>
+                        <div id="edit-index" class="timer-score-heading"># 1</div>
                         <div id="edit-time">10.32</div>
                         <div id="edit-timestamp">2026-09-04 14:18:30</div>
 
@@ -1065,7 +1065,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <!-- 平均成绩摘要卡片 (新增) -->
                 <div id="avg-score-popup" class="edit-score-popup">
                     <div class="edit-score-content">
-                        <div id="avg-index-range" style="color: var(--text-muted); font-size: 14px; font-weight: 600;">#14 ~ 18</div>
+                        <div id="avg-index-range" class="timer-score-heading"># 14 ~ 18</div>
                         <div id="avg-main-value" style="font-size: 30px; font-weight: 900; color: var(--text-main); margin: 8px 0; font-variant-numeric: tabular-nums;">ao5 = 1:20.24</div>
                         <div id="avg-timestamp" style="color: var(--text-muted); font-size: 12px; margin-bottom: 16px;">2026-09-06 15:09:32</div>
 
@@ -2003,7 +2003,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <script src="scramble_engine.js?v=1.68.0"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.68.0"></script>
+    <script src="main.js?v=1.69.1"></script>
     <script src="forum.js?v=1.48.6"></script>
     <script src="account.js?v=1.68.0"></script>
     <script src="theme.js?v=1.48.14"></script>
@@ -2025,8 +2025,8 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         <p class="challenge-bluetooth-feedback" role="status" hidden></p>
     </div>
 </div>
-    <script src="timer_smart.js?v=1.69.0"></script>
-    <script src="challenge_smart.js?v=1.69.0"></script>
+    <script src="timer_smart.js?v=1.69.0-score-heading"></script>
+    <script src="challenge_smart.js?v=1.69.0-gan-timing"></script>
     <script src="cube_space_player.js?v=1.56.16"></script>
     <script src="formula_favorites.js?v=1.56.16"></script>
 </body>

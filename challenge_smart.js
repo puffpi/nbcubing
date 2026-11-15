@@ -660,7 +660,7 @@ const ChallengeSmart = (() => {
                     connection.level = level;
                     renderConnection(player);
                 },
-                shouldPollState() { return phase === 'round'; },
+                shouldPollState() { return phase === 'round' && player.attempt?.phase !== 'done'; },
                 shouldPollBattery() {
                     return canRender() && !['inspection', 'solving'].includes(player.attempt?.phase);
                 },
