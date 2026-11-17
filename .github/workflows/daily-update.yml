@@ -98,9 +98,11 @@ jobs:
 
           python -m json.tool data/persons.json > /dev/null
           python -m json.tool data/person_countries.json > /dev/null
+          python -m json.tool data/timer_china_ranks.json > /dev/null
           git add data/person_countries.json
           git add data/persons.json
           git add data/wca_data.json data/history_data.json data/competitions_zh.json
+          git add data/timer_china_ranks.json
 
           # 没有变化就正常退出
           if git diff --cached --quiet; then
