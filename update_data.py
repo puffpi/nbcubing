@@ -29,6 +29,7 @@ os.makedirs(DATA_DIRECTORY, exist_ok=True)
 OUTPUT_WCA = os.path.join(DATA_DIRECTORY, "wca_data.json")
 OUTPUT_HISTORY = os.path.join(DATA_DIRECTORY, "history_data.json")
 OUTPUT_COMPETITIONS_ZH = os.path.join(DATA_DIRECTORY, "competitions_zh.json")
+OUTPUT_CHINA_RANKS = os.path.join(DATA_DIRECTORY, "timer_china_ranks.json")
 COMPETITIONS_API = "https://api.cubing.com/competitions"
 
 
@@ -288,6 +289,23 @@ def update_rank_entry(target, row):
             row.get("country_rank") or row.get("countryRank")
         )
     }
+
+
+def collect_timer_china_ranks(rows, china_ids, local_ranks=None):
+    # WCA timed results store centiseconds. Keep duplicate times for shared ranks.
+    events = {"222", "333", "444", "555", "666", "777", "333bf", "333oh",
+              "clock", "minx", "pyram", "skewb", "sq1", "444bf", "555bf"}
+    times = {}
+    for row in rows:
+        if local_ranks is not None:
+            update_rank_entry(local_ranks, row)
+        person = row.get("person_id") or row.get("personId")
+        event = row.get("event_id") or row.get("eventId")
+        if person in china_ids and event in events:
+            best = safe_int(row.get("best"))
+            if best > 0:
+                times.setdefault(event, []).append(best)
+    return {event: sorted(values) for event, values in sorted(times.items())}
 
 
 def better_record(current_ref, new_value, new_date):
@@ -572,11 +590,10 @@ def update_wca_data():
             ranks_single = {}
             ranks_average = {}
 
-            for row in read_tsv(z, ranks_single_member):
-                update_rank_entry(ranks_single, row)
-
-            for row in read_tsv(z, ranks_average_member):
-                update_rank_entry(ranks_average, row)
+            china_ids = {person_id for person_id, person in directory.items() if person[2] == "CN"}
+            china_single = collect_timer_china_ranks(read_tsv(z, ranks_single_member), china_ids, ranks_single)
+            china_average = collect_timer_china_ranks(read_tsv(z, ranks_average_member), china_ids, ranks_average)
+            atomic_write_json(OUTPUT_CHINA_RANKS, {"single": china_single, "average": china_average})
 
             print(f"单次 PR 数据: {len(ranks_single)}")
             print(f"平均 PR 数据: {len(ranks_average)}")

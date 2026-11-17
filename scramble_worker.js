@@ -345,12 +345,15 @@ function getFtoScramble(legacy) {
     const opposite = { U:'D', D:'U', F:'B', B:'F', L:'BR', BR:'L', R:'BL', BL:'R' };
     const result = [];
     const length = legacy ? 25 + randomInt(6) : 27 + randomInt(3);
+    let backTurns = legacy ? 0 : 2 + randomInt(4);
     let previous = '', beforePrevious = '';
     for (let index = 0; index < length; index++) {
-        const availableFaces = legacy || index >= 20 ? faces : faces.slice(0, 6);
+        const useBack = !legacy && index >= 20 && randomInt(length - index) < backTurns;
+        const availableFaces = legacy ? faces : useBack ? faces.slice(6) : faces.slice(0, 6);
         const choices = availableFaces.filter(face => face !== previous &&
             !(face === beforePrevious && opposite[face] === previous));
         const face = choices[Math.floor(randomUnit() * choices.length)];
+        if (useBack) backTurns--;
         result.push(face + (randomUnit() < .5 ? "'" : ''));
         beforePrevious = previous;
         previous = face;

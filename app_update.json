@@ -1,6 +1,6 @@
 {
-  "versionCode": 52,
-  "versionName": "1.69.1",
+  "versionCode": 53,
+  "versionName": "1.70.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "修复 GAN Gen4 偶发的复原结算延迟和计时偏差。NB Timer 单次和平均成绩卡片增加项目图标与名称，智能成绩显示使用的魔方厂商。"
+  "notes": "NB Timer 新增蓝牙拍表、本组统计、可选 PB 行和 JSON 成绩备份，并优化手机、平板的列表与打乱图。NB Challenge 支持用箭头切换打乱。"
 }

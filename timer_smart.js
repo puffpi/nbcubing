@@ -898,6 +898,7 @@ function syncTimerSmartProjectTitle(connected) {
 
 function applyTimerMode() {
     const smart = currentTimerMode === 'smart';
+    window.syncNbBluetoothTimer?.();
     const main = document.getElementById('timer-tab-main');
     main.classList.toggle('smart-cube-mode', smart);
     document.getElementById('timer-page').classList.toggle('smart-cube-page', smart);

@@ -11,7 +11,7 @@ window.nbScrambleEngine = (() => {
     }
     function getWorker() {
         if (!worker) {
-            worker = new Worker('scramble_worker.js?v=1.68.0');
+            worker = new Worker('scramble_worker.js?v=fto-back-turns');
             worker.onmessage = ({data}) => {
                 const request = pending.get(data[0]);
                 if (!request) return;
