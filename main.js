@@ -242,6 +242,7 @@ let uiSettings = {
     virtualCubeAppearance: 'black',
     promptAction: true,
     showPb: false,
+    chalScrambleMode: 'button',
     inspection: false,
     inspectionVoice: false,
     nbDisplayMode: 'realtime',
@@ -843,7 +844,7 @@ async function openDiscovery(kind, options = {}) {
     if (kind !== 'insight') return;
     closeNavDropdowns();
     try {
-        await loadOptionalScript('analysis.js?v=1.60.0', () => !!window.Discovery);
+        await loadOptionalScript('analysis.js?v=fto-practice', () => !!window.Discovery);
         window.Discovery.open(kind, options);
     } catch (error) { alert('新页面暂时无法加载，请稍后重试。'); }
 }
@@ -2502,8 +2503,176 @@ function resetInspection() {
 
 let timerHistoryData = {};
 let currentTimerEvent = '333';
+const ftoPracticeLabels = { top: '顶层练习', tcp: 'TCP' };
+let ftoPractice = 'standard';
+const defaultFtoOrientations = { standard: 'standard', top: 'yellow-blue', tcp: 'yellow-blue' };
+let ftoOrientations = { ...defaultFtoOrientations };
+let timerDraftPractice = 'standard';
+let timerDraftOrientations = { ...defaultFtoOrientations };
+
+function getTimerFtoOrientation() {
+    return currentTimerMode !== 'smart' && currentTimerEvent === 'fto' ? ftoOrientations[ftoPractice] : 'standard';
+}
+
+// The player uses the standard grip. Translate grip-relative turns to that frame.
+const ftoFlippedFaces = { U: 'D', D: 'U', F: 'B', B: 'F', R: 'BR', BR: 'R', L: 'BL', BL: 'L' };
+function getFtoDiagramScramble(scramble, orientation) {
+    return orientation === 'yellow-blue' ? scramble.replace(/\b(BL|BR|[UDFBLR])(?=['2\s]|$)/g, face => ftoFlippedFaces[face]) : scramble;
+}
+
+function getFtoPracticeProject(key) {
+    const mode = key.startsWith('fto-') ? key.slice(4) : '';
+    return Object.hasOwn(ftoPracticeLabels, mode) ? { id: 'fto', key, name: 'FTO - ' + ftoPracticeLabels[mode] } : null;
+}
+
 function getTimerHistoryKey() {
-    return currentTimerMode === 'smart' ? `smart-${timerSmartEvent}` : currentTimerEvent;
+    if (currentTimerMode === 'smart') return 'smart-' + timerSmartEvent;
+    return currentTimerEvent === 'fto' && ftoPractice !== 'standard' ? 'fto-' + ftoPractice : currentTimerEvent;
+}
+
+function syncTimerPracticeControls() {
+    const isFto = currentTimerMode !== 'smart' && currentTimerEvent === 'fto';
+    const project = isFto ? getFtoPracticeProject(getTimerHistoryKey()) : null;
+    const caption = document.getElementById('timer-practice-caption');
+    caption.hidden = !project;
+    caption.textContent = project?.name || '';
+    if (isFto) {
+        const name = project?.name || 'FTO';
+        document.getElementById('timer-event-name').textContent = name;
+        document.getElementById('timer-event-title').textContent = 'WCA - ' + name;
+    }
+}
+
+function isDraftFto() {
+    return timerTempMode === 'wca' && timerTempEvent === 'fto';
+}
+
+function renderTimerPracticePicker() {
+    const mode = isDraftFto() ? timerDraftPractice : 'standard';
+    document.getElementById('timer-practice-value').textContent = ftoPracticeLabels[mode] || '标准练习';
+    if (document.getElementById('timer-practice-panel').hidden) return;
+    const training = [['standard', '标准练习']];
+    const orientations = [['standard', '标准朝向']];
+    if (isDraftFto()) {
+        training.push(...Object.entries(ftoPracticeLabels));
+        orientations.push(['yellow-blue', '黄顶蓝前']);
+    }
+    function renderOptions(id, options, selected, select) {
+        const group = document.getElementById(id);
+        group.replaceChildren(...options.map(([value, label]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'chal-event-item' + (selected === value ? ' active' : '');
+            button.textContent = label;
+            button.setAttribute('aria-pressed', String(selected === value));
+            button.onclick = () => {
+                select(value);
+                renderTimerPracticePicker();
+                group.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
+            };
+            return button;
+        }));
+    }
+    renderOptions('timer-practice-modes', training, mode, value => { timerDraftPractice = value; });
+    renderOptions('timer-practice-orientations', orientations, isDraftFto() ? timerDraftOrientations[mode] : 'standard',
+        value => { if (isDraftFto()) timerDraftOrientations[mode] = value; });
+}
+
+const timerPracticeFlight = { duration: 340, easing: 'cubic-bezier(.42, 0, .18, 1)' };
+
+function practiceTileOffset(from, to) {
+    return 'translate(' + (from.left - to.left) + 'px,' + (from.top - to.top) + 'px)';
+}
+
+function openTimerPracticePanel() {
+    const grid = document.getElementById('timer-event-grid');
+    const chosen = grid.querySelector('.chal-event-item.active');
+    if (!chosen) return;
+    const origin = chosen.getBoundingClientRect();
+    const panel = document.getElementById('timer-practice-panel');
+    const preview = document.getElementById('timer-practice-project');
+    panel.hidden = false;
+    grid.inert = true;
+    grid.classList.add('timer-practice-grid-away');
+    setTimerPracticeFooter(true);
+    renderTimerPracticePicker();
+    const target = preview.getBoundingClientRect();
+    const offset = practiceTileOffset({ left: target.left + (target.width - origin.width) / 2, top: target.top }, origin);
+    chosen.classList.add('timer-practice-flying');
+    chosen.style.transform = offset;
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && origin.bottom > grid.getBoundingClientRect().top && origin.top < grid.getBoundingClientRect().bottom) {
+        chosen.animate([{ transform: 'none' }, { transform: offset }], timerPracticeFlight);
+    }
+    document.getElementById('timer-practice-back').focus({ preventScroll: true });
+}
+
+async function closeTimerPracticePanel() {
+    const panel = document.getElementById('timer-practice-panel');
+    if (panel.hidden || panel.inert) return;
+    const grid = document.getElementById('timer-event-grid');
+    const tile = grid.querySelector('.timer-practice-flying');
+    if (tile && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const origin = getComputedStyle(tile).transform;
+        tile.getAnimations().forEach(animation => animation.cancel());
+        tile.style.removeProperty('transform');
+        panel.inert = true;
+        panel.classList.add('timer-practice-returning');
+        grid.classList.add('timer-practice-grid-returning');
+        grid.classList.remove('timer-practice-grid-away');
+        setTimerPracticeFooter(false);
+        const flight = tile.animate([
+            { transform: origin },
+            { transform: 'none' }
+        ], timerPracticeFlight);
+        try { await flight.finished; } catch { return; }
+        if (panel.hidden) return;
+    }
+    resetTimerPracticePanel();
+    document.getElementById('timer-practice-trigger').focus({ preventScroll: true });
+}
+
+function resetTimerPracticePanel() {
+    const grid = document.getElementById('timer-event-grid');
+    const panel = document.getElementById('timer-practice-panel');
+    panel.hidden = true;
+    panel.inert = false;
+    panel.classList.remove('timer-practice-returning');
+    const tile = grid.querySelector('.timer-practice-flying');
+    if (tile) {
+        tile.getAnimations().forEach(animation => animation.cancel());
+        tile.style.removeProperty('transform');
+        tile.classList.remove('timer-practice-flying');
+    }
+    grid.inert = false;
+    grid.classList.remove('timer-practice-grid-away', 'timer-practice-grid-returning');
+    setTimerPracticeFooter(false);
+}
+
+function setTimerPracticeFooter(showBack) {
+    const trigger = document.getElementById('timer-practice-trigger');
+    const footer = trigger.closest('.timer-event-actions');
+    const category = document.getElementById('timer-category-select');
+    if (footer.classList.contains('timer-practice-footer-open') !== showBack) {
+        footer.classList.toggle('timer-practice-footer-open', showBack);
+        trigger.inert = showBack;
+        category.inert = true;
+        document.getElementById('timer-practice-back').inert = !showBack;
+    }
+    if (showBack || !category.inert) return;
+    const panel = document.getElementById('timer-practice-panel');
+
+    // Flush the new styles before getting the arrows' fade-in transitions.
+    const arrows = [...category.querySelectorAll('button svg')];
+    const transitions = arrows.flatMap(arrow => {
+        getComputedStyle(arrow).opacity;
+        return arrow.getAnimations();
+    });
+    Promise.allSettled(transitions.map(animation => animation.finished)).then(() => {
+        if (panel.hidden && !footer.classList.contains('timer-practice-footer-open') &&
+            arrows.every(arrow => Number(getComputedStyle(arrow).opacity) === 1)) {
+            category.inert = false;
+        }
+    });
 }
 let currentSessionBestMs = Infinity;
 
@@ -2514,6 +2683,7 @@ let currentSessionBestStat2Ms = Infinity;
 
 let editScoreIndex = -1;
 let currentEditPenalty = '';
+let editScoreDeleteRecord = null;
 
 function getNowFormatted() {
     const d = new Date();
@@ -2535,13 +2705,33 @@ document.addEventListener('click', (e) => {
 });
 
 // 清空成绩
+function setTimerDeleteArmed(id, armed) {
+    const button = document.getElementById(id);
+    button.toggleAttribute('data-delete-armed', armed);
+    button.textContent = armed ? '确定删除' : '删除';
+}
+
+function confirmTimerDeletePress(id) {
+    if (document.getElementById(id).hasAttribute('data-delete-armed')) return true;
+    setTimerDeleteArmed(id, true);
+    return false;
+}
+
 let timerClearSelection=new Set(),timerClearCurrent='',timerClearMultiple=false;
-function timerClearProjects(){const excluded=new Set(['magic','mmagic','333ft','mbf','333mbf','333fm']);return [...eventDict.filter(e=>!excluded.has(e.id)).map(e=>({...e,key:e.id})),...timerOtherEvents.map(e=>({...e,key:e.id})),...['333','222'].map(id=>({id,key:'smart-'+id,name:'智能'+eventDict.find(e=>e.id===id).name}))];}
-function renderTimerClearProjects(){const list=document.getElementById('timer-clear-projects'),projects=timerClearProjects();projects.sort((a,b)=>a.key===timerClearCurrent?-1:b.key===timerClearCurrent?1:0);list.replaceChildren();for(const project of projects){const row=document.createElement('div');row.className='timer-clear-project';const check=document.createElement('input');check.type='checkbox';check.checked=timerClearSelection.has(project.key);check.setAttribute('aria-label',project.name);check.onchange=()=>{if(!timerClearMultiple)timerClearSelection.clear();if(check.checked)timerClearSelection.add(project.key);else timerClearSelection.delete(project.key);renderTimerClearProjects();};const hit=document.createElement('label');hit.className='timer-clear-check-area';hit.append(check);const icon=document.createElement('span');icon.className=project.iconClass?'cubing-icon '+project.iconClass:project.icon?'timer-clear-symbol':'cubing-icon event-'+project.id;if(project.icon)icon.textContent=project.icon;icon.setAttribute('aria-hidden','true');const name=document.createElement('span');name.className='timer-clear-name';name.textContent=project.name;const count=document.createElement('small');count.textContent=(timerHistoryData[project.key]?.length||0)+' 次';if(project.fullName){row.classList.add('timer-clear-fullname');row.append(hit,name,count);}else{row.append(hit,icon,name,count);}list.append(row);}document.getElementById('timer-clear-confirm').disabled=!timerClearSelection.size;}
+function timerClearProjects(){const excluded=new Set(['magic','mmagic','333ft','mbf','333mbf','333fm']);return [...eventDict.filter(e=>!excluded.has(e.id)).map(e=>({...e,key:e.id})),...timerOtherEvents.map(e=>({...e,key:e.id})),...Object.keys(ftoPracticeLabels).map(mode=>getFtoPracticeProject('fto-'+mode)),...['333','222'].map(id=>({id,key:'smart-'+id,name:'智能'+eventDict.find(e=>e.id===id).name}))];}
+function renderTimerClearProjects(){const list=document.getElementById('timer-clear-projects'),projects=timerClearProjects();projects.sort((a,b)=>a.key===timerClearCurrent?-1:b.key===timerClearCurrent?1:0);list.replaceChildren();for(const project of projects){const row=document.createElement('div');row.className='timer-clear-project';const check=document.createElement('input');check.type='checkbox';check.checked=timerClearSelection.has(project.key);check.setAttribute('aria-label',project.name);check.onchange=()=>{if(!timerClearMultiple)timerClearSelection.clear();if(check.checked)timerClearSelection.add(project.key);else timerClearSelection.delete(project.key);renderTimerClearProjects();};const hit=document.createElement('label');hit.className='timer-clear-check-area';hit.append(check);const icon=document.createElement('span');icon.className=project.iconClass?'cubing-icon '+project.iconClass:project.icon?'timer-clear-symbol':'cubing-icon event-'+project.id;if(project.icon)icon.textContent=project.icon;icon.setAttribute('aria-hidden','true');const name=document.createElement('span');name.className='timer-clear-name';name.textContent=project.name;const count=document.createElement('small');count.textContent=(timerHistoryData[project.key]?.length||0)+' 次';if(project.fullName){row.classList.add('timer-clear-fullname');row.append(hit,name,count);}else{row.append(hit,icon,name,count);}list.append(row);}document.getElementById('timer-clear-confirm').disabled=!timerClearSelection.size;setTimerDeleteArmed('timer-clear-confirm',false);}
 function toggleTimerClearMultiple(enabled){timerClearMultiple=enabled;document.getElementById('timer-clear-mode').dataset.multiple=String(enabled);if(!enabled)timerClearSelection=new Set([timerClearCurrent]);renderTimerClearProjects();}
 function openTimerClearModal(){document.getElementById('timer-more-dropdown').style.display='none';timerClearCurrent=getTimerHistoryKey();timerClearSelection=new Set([timerClearCurrent]);document.getElementById('timer-clear-multiple').checked=false;toggleTimerClearMultiple(false);document.getElementById('timer-clear-projects').scrollTop=0;document.getElementById('timer-clear-modal').style.display='flex';}
-function closeTimerClearModal(){document.getElementById('timer-clear-modal').style.display='none';timerClearSelection.clear();}
-function confirmTimerClear(){if(document.getElementById('timer-clear-modal').style.display==='none'||!timerClearSelection.size)return;const supported=new Set(timerClearProjects().map(p=>p.key));for(const key of timerClearSelection)if(supported.has(key))timerHistoryData[key]=[];recalculateSessionStats();saveTimerData();closeTimerClearModal();}
+function closeTimerClearModal(){document.getElementById('timer-clear-modal').style.display='none';timerClearSelection.clear();setTimerDeleteArmed('timer-clear-confirm',false);}
+function confirmTimerClear() {
+    if (document.getElementById('timer-clear-modal').style.display !== 'flex' || !timerClearSelection.size ||
+        !confirmTimerDeletePress('timer-clear-confirm')) return;
+    const supported = new Set(timerClearProjects().map(project => project.key));
+    for (const key of timerClearSelection) if (supported.has(key)) timerHistoryData[key] = [];
+    recalculateSessionStats();
+    saveTimerData();
+    closeTimerClearModal();
+}
 
 // ================= 导入导出引擎 =================
 let timerExportHistoryKey = '';
@@ -3201,6 +3391,7 @@ function stopTimer(stamp = performance.now(), hardwareMs = null, hardwareTimerSo
             ...(hardwareTimerSource && { hardwareTimerSource }),
             penalty: activeSolvePenalty,
             timestamp: getNowFormatted(),
+            ftoOrientation: getTimerFtoOrientation() === 'yellow-blue' ? 'yellow-blue' : undefined,
             scramble: getTimerAttemptScramble()
         });
         recalculateSessionStats();
@@ -3266,6 +3457,7 @@ function confirmPostSolve() {
         ...(pendingHardwareTimerSource && { hardwareTimerSource: pendingHardwareTimerSource }),
         penalty: pendingSolvePenalty,
         timestamp: getNowFormatted(),
+        ftoOrientation: getTimerFtoOrientation() === 'yellow-blue' ? 'yellow-blue' : undefined,
         scramble: getTimerAttemptScramble()
     });
 
@@ -3510,15 +3702,13 @@ function openTimerGroupStats() {
     const matchingStat = averageFormat === stat1Label ? 'stat1' : averageFormat === stat2Label ? 'stat2' : null;
     let averageBest = matchingStat ? best?.[matchingStat] ?? Infinity : Infinity;
     const topSingles = [], topAverages = [];
-    let count = 0, sum = 0, slowest = -Infinity, plusTwo = 0, dnf = 0;
+    let count = 0, sum = 0, plusTwo = 0;
     for (const [index, record] of records.entries()) {
         if (Number.isFinite(record.effectiveMs)) {
             count++;
             sum += record.effectiveMs;
-            slowest = Math.max(slowest, record.effectiveMs);
         }
         if (record.penalty === '+2') plusTwo++;
-        if (record.penalty === 'DNF') dnf++;
         keepTimerRankSample(topSingles, record.effectiveMs);
         if (index + averageCount <= records.length) {
             const ms = matchingStat ? record[`${matchingStat}Ms`] :
@@ -3531,14 +3721,13 @@ function openTimerGroupStats() {
     icon.removeAttribute('id');
     icon.setAttribute('aria-hidden', 'true');
     const project = document.createElement('span');
-    project.textContent = document.getElementById('timer-event-name').textContent;
+    project.textContent = getFtoPracticeProject(key)?.name || document.getElementById('timer-event-name').textContent;
     document.getElementById('timer-group-stats-project').replaceChildren(icon, project);
     const overview = [
-        ['总次数/有效次数', `${records.length} / ${count}`], ['有效成绩均值', formatTimerGroupTime(sum / count)],
-        ['最快单次', best?.singleDisplay || '—'], ['最慢单次', formatTimerGroupTime(slowest)],
+        ['总次数/有效次数', `${records.length} / ${count}`], ['+2 次数', plusTwo],
+        ['最快单次', best?.singleDisplay || '—'], ['有效成绩均值', formatTimerGroupTime(sum / count)],
         [`${stat1Label} 历史最佳`, formatTimerGroupTime(best?.stat1)],
-        [`${stat2Label} 历史最佳`, formatTimerGroupTime(best?.stat2)],
-        ['+2 次数', plusTwo], ['DNF 次数', dnf]
+        [`${stat2Label} 历史最佳`, formatTimerGroupTime(best?.stat2)]
     ];
     document.getElementById('timer-group-stats-overview').replaceChildren(...overview.map(([label, value]) => {
         const item = document.createElement('div');
@@ -3652,12 +3841,15 @@ async function loadEditScramblePreview(record, puzzleEvent, unsupported) {
             player.setAttribute('background', 'none');
             player.setAttribute('puzzle', getCubingJsPuzzle(puzzleEvent));
             player.setAttribute('visualization', puzzleEvent === 'fto' ? 'auto' : '2D');
-            player.setAttribute('alg', String(record.scramble || '').replace(/<br\s*\/?>/gi, ' '));
+            const scramble = puzzleEvent === 'fto' ? getFtoDiagramScramble(record.scramble || '', record.ftoOrientation) : record.scramble;
+            player.setAttribute('alg', String(scramble || '').replace(/<br\s*\/?>/gi, ' '));
             player.setAttribute('aria-hidden', 'true');
             player.style.transform = `scale(${getScrambleZoom(puzzleEvent)})`;
             player.timestamp = 'end';
             preview.appendChild(player);
             const model = player.experimentalModel;
+            if (puzzleEvent === 'fto') await orientFtoDiagram(player, model, record.ftoOrientation);
+            checkCurrent();
             const parsed = await model.puzzleAlg.get();
             if (parsed.issues.errors.length) throw new Error('打乱内容无法绘图');
             const position = await model.legacyPosition.get();
@@ -3702,10 +3894,11 @@ async function loadEditScramblePreview(record, puzzleEvent, unsupported) {
 }
 function renderTimerScoreHeading(id, historyKey, record, number) {
     const smart = historyKey.startsWith('smart-');
-    const eventId = smart ? historyKey.slice('smart-'.length) : historyKey;
+    const practice = getFtoPracticeProject(historyKey);
+    const eventId = smart ? historyKey.slice('smart-'.length) : practice?.id || historyKey;
     const other = timerOtherEvents.find(event => event.id === eventId);
     const event = other || eventDict.find(item => item.id === eventId);
-    const name = smart ? timerSmartBrandName(record?.smartCubeBrand) : event?.name || eventId;
+    const name = smart ? timerSmartBrandName(record?.smartCubeBrand) : practice?.name || event?.name || eventId;
     const icon = document.createElement('span');
     icon.setAttribute('aria-hidden', 'true');
     icon.className = other && !other.iconClass ? 'timer-other-event-icon'
@@ -3721,6 +3914,8 @@ function openEditPopup(index) {
     const historyKey = getTimerHistoryKey();
     const records = timerHistoryData[historyKey];
     const r = records[index];
+    editScoreDeleteRecord = r;
+    setTimerDeleteArmed('timer-edit-delete', false);
     const locked=getTimerHistoryKey().startsWith('smart-')&&Boolean(r.smartAborted);if(locked)r.penalty='DNF';currentEditPenalty = r.penalty;
     const penaltyChoice=document.querySelector('.edit-penalty-choice');penaltyChoice.classList.toggle('smart-penalty-locked',locked);penaltyChoice.setAttribute('aria-disabled',String(locked));penaltyChoice.title=locked?'终止还原的 DNF 成绩无法改判':'';
     for(const option of penaltyChoice.querySelectorAll('.ios-segment-btn'))option.setAttribute('aria-disabled',String(locked));
@@ -3908,6 +4103,8 @@ function closeAvgDetails() {
 
 function closeEditPopup() {
     cancelEditScramblePreview();
+    editScoreDeleteRecord = null;
+    setTimerDeleteArmed('timer-edit-delete', false);
     document.getElementById('edit-score-popup').style.display = 'none';
 }
 
@@ -3938,7 +4135,15 @@ function confirmEditScore() {
 }
 
 function deleteEditScore() {
-    timerHistoryData[getTimerHistoryKey()].splice(editScoreIndex, 1);
+    if (document.getElementById('edit-score-popup').style.display !== 'flex' || !editScoreDeleteRecord ||
+        !confirmTimerDeletePress('timer-edit-delete')) return;
+    const records = timerHistoryData[getTimerHistoryKey()];
+    const index = records?.indexOf(editScoreDeleteRecord) ?? -1;
+    if (index < 0) {
+        closeEditPopup();
+        return;
+    }
+    records.splice(index, 1);
     closeEditPopup();
     recalculateSessionStats();
     saveTimerData(); // 核心新增：删除后存档
@@ -4068,12 +4273,12 @@ function renderOtherTimerEventGrid(){
             if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();}
         };
     }
-    button.onclick=()=>{timerTempEvent=item.id;renderTimerEventGrid();};
+    button.onclick=()=>selectTimerProject(item.id);
     grid.appendChild(button);
  }}
 }
 function switchTimerRelay(direction,event){event?.stopPropagation();event?.preventDefault();if(timerState!=='IDLE'||!timerScrambleReady||!timerRelayScrambles.length)return;timerRelayIndex=(timerRelayIndex+direction+timerRelayScrambles.length)%timerRelayScrambles.length;const item=timerRelayScrambles[timerRelayIndex];renderTimerScramble(item.scramble,item.event);}
-function getTimerAttemptScramble(){return getTimerRelayEvents(currentTimerEvent)?timerRelayScrambles.map(item=>item.event+': '+item.scramble.replace(/<br>/g,' ')).join('\n'):document.getElementById('scramble-text').innerText;}
+function getTimerAttemptScramble(){return getTimerRelayEvents(currentTimerEvent)?timerRelayScrambles.map(item=>item.event+': '+item.scramble.replace(/<br>/g,' ')).join('\n'):getVisibleTimerScrambleMoves();}
 let timerTempEvent = '333';
 
 function initTimer() {
@@ -4081,6 +4286,7 @@ function initTimer() {
     loadTimerData();
     restoreTimerProject();
     applyTimerMode();
+    syncTimerPracticeControls();
 
     if (!timerHistoryData[getTimerHistoryKey()]) {
         timerHistoryData[getTimerHistoryKey()] = [];
@@ -4096,6 +4302,9 @@ function openTimerEventPopup() {
     timerTempEvent = currentTimerEvent;
     timerTempMode = currentTimerMode;
     timerTempSmartEvent = timerSmartEvent;
+    timerDraftPractice = ftoPractice;
+    timerDraftOrientations = { ...ftoOrientations };
+    resetTimerPracticePanel();
     renderTimerEventGrid();
 
     const popup = document.getElementById('timer-event-popup');
@@ -4103,13 +4312,20 @@ function openTimerEventPopup() {
     const header=document.querySelector('body > .global-nav-header');
     popup.style.setProperty('--timer-picker-top',Math.max(0,header?.getBoundingClientRect().bottom||0)+'px');
     popup.style.display = 'flex';
+    popup.querySelector('#timer-event-grid button.active')?.focus({ preventScroll: true });
 }
 
 function renderTimerEventGrid() {
     renderTimerModeChoice();
-    if (timerTempMode === 'smart') { timerTempSmartEvent = '333'; renderSmartTimerEventGrid(); return; }
- if(timerTempMode==='other'){if(!timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='888';renderOtherTimerEventGrid();return;}
+    if (timerTempMode === 'smart') {
+        timerTempSmartEvent = '333';
+        renderTimerPracticePicker();
+        renderSmartTimerEventGrid(undefined, selectTimerProject);
+        return;
+    }
+ if(timerTempMode==='other'){if(!timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='888';renderTimerPracticePicker();renderOtherTimerEventGrid();return;}
  if(timerOtherEvents.some(e=>e.id===timerTempEvent))timerTempEvent='333';
+    renderTimerPracticePicker();
     const grid = document.getElementById('timer-event-grid');
     grid.innerHTML = '';
     const excludedEvents = ['magic', 'mmagic', '333ft', 'mbf', '333mbf', '333fm'];
@@ -4117,68 +4333,70 @@ function renderTimerEventGrid() {
     eventDict.forEach(ev => {
         if (!excludedEvents.includes(ev.id)) {
             let isActive = timerTempEvent === ev.id ? 'active' : '';
-            let btn = document.createElement('div');
+            const btn = document.createElement('button');
+            btn.type = 'button';
             btn.className = `chal-event-item ${isActive}`;
-            btn.innerHTML = `<span class="cubing-icon event-${ev.id}" style="font-size: 24px; display:block; margin-bottom:5px;"></span><span style="font-size:12px; font-weight:600;">${ev.name}</span>`;
+            btn.innerHTML = `<span class="cubing-icon event-${ev.id}" aria-hidden="true" style="font-size: 24px; display:block; margin-bottom:5px;"></span><span style="font-size:12px; font-weight:600;">${ev.name}</span>`;
 
-            btn.onclick = () => {
-                timerTempEvent = ev.id;
-                renderTimerEventGrid(); // 仅刷新高亮，不触发真实打乱
-            };
+            btn.onclick = () => selectTimerProject(ev.id);
             grid.appendChild(btn);
         }
     });
 }
 
 const timerProjectScrambles=new Map();
+function getTimerProjectScrambleKey() {
+    return getTimerHistoryKey() + (getTimerFtoOrientation() === 'yellow-blue' ? ':yellow-blue' : '');
+}
 function rememberTimerProjectScramble(){
  if(currentTimerMode!=='smart'&&timerScrambleReady&&!getTimerRelayEvents(currentTimerEvent)){
- const text=document.getElementById('scramble-text').innerText;
- if(text)timerProjectScrambles.set(currentTimerEvent,text);
+ const text=getVisibleTimerScrambleMoves();
+ if(text)timerProjectScrambles.set(getTimerProjectScrambleKey(),text);
  }
 }
-function confirmTimerEvent() {
-    const popup=document.getElementById('timer-event-popup');
-    popup.style.display='none';popup.classList.remove('popup-fade-out');
-    const selection=[timerTempMode,timerTempEvent,timerTempSmartEvent];
-    requestAnimationFrame(()=>setTimeout(()=>{
-      [timerTempMode,timerTempEvent,timerTempSmartEvent]=selection;
-      applyTimerEventSelection();
-    },0));
-}
-function applyTimerEventSelection() {
-    rememberTimerProjectScramble();
-    saveTimerProject(timerTempMode,timerTempEvent,timerTempSmartEvent);
-    if (timerTempMode === 'smart') {
-        currentTimerMode = 'smart';
-        timerSmartEvent = timerTempSmartEvent;
-        applyTimerMode();
-        if (!timerHistoryData[getTimerHistoryKey()]) timerHistoryData[getTimerHistoryKey()] = [];
-        recalculateSessionStats(true);
-        closeTimerEventPopup();
+function restoreTimerProjectScramble() {
+    const previousScramble = timerProjectScrambles.get(getTimerProjectScrambleKey());
+    if (!previousScramble) {
+        void generateScramble();
         return;
     }
-    const previousMode=currentTimerMode;currentTimerMode=timerTempMode;
-    if (timerTempEvent !== currentTimerEvent||previousMode!==currentTimerMode) {
-        currentTimerEvent = timerTempEvent;
+    ++timerScrambleRequest;
+    timerScrambleReady = true;
+    renderTimerScramble(previousScramble, currentTimerEvent);
+}
 
-        let evObj = eventDict.find(e => e.id === currentTimerEvent)||timerOtherEvents.find(e=>e.id===currentTimerEvent);
-        let evName = evObj ? evObj.name : '未知';
+function selectTimerProject(id) {
+    if (timerState !== 'IDLE') return;
+    if (timerTempMode === 'smart') timerTempSmartEvent = id;
+    else timerTempEvent = id;
+    renderTimerEventGrid();
+    document.querySelector('#timer-event-grid .chal-event-item.active')?.focus({ preventScroll: true });
+}
 
-        // 更新左侧选择器与右侧大标题
-        document.getElementById('timer-event-icon').className = `cubing-icon event-${currentTimerEvent}`;
-        document.getElementById('timer-event-name').innerText = evName;
-        document.getElementById('timer-event-title').innerText = "WCA - " + evName;
+function confirmTimerEvent() {
+    if (timerState !== 'IDLE') return;
+    document.getElementById('timer-event-popup').style.display = 'none';
+    applyTimerEventSelection();
+}
 
-        if (!timerHistoryData[getTimerHistoryKey()]) {
-            timerHistoryData[getTimerHistoryKey()] = [];
-        }
-
-        const previousScramble=timerProjectScrambles.get(currentTimerEvent);
-        if(previousScramble){++timerScrambleRequest;timerScrambleReady=true;renderTimerScramble(previousScramble,currentTimerEvent);}
-        else generateScramble();
+function applyTimerEventSelection() {
+    const previousMode = currentTimerMode;
+    const previousScrambleKey = getTimerProjectScrambleKey();
+    rememberTimerProjectScramble();
+    if (isDraftFto()) {
+        ftoPractice = timerDraftPractice;
+        ftoOrientations = { ...timerDraftOrientations };
     }
+    currentTimerMode = timerTempMode;
+    if (currentTimerMode === 'smart') timerSmartEvent = timerTempSmartEvent;
+    else currentTimerEvent = timerTempEvent;
+    saveTimerProject(currentTimerMode, currentTimerEvent, timerSmartEvent);
+    timerHistoryData[getTimerHistoryKey()] ??= [];
     applyTimerMode();
+    syncTimerPracticeControls();
+    if (currentTimerMode !== 'smart' && (previousMode !== currentTimerMode || previousScrambleKey !== getTimerProjectScrambleKey())) {
+        restoreTimerProjectScramble();
+    }
     recalculateSessionStats(true);
     closeTimerEventPopup();
 }
@@ -4190,6 +4408,7 @@ function closeTimerEventPopup(e) {
 
     popup.classList.add('popup-fade-out');
     setTimeout(() => {
+        if (!popup.classList.contains('popup-fade-out')) return;
         popup.style.display = 'none';
         popup.classList.remove('popup-fade-out');
     }, 200);
@@ -4333,29 +4552,118 @@ function getScrambleZoom(eventId) {
     return zoomMap[eventId] || 1.0;
 }
 
+// Bencisco L3T: three U corners and six triangles are free. The other
+// pieces stay solved. These sequences generate the 1,440 distinct L3T states.
+// TCP uses the paired subset, in the grip with the unflipped triple at slot 0.
+// Piece indexing cross-checked against csTimer's FTO cubie model and L3T subset.
+function buildFtoPracticeScrambles() {
+    const generators = [
+        ["B L' B' L", [2, 0, 1], [1, 0, 1], [5, 0, 4, 2, 3, 1]],
+        ["L' B L B'", [1, 2, 0], [0, 1, 1], [1, 5, 3, 4, 2, 0]],
+        ["R B' R' B", [2, 0, 1], [0, 1, 1], [2, 3, 4, 5, 0, 1]],
+        ["B' R B R'", [1, 2, 0], [1, 1, 0], [4, 5, 0, 1, 2, 3]],
+        ["B L F L' B' L F' L'", [2, 0, 1], [0, 1, 1], [2, 1, 4, 3, 0, 5]],
+        ["L F L' B L F' L' B'", [1, 2, 0], [1, 1, 0], [4, 1, 0, 3, 2, 5]],
+        ["B L F' L B' L' F L'", [0, 1, 2], [0, 1, 1], [0, 4, 5, 2, 3, 1]],
+        ["L F' L B L' F L' B'", [0, 1, 2], [0, 1, 1], [0, 5, 3, 4, 1, 2]],
+        ["B L B' R B' R' B L'", [0, 1, 2], [0, 1, 1], [0, 4, 5, 3, 1, 2]],
+        ["L B' R B R' B L' B'", [0, 1, 2], [0, 1, 1], [0, 4, 5, 3, 1, 2]],
+        ["L R' L' R", [2, 0, 1], [1, 1, 0], [5, 3, 1, 2, 0, 4]],
+        ["R' L R L'", [1, 2, 0], [1, 0, 1], [4, 2, 3, 1, 5, 0]],
+        ["R B R' L R' L' R B'", [0, 1, 2], [1, 1, 0], [3, 4, 2, 0, 1, 5]],
+        ["B R' L R L' R B' R'", [0, 1, 2], [1, 1, 0], [3, 4, 2, 0, 1, 5]],
+        ["L R BR R' L' R BR' R'", [2, 0, 1], [1, 0, 1], [5, 0, 2, 3, 4, 1]],
+        ["R BR R' L R BR' R' L'", [1, 2, 0], [0, 1, 1], [1, 5, 2, 3, 4, 0]],
+        ["L R BR' R L' R' BR R'", [0, 1, 2], [1, 0, 1], [3, 1, 5, 2, 0, 4]],
+        ["R BR' R L R' BR R' L'", [0, 1, 2], [1, 0, 1], [4, 1, 3, 0, 5, 2]],
+        ["L R L' B L' B' L R'", [0, 1, 2], [1, 0, 1], [3, 1, 5, 0, 4, 2]],
+        ["R L' B L B' L R' L'", [0, 1, 2], [1, 0, 1], [3, 1, 5, 0, 4, 2]],
+        ["B' R' F R' B R F' R", [0, 1, 2], [0, 1, 1], [0, 4, 5, 1, 2, 3]],
+        ["R' F R' B' R F' R B", [0, 1, 2], [0, 1, 1], [0, 3, 4, 5, 1, 2]],
+        ["B' R' F' R B R' F R", [1, 2, 0], [0, 1, 1], [1, 5, 2, 3, 4, 0]],
+        ["R' F' R B' R' F R B", [2, 0, 1], [1, 0, 1], [5, 0, 2, 3, 4, 1]],
+        ["R' L' BL L' R L BL' L", [0, 1, 2], [1, 1, 0], [3, 4, 2, 1, 5, 0]],
+        ["L' BL L' R' L BL' L R", [0, 1, 2], [1, 1, 0], [5, 3, 2, 0, 1, 4]],
+        ["R' L' BL' L R L' BL L", [1, 2, 0], [1, 1, 0], [4, 1, 0, 3, 2, 5]],
+        ["L' BL' L R' L' BL L R", [2, 0, 1], [0, 1, 1], [2, 1, 4, 3, 0, 5]]
+    ];
+    const keyFor = ({ corners, flips, colors }) => corners.join('') + flips.join('') + colors.join('');
+    const solved = { corners: [0, 1, 2], flips: [0, 0, 0], colors: [0, 0, 0, 1, 2, 3], scramble: '' };
+    const states = [solved], seen = new Set([keyFor(solved)]);
+    const cases = { top: [], tcp: [] };
+    for (const state of states) {
+        for (const [alg, cornerSources, flipDelta, triangleSources] of generators) {
+            const next = {
+                corners: cornerSources.map(source => state.corners[source]),
+                flips: cornerSources.map((source, index) => state.flips[source] ^ flipDelta[index]),
+                colors: triangleSources.map(source => state.colors[source]),
+                scramble: state.scramble ? state.scramble + ' ' + alg : alg
+            };
+            const key = keyFor(next);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            states.push(next);
+            cases.top.push(next.scramble);
+            if (!next.flips[0] && !next.colors[0] && next.colors[1] && next.colors[2]) {
+                cases.tcp.push(next.scramble);
+            }
+        }
+    }
+    return cases;
+}
+
+let ftoPracticeScrambles;
+const lastFtoPracticeScramble = {};
+function getFtoPracticeScramble(mode) {
+    ftoPracticeScrambles ??= buildFtoPracticeScrambles();
+    const cases = ftoPracticeScrambles[mode];
+    const previous = lastFtoPracticeScramble[mode];
+    let index = Math.floor(Math.random() * (cases.length - (previous === undefined ? 0 : 1)));
+    if (index >= previous) index++;
+    lastFtoPracticeScramble[mode] = index;
+    return cases[index];
+}
+
 async function generateScramble() {
     closeNbDirectionalCards();
     if (timerState !== 'IDLE') return;
-    const request = ++timerScrambleRequest, event = currentTimerEvent;
+    const request = ++timerScrambleRequest, event = currentTimerEvent, key = getTimerHistoryKey(), scrambleKey = getTimerProjectScrambleKey();
     timerScrambleReady = false;
-    const text = document.getElementById('scramble-text');
+    const practice = getFtoPracticeProject(key);
     let scramble,batch;const relay=getTimerRelayEvents(event);
-    try{batch=relay?await Promise.all(relay.map(async event=>({event,scramble:await getScrambleByEvent(event)}))):[];scramble=relay?batch[0].scramble:await getScrambleByEvent(event);}catch(error){console.warn('打乱生成失败，保留上一条公式',error);return;}
-    if(request!==timerScrambleRequest||event!==currentTimerEvent)return;
+    try{batch=relay?await Promise.all(relay.map(async event=>({event,scramble:await getScrambleByEvent(event)}))):[];scramble=practice?getFtoPracticeScramble(key.slice(4)):relay?batch[0].scramble:await getScrambleByEvent(event);}catch(error){console.warn('打乱生成失败，保留上一条公式',error);return;}
+    if(request!==timerScrambleRequest||scrambleKey!==getTimerProjectScrambleKey())return;
     timerRelayScrambles=batch;timerRelayIndex=0;timerScrambleReady=true;
     renderTimerScramble(scramble,relay?relay[0]:event);
 }
+function getVisibleTimerScrambleMoves() {
+    const text = document.getElementById('scramble-text');
+    return (text.querySelector('.timer-scramble-moves') || text).innerText;
+}
+
 function renderTimerScramble(scramble,displayEvent){
     const relay=getTimerRelayEvents(currentTimerEvent);const navigation=document.getElementById('timer-relay-navigation');document.querySelector('#timer-tab-main .scramble-container').appendChild(navigation);navigation.hidden=!relay;
     if(relay){const current=document.getElementById('timer-relay-current'),icon=document.createElement('span'),name=document.createElement('span');icon.className='cubing-icon event-'+displayEvent;icon.setAttribute('aria-hidden','true');name.textContent=eventDict.find(e=>e.id===displayEvent)?.name||displayEvent;current.replaceChildren(icon,name);}
-    document.getElementById('scramble-text').innerHTML = scramble;
+    const text = document.getElementById('scramble-text');
+    const orientation = displayEvent === 'fto' ? getTimerFtoOrientation() : 'standard';
+    if (orientation === 'yellow-blue') {
+        const label = document.createElement('span');
+        label.className = 'timer-scramble-grip';
+        label.textContent = '黄顶蓝前：';
+        const moves = document.createElement('span');
+        moves.className = 'timer-scramble-moves';
+        moves.textContent = scramble;
+        text.replaceChildren(label, moves);
+    } else {
+        text.innerHTML = scramble;
+    }
     document.getElementById('timer-page').classList.toggle('long-scramble',
         ['555', '666', '777', 'minx'].includes(currentTimerEvent) || scramble.replace(/<[^>]*>/g, '').length > 260);
 
     // 同步更新右下角打乱图
     const displayEl = document.getElementById('timer-scramble-display');
     const unsupported=timerOtherEvents.some(e=>e.id===currentTimerEvent)&&!getTimerRelayEvents(currentTimerEvent);const panel=document.getElementById('timer-scramble-draw-panel');if(panel)panel.hidden=unsupported;
-    if(displayEl&&!unsupported)void updateTimerDiagram('timer-scramble-display',scramble,displayEvent);else timerDiagramJobs.get('timer-scramble-display')?.controller.abort();
+    if(displayEl&&!unsupported)void updateTimerDiagram('timer-scramble-display',getFtoDiagramScramble(scramble,orientation),displayEvent,orientation);else timerDiagramJobs.get('timer-scramble-display')?.controller.abort();
 }
 
 const timerDiagramJobs = new Map();
@@ -4363,14 +4671,35 @@ const timerDiagramJobs = new Map();
 async function waitForTimerDiagramValue(signal, read) {
     while (true) {
         signal.throwIfAborted();
-        const value = read();
+        const value = await read();
         if (value) return value;
         // The component can publish its scene wrapper without changing the DOM.
         await new Promise(resolve => setTimeout(resolve, 60));
     }
 }
 
-async function renderTimerDiagram(id, scramble, event, signal) {
+function fitFtoCanvasFrame(canvas, context) {
+    const drawImage = context.drawImage.bind(context);
+    context.drawImage = (source, ...args) => {
+        const destination = args.length === 8 ? 4 : 0;
+        if (args[destination] === 0 && args[destination + 1] === 0) {
+            args[destination + 2] = canvas.width;
+            args[destination + 3] = canvas.height;
+        }
+        drawImage(source, ...args);
+    };
+}
+
+async function orientFtoDiagram(player, model, orientation) {
+    if (orientation !== 'yellow-blue') return;
+    const { latitude, longitude } = await model.twistySceneModel.orbitCoordinates.get();
+    // Look from the opposite vertex, then roll the image so yellow is on top.
+    player.cameraLatitude = -latitude;
+    player.cameraLongitude = longitude + 180;
+    player.style.transform += ' rotate(180deg)';
+}
+
+async function renderTimerDiagram(id, scramble, event, signal, orientation) {
     await ensureTwistyPlayer();
     signal.throwIfAborted();
     const existing = document.getElementById(id);
@@ -4387,6 +4716,7 @@ async function renderTimerDiagram(id, scramble, event, signal) {
     player.timestamp = 'end';
     existing.replaceWith(player);
     const model = await waitForTimerDiagramValue(signal, () => player.experimentalModel);
+    if (event === 'fto') await orientFtoDiagram(player, model, orientation);
     const parsed = await model.puzzleAlg.get();
     signal.throwIfAborted();
     if (parsed.issues.errors.length) throw new Error('打乱内容无法绘图');
@@ -4396,9 +4726,21 @@ async function renderTimerDiagram(id, scramble, event, signal) {
         const puzzle = await player.experimentalCurrentThreeJSPuzzleObject();
         signal.throwIfAborted();
         puzzle.onPositionChange(position);
-        const vantages = Array.from(await player.experimentalCurrentVantages());
-        signal.throwIfAborted();
-        await Promise.all(vantages.map(vantage => vantage.render()));
+        const vantages = await waitForTimerDiagramValue(signal, async () => {
+            const views = Array.from(await player.experimentalCurrentVantages());
+            return views.length ? views : null;
+        });
+        await Promise.all(vantages.map(async vantage => {
+            const { canvas, context } = await vantage.canvasInfo();
+            signal.throwIfAborted();
+            // The pooled FTO renderer can copy a frame at its old pixel ratio after the
+            // browser changes zoom or device emulation. Fit that copy to this canvas.
+            if (context) fitFtoCanvasFrame(canvas, context);
+            if (player.offsetWidth && player.offsetHeight) {
+                await waitForTimerDiagramValue(signal, () => canvas.clientWidth && canvas.clientHeight);
+                await vantage.render();
+            }
+        }));
     } else {
         const scene = await waitForTimerDiagramValue(signal, () => player.contentWrapper?.querySelector('twisty-2d-scene-wrapper'));
         const wrapper = await waitForTimerDiagramValue(signal, () => scene.currentTwisty2DPuzzleWrapper?.());
@@ -4410,7 +4752,7 @@ async function renderTimerDiagram(id, scramble, event, signal) {
     return player;
 }
 
-async function updateTimerDiagram(id, scramble, event) {
+async function updateTimerDiagram(id, scramble, event, orientation) {
     timerDiagramJobs.get(id)?.controller.abort();
     const initial = document.getElementById(id);
     if (!initial) return;
@@ -4431,7 +4773,7 @@ async function updateTimerDiagram(id, scramble, event) {
     const spinner = document.createElement('span');
     spinner.className = 'timer-diagram-spinner';
     status.replaceChildren(spinner);
-    status.onclick = () => void updateTimerDiagram(id, scramble, event);
+    status.onclick = () => void updateTimerDiagram(id, scramble, event, orientation);
 
     for (let attempt = 0; attempt < 2 && !controller.signal.aborted; attempt++) {
         const attemptController = new AbortController();
@@ -4445,7 +4787,7 @@ async function updateTimerDiagram(id, scramble, event) {
                 signal.addEventListener('abort', abort, { once: true });
                 timeout = setTimeout(() => attemptController.abort(new Error('打乱图加载超时')), 18000);
             });
-            const player = await Promise.race([renderTimerDiagram(id, scramble, event, signal), interrupted]);
+            const player = await Promise.race([renderTimerDiagram(id, scramble, event, signal, orientation), interrupted]);
             signal.throwIfAborted();
             delete player.dataset.diagramPending;
             status.hidden = true;
@@ -6166,6 +6508,29 @@ function getCurrentMonthCloudRange(monthKey = getCurrentMonthKey()) {
     return { start: start.toISOString(), end: end.toISOString() };
 }
 
+function getMonthlyRankingWeeks(monthKey) {
+    const first = new Date(monthKey + '-01T00:00:00Z');
+    const end = Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 1);
+    const day = 86400000;
+    const monday = first.getTime() - ((first.getUTCDay() + 6) % 7) * day;
+    const dateKey = time => new Date(time).toISOString().slice(0, 10);
+    const shortDate = time => dateKey(time).slice(5).replace('-', '.');
+    const weeks = [];
+    for (let start = monday; start < end; start += 7 * day) {
+        const range = shortDate(start) + ' - ' + shortDate(start + 6 * day);
+        weeks.push({key: dateKey(start), end: dateKey(start + 7 * day), range});
+    }
+    return weeks;
+}
+
+function getMonthlyLeaderboardRange(monthKey) {
+    const weeks = getMonthlyRankingWeeks(monthKey);
+    return {
+        start: new Date(weeks[0].key + 'T00:00:00+08:00').toISOString(),
+        end: new Date(weeks.at(-1).end + 'T00:00:00+08:00').toISOString()
+    };
+}
+
 function getCurrentWeekKey() {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -6179,11 +6544,7 @@ function getCurrentWeekKey() {
 function getCurrentWeekCloudRange() {
     const monday = new Date(`${getCurrentWeekKey()}T00:00:00+08:00`);
     const nextMonday = new Date(monday.getTime() + 7 * 86400000);
-    const month = getCurrentMonthCloudRange();
-    return {
-        start: new Date(Math.max(monday.getTime(), Date.parse(month.start))).toISOString(),
-        end: new Date(Math.min(nextMonday.getTime(), Date.parse(month.end))).toISOString()
-    };
+    return { start: monday.toISOString(), end: nextMonday.toISOString() };
 }
 
 function getEventFormat(evId) {
@@ -6226,8 +6587,12 @@ function markMonthlyParticipated(eventId, attemptsArr) {
 
 async function ensureMonthlyScrambles(eventId) {
     const week = getCurrentWeekKey();
-    const key = 'monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + week;
-    let cached = localStorage.getItem(key);
+    const key = 'monthlyScrambles_week_' + week;
+    const lastMonth = week.slice(0, 7);
+    const cached = localStorage.getItem(key) ||
+        localStorage.getItem('monthlyScrambles_v2_' + lastMonth + '_' + week) ||
+        localStorage.getItem('monthlyScrambles_v2_' + getCurrentMonthKey() + '_' + week);
+    if (cached && !localStorage.getItem(key)) localStorage.setItem(key, cached);
     const generated = cached ? JSON.parse(cached) : {};
     if (eventId && !generated[eventId]) {
         generated[eventId] = await Promise.all(Array.from({length:getEventFormat(eventId).count}, () => getScrambleByEvent(eventId)));
@@ -6353,6 +6718,16 @@ function formatMonthlyDateRange(monthKey) {
     return `${month}.01 - ${month}.${lastDay}`;
 }
 
+let monthlyLobbyRequest;
+function loadMonthlyLobby(monthKey) {
+    if (monthlyLobbyRequest?.monthKey === monthKey && Date.now() < monthlyLobbyRequest.expires) return monthlyLobbyRequest.promise;
+    const range = getMonthlyLeaderboardRange(monthKey);
+    const promise = monthlyCloudRequest(ensureSupabaseClient().then(client => client.from('WeeklyRecord')
+        .select('event_id, wca_id, username, raw_ms').gte('created_at', range.start).lt('created_at', range.end)));
+    monthlyLobbyRequest = { monthKey, expires: Date.now() + 15000, promise };
+    return promise;
+}
+
 async function renderMonthlyList() {
     const monthKey = getCurrentMonthKey();
     document.getElementById('monthly-date-range').innerText = formatMonthlyDateRange(monthKey);
@@ -6376,9 +6751,8 @@ async function renderMonthlyList() {
         let btnAction = `event.stopPropagation(); openMonthlyEntry('${ev.id}', '${cnName}')`;
         let resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">参加</button>`;
 
-        if (attemptsData) {
-            let res = processMonthlyResults(attemptsData, ev.id);
-            btnAction = `event.stopPropagation(); alert('本月该项目已经参加过，不能再次参加。')`;
+        if (attemptsData || bestAttempts) {
+            const res = processMonthlyResults(bestAttempts || attemptsData, ev.id);
 
             resultHtml = `
                 <div class="monthly-event-result">
@@ -6386,14 +6760,11 @@ async function renderMonthlyList() {
                     <div class="monthly-event-details">${res.detailsStr}</div>
                 </div>
             `;
-        } else if (bestAttempts) {
-            const best = processMonthlyResults(bestAttempts, ev.id);
-            resultHtml = `<button class="btn btn-outline monthly-btn" onclick="${btnAction}">本周参加</button>
-                <span style="font-size: 12px; color: var(--text-muted);">本月最佳 ${best.avgDisp}</span>`;
         }
 
         let row = document.createElement('div');
-        row.className = attemptsData ? 'monthly-event-row monthly-event-completed' : 'monthly-event-row';
+        row.dataset.monthlyEvent = ev.id;
+        row.className = attemptsData || bestAttempts ? 'monthly-event-row monthly-event-completed' : 'monthly-event-row';
         row.style.cursor = 'pointer';
         row.onclick = () => { openMonthlyRanking(ev.id, cnName, monthKey); };
 
@@ -6411,12 +6782,8 @@ async function renderMonthlyList() {
 
     // 第二步：后台静默拉取云端数据，不阻塞页面交互
     try {
-        const monthRange = getCurrentMonthCloudRange(monthKey);
-        const { data, error } = await monthlyCloudRequest(
-            ensureSupabaseClient().then(client => client.from('WeeklyRecord').select('event_id, wca_id, username, raw_ms')
-                .gte('created_at', monthRange.start)
-                .lt('created_at', monthRange.end))
-        );
+        if (navigator.onLine === false) throw new Error('当前离线');
+        const { data, error } = await loadMonthlyLobby(monthKey);
         if (error) throw error;
         if (data) {
             let eventLeaderboards = {};
@@ -6509,10 +6876,17 @@ async function openMonthlyRanking(evId, cnName, monthKey = getCurrentMonthKey())
 
     list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;"><div class="spinner" style="margin: 0 auto 15px auto; width: 30px; height: 30px; border-width: 3px;"></div>载入中...</div>';
     navigateTo('monthly-ranking-page', true);
+    setMonthlyRankingEntry(evId, cnName, monthKey);
 
     let cloudData;
     try {
-        cloudData = await fetchWeeklyLeaderboard(evId, monthKey);
+        const leaderboard = await fetchWeeklyLeaderboard(evId, monthKey);
+        cloudData = leaderboard.rows;
+        if (leaderboard.cachedAt) {
+            const time = new Date(leaderboard.cachedAt).toLocaleString('zh-CN');
+            document.getElementById('monthly-ranking-date-range').textContent =
+                formatMonthlyDateRange(monthKey) + ' · 榜单缓存于 ' + time;
+        }
     } catch (error) {
         console.warn('月赛排行榜加载失败', error);
         list.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px;">月赛云端数据暂不可用，请稍后重试</div>';
@@ -6520,8 +6894,8 @@ async function openMonthlyRanking(evId, cnName, monthKey = getCurrentMonthKey())
     }
     let allEntries = [];
 
-    // 把本地的最新的这一组成绩也临时加进来一起比对
-    let attemptsData = getMonthlyBestAttempts(evId);
+    // 补入这个榜单所覆盖周次的个人最佳成绩。
+    let attemptsData = getMonthlyBestAttempts(evId, monthKey);
     if (attemptsData) {
         let res = processMonthlyResults(attemptsData, evId);
         allEntries.push({
@@ -6563,31 +6937,31 @@ async function openMonthlyRanking(evId, cnName, monthKey = getCurrentMonthKey())
 
     finalEntries.forEach((entry, index) => {
         let row = document.createElement('div');
-        row.className = 'monthly-event-row';
+        row.className = 'monthly-event-row monthly-ranking-row';
         row.style.cursor = 'default';
 
-        let finalTimeDisp = entry.raw_ms >= 99999999 ? 'DNF' : formatTimerOutput(entry.raw_ms);
-
-        // 核心新增：无痕点击跳转交互判定
-        let clickStyle = entry.wca_id ? 'cursor: pointer;' : '';
-        let clickAction = entry.wca_id ? `onclick="handleMonthlyRankingClick('${entry.wca_id}')"` : '';
-
-        let userDisplay = entry.wca_id
-            ? `${entry.username}<br><span style="font-size:12px; color:var(--text-muted); font-weight:normal;">${entry.wca_id}</span>`
-            : `${entry.username}`;
-
         row.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 18px; font-weight: bold; color: var(--text-muted); width: 24px; text-align: center;">${index + 1}</span>
-                <div style="font-size: 15px; font-weight: bold; color: var(--text-main); line-height: 1.3; ${clickStyle}" ${clickAction}>
-                    ${userDisplay}
-                </div>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3;">
-                <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${finalTimeDisp}</div>
-                <div style="font-size: 13px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px;">${entry.details}</div>
+            <span class="monthly-ranking-place"></span>
+            <div class="monthly-ranking-person"></div>
+            <div class="monthly-event-result">
+                <div class="monthly-event-average"></div>
+                <div class="monthly-event-details"></div>
             </div>
         `;
+        row.querySelector('.monthly-ranking-place').textContent = index + 1;
+        const person = row.querySelector('.monthly-ranking-person');
+        person.textContent = entry.username;
+        if (entry.wca_id) {
+            const wcaId = document.createElement('span');
+            wcaId.className = 'monthly-ranking-wca-id';
+            wcaId.textContent = entry.wca_id;
+            person.append(document.createElement('br'), wcaId);
+            person.style.cursor = 'pointer';
+            person.onclick = () => handleMonthlyRankingClick(entry.wca_id);
+        }
+        row.querySelector('.monthly-event-average').textContent =
+            entry.raw_ms >= 99999999 ? 'DNF' : formatTimerOutput(entry.raw_ms);
+        row.querySelector('.monthly-event-details').textContent = entry.details;
         list.appendChild(row);
     });
 }
@@ -7186,6 +7560,7 @@ function confirmNbManual() {
         rawMs: rawMs,
         penalty: currentNbManualPenalty,
         timestamp: getNowFormatted(),
+        ftoOrientation: getTimerFtoOrientation() === 'yellow-blue' ? 'yellow-blue' : undefined,
         scramble: currentTimerMode === 'smart' ? '' : getTimerAttemptScramble()
     });
 
@@ -7317,7 +7692,12 @@ async function uploadWeeklyResult(wcaId, username, eventId, rawMs, details) {
 
 // 2. 从全网拉取排行榜
 async function fetchWeeklyLeaderboard(eventId, monthKey = getCurrentMonthKey()) {
-    const monthRange = getCurrentMonthCloudRange(monthKey);
+    const cacheKey = monthKey + ':' + eventId;
+    let cache = {};
+    try { cache = JSON.parse(localStorage.getItem('nbMonthlyFullWeekRankCache') || '{}'); } catch {}
+    if (navigator.onLine === false && cache[cacheKey]) return {rows:cache[cacheKey].rows,cachedAt:cache[cacheKey].savedAt};
+    try {
+    const monthRange = getMonthlyLeaderboardRange(monthKey);
     const { data, error } = await monthlyCloudRequest(ensureSupabaseClient().then(client => client
         .from('WeeklyRecord')
         .select('*')
@@ -7330,7 +7710,14 @@ async function fetchWeeklyLeaderboard(eventId, monthKey = getCurrentMonthKey()) 
         console.error('拉取排行榜失败：', error);
         throw error;
     }
-    return data;
+    delete cache[cacheKey];
+    cache[cacheKey] = { rows: data, savedAt: Date.now() };
+    try { localStorage.setItem('nbMonthlyFullWeekRankCache', JSON.stringify(Object.fromEntries(Object.entries(cache).slice(-6)))); } catch {}
+    return {rows:data};
+    } catch (error) {
+        if (cache[cacheKey]) return {rows:cache[cacheKey].rows,cachedAt:cache[cacheKey].savedAt};
+        throw error;
+    }
 }
 
 // =========================================
@@ -10068,7 +10455,7 @@ async function adaptTimerTextToBackground() {
 function resetTimerTextContrast(){delete uiSettings.timerFontBeforeAdapt;delete uiSettings.timerFontColor;syncTimerFontColor();++timerContrastTask;document.getElementById('timer-page').classList.remove('timer-auto-contrast');document.getElementById('timer-page').style.removeProperty('--timer-contrast-overlay');delete uiSettings.timerAutoContrast;syncTimerContrastButton();queueTimerOptionSave();}
 
 function saveTimerProject(mode,event,smartEvent) {
- try{localStorage.setItem('nbTimerLastProject',JSON.stringify({mode,event,smartEvent}));}catch(e){}
+ try{localStorage.setItem('nbTimerLastProject',JSON.stringify({mode,event,smartEvent,ftoPractice,ftoOrientations}));}catch(e){}
 }
 function restoreTimerProject() {
  try{
@@ -10076,7 +10463,10 @@ function restoreTimerProject() {
  if(!['wca','normal','other','smart'].includes(saved.mode))return;
  const valid=eventDict.some(e=>e.id===saved.event)||timerOtherEvents.some(e=>e.id===saved.event);
  if(!valid)return;
- currentTimerEvent=saved.event;currentTimerMode=saved.mode;
+ currentTimerEvent=saved.event;currentTimerMode=saved.mode==='normal'?'wca':saved.mode;
+ ftoPractice=Object.hasOwn(ftoPracticeLabels,saved.ftoPractice)?saved.ftoPractice:'standard';
+ ftoOrientations={...defaultFtoOrientations};
+ for(const mode of Object.keys(ftoOrientations)){const value=saved.ftoOrientations?.[mode];if(value==='standard'||value==='yellow-blue')ftoOrientations[mode]=value;}
  if(['222','333'].includes(saved.smartEvent))timerSmartEvent=saved.smartEvent;
  }catch(e){}
 }
@@ -10295,7 +10685,7 @@ function setInspectionVoiceRate(value){const rate=Number(value);if(!Number.isFin
 })();
 
 // Capture keyboard input while the project picker owns timer interaction.
-document.addEventListener('keydown',event=>{const popup=document.getElementById('timer-event-popup');if(popup?.style.display!=='flex'||event.target.closest?.('.global-nav-header'))return;if(event.key==='Escape'){closeTimerEventPopup();event.preventDefault();event.stopImmediatePropagation();}else if(!popup.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();}},true);
+document.addEventListener('keydown',event=>{const popup=document.getElementById('timer-event-popup');if(popup?.style.display!=='flex'||event.target.closest?.('.global-nav-header'))return;if(event.key==='Escape'){if(!document.getElementById('timer-practice-panel').hidden){void closeTimerPracticePanel();}else closeTimerEventPopup();event.preventDefault();event.stopImmediatePropagation();}else if(!popup.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();}},true);
 
 
 let directoryWorker=null,directoryPage=0,directoryPages=1,directorySequence=0,directoryCountries=[];

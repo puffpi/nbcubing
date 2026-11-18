@@ -1,6 +1,6 @@
 {
-  "versionCode": 53,
-  "versionName": "1.70.0",
+  "versionCode": 54,
+  "versionName": "1.71.0",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "NB Timer 新增蓝牙拍表、本组统计、可选 PB 行和 JSON 成绩备份，并优化手机、平板的列表与打乱图。NB Challenge 支持用箭头切换打乱。"
+  "notes": "NB Timer 新增 FTO 顶层及 TCP 练习、独立成绩和黄顶蓝前朝向。巅峰月赛支持每周参赛、跨月周次与断网续赛补传，并优化首页和平板布局。"
 }

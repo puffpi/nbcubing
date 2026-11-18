@@ -51,15 +51,30 @@ async function refreshAccountOnce(revision) {
     if(user && !user.is_anonymous) {
         const result=await client.from('account_profiles').select('user_id,wca_id,nickname,email').eq('user_id',user.id).maybeSingle();if(result.error)throw result.error;
         profile=result.data;
-        if(profile){const result=await client.from('account_monthly_entries').select('*').eq('month_key',getCurrentMonthKey());if(result.error)throw result.error;records=result.data || [];}
+        if(profile){const range=getMonthlyLeaderboardRange(getCurrentMonthKey());const result=await client.from('account_monthly_entries').select('*').gte('created_at',range.start).lt('created_at',range.end).order('created_at',{ascending:false});if(result.error)throw result.error;records=result.data || [];}
     }
     if(sequence!==accountRefreshSequence || revision!==accountIdentityRevision)return accountProfile;
-    accountProfile=profile;accountMonthly=new Map(records.map(r=>[r.event_id,r]));
+    accountProfile=profile;
+    accountMonthly=new Map(records.map(row=>[row.event_id + ':' + monthlyEntryWeek(row),row]));
+    try {
+        const store=readMonthlyOffline();
+        store.owner=profile?.user_id || null;
+        for (const [id, row] of Object.entries(store.entries)) {
+            if (row.month_key && !getMonthlyRankingWeeks(getCurrentMonthKey()).some(week=>week.key===monthlyEntryWeek(row)) && !row.pending?.length) delete store.entries[id];
+        }
+        for (const row of records) {
+            if (row.status === 'started' && !store.entries[row.id]?.pending?.length) {
+                store.entries[row.id] = {...row, week_key: monthlyEntryWeek(row), pending: []};
+            }
+        }
+        saveMonthlyOffline(store);
+    } catch (error) { console.warn('月赛离线身份保存失败',error); }
     if(profile) {
         uiSettings.username=profile.nickname;uiSettings.wcaId=profile.wca_id;saveTimerData();
         const name=accountEl('setting-username'),wca=accountEl('setting-wcaid');if(name)name.value=profile.nickname;if(wca)wca.textContent=profile.wca_id;
         localStorage.removeItem('forumGuestName');
     }
+    renderMonthlyRankingEntry();
     accountEl('account-nav-entry').textContent=profile?'我的账号':'登录';
     accountEl('account-signed-in').hidden=!profile;accountEl('account-login-form').hidden=!!profile;
     
@@ -121,6 +136,7 @@ async function submitAccountForm(event) {
 async function accountSignOut(){
     if(accountSaveBusy || monthlyTimerState==='RUNNING'){alert('请先完成当前计时及成绩保存。');return;}
     const client=await accountClient();const result=await client.auth.signOut();if(result.error){accountEl('account-status').textContent=accountError(result.error);return;}
+    const store=readMonthlyOffline();store.owner=null;try{saveMonthlyOffline(store);}catch{}
     accountProfile=null;accountMonthly.clear();accountActiveEntry=null;forumUser=null;forumAdmin=false;
     uiSettings.username='';uiSettings.wcaId='';saveTimerData();await refreshAccount();accountEl('account-status').textContent='已退出登录。';
 }
@@ -131,21 +147,222 @@ async function updateAccountNickname(value){
 }
 
 // Local settings are a view of authenticated records, not a source of eligibility.
-getMonthlyAttempts=function(eventId){const row=accountMonthly.get(eventId);return row?.month_key===getCurrentMonthKey() && row.status==='completed'?row.attempts:null;};
-getMonthlyBestAttempts=function(eventId){return getMonthlyAttempts(eventId);};
+const monthlyOfflineStorage = 'nbMonthlyOffline';
+let monthlyOfflineSync = null;
+function readMonthlyOffline() {
+    try { return JSON.parse(localStorage.getItem(monthlyOfflineStorage)) || { owner: null, entries: {} }; }
+    catch { return { owner: null, entries: {} }; }
+}
+function saveMonthlyOffline(store) {
+    localStorage.setItem(monthlyOfflineStorage, JSON.stringify(store));
+}
+function saveMonthlyOfflineEntry(row) {
+    const store = readMonthlyOffline();
+    store.entries[row.id] = row;
+    saveMonthlyOffline(store);
+}
+function currentMonthlyAccountEntry(eventId) {
+    return accountMonthly.get(eventId + ':' + getCurrentWeekKey());
+}
+function cachedMonthlyEntry(eventId) {
+    const store = readMonthlyOffline();
+    return Object.values(store.entries).find(row => store.owner && row.user_id === store.owner &&
+        row.event_id === eventId && row.week_key === getCurrentWeekKey());
+}
+getMonthlyAttempts=function(eventId){const row=currentMonthlyAccountEntry(eventId) || cachedMonthlyEntry(eventId);return row?.status==='completed'?row.attempts:null;};
+getMonthlyBestAttempts=function(eventId, monthKey=getCurrentMonthKey()){
+    let best = null;
+    const weekKeys = new Set(getMonthlyRankingWeeks(monthKey).map(week => week.key));
+    for (const row of accountMonthly.values()) {
+        if (row.event_id !== eventId || !weekKeys.has(monthlyEntryWeek(row)) || row.status !== 'completed') continue;
+        if (!best || processMonthlyResults(row.attempts,eventId).sortAvgMs < processMonthlyResults(best,eventId).sortAvgMs) best = row.attempts;
+    }
+    return best;
+};
+let monthlyRankingEntry;
+function setMonthlyRankingEntry(eventId, name, monthKey) {
+    monthlyRankingEntry = {eventId, name, monthKey};
+    toggleMonthlyRankingWeeks(null, false);
+    renderMonthlyRankingEntry();
+}
+
+function toggleMonthlyRankingWeeks(event, expanded) {
+    if (event?.target.closest('#monthly-ranking-entry-action')) return;
+    const toggle = accountEl('monthly-ranking-entry-title');
+    const open = expanded ?? toggle.getAttribute('aria-expanded') !== 'true';
+    if (toggle.getAttribute('aria-expanded') !== String(open)) {
+        const arrow = toggle.querySelector('svg');
+        const turns = Number(arrow.dataset.halfTurns || 0) + 1;
+        arrow.dataset.halfTurns = String(turns);
+        arrow.style.transform = 'rotate(' + (-180 * turns) + 'deg)';
+    }
+    toggle.setAttribute('aria-expanded', String(open));
+    accountEl('monthly-ranking-weeks').inert = !open;
+}
+
+function renderMonthlyRankingWeeks(eventId, monthKey) {
+    const store = readMonthlyOffline();
+    const entries = [...accountMonthly.values(), ...Object.values(store.entries).filter(row => store.owner && row.user_id === store.owner)];
+    const currentWeek = getCurrentWeekKey();
+    const weeks = getMonthlyRankingWeeks(monthKey);
+    const week = weeks.find(item => item.key === currentWeek);
+    accountEl('monthly-ranking-entry-dates').textContent = week ? '(' + week.range + ')' : '';
+    accountEl('monthly-ranking-week-list').replaceChildren(...weeks.map(({key, range}, index) => {
+        const candidates = entries.filter(row => row.event_id === eventId && monthlyEntryWeek(row) === key);
+        const completed = candidates.find(row => row.status === 'completed');
+        const queued = candidates.find(row => row.pending?.length && row.attempts.length + row.pending.length >= row.attempt_count);
+        const row = document.createElement('div');
+        row.className = 'monthly-event-row monthly-ranking-week';
+        const label = document.createElement('div');
+        label.className = 'monthly-ranking-week-label';
+        label.textContent = '第 ' + (index + 1) + ' 周';
+        const dates = document.createElement('span');
+        dates.className = 'monthly-date-range';
+        dates.textContent = range;
+        label.append(dates);
+        const value = document.createElement('div');
+        value.className = 'monthly-event-result';
+        if (completed || queued) {
+            const attempts = completed?.attempts || [...queued.attempts, ...queued.pending];
+            const result = processMonthlyResults(attempts, eventId);
+            const average = document.createElement('div');
+            average.className = 'monthly-event-average';
+            average.textContent = result.avgDisp;
+            const details = document.createElement('div');
+            details.className = 'monthly-event-details';
+            details.textContent = result.detailsStr;
+            value.append(average, details);
+        } else {
+            const status = key < currentWeek ? 'absent' : key === currentWeek ? 'active' : 'upcoming';
+            const badge = document.createElement('span');
+            badge.className = 'comp-status-tag status-' + status;
+            badge.textContent = {absent:'未参赛', active:'进行中', upcoming:'未开始'}[status];
+            value.append(badge);
+        }
+        row.append(label, value);
+        return row;
+    }));
+}
+
+function renderMonthlyRankingEntry() {
+    if (!monthlyRankingEntry) return;
+    const {eventId, name, monthKey} = monthlyRankingEntry;
+    const card = accountEl('monthly-ranking-entry');
+    card.hidden = monthKey !== getCurrentMonthKey();
+    if (card.hidden) return;
+
+    const action = accountEl('monthly-ranking-entry-action');
+    const cached = cachedMonthlyEntry(eventId);
+    const confirmed = currentMonthlyAccountEntry(eventId);
+    const row = cached?.pending?.length ? cached : confirmed || cached;
+    const completedCount = (row?.attempts?.length || 0) + (row?.pending?.length || 0);
+    const previousUnderMonthlyRule = !row && [...accountMonthly.values()].some(entry =>
+        entry.event_id === eventId && entry.month_key === monthKey && !entry.week_key);
+    action.classList.remove('monthly-entry-completed');
+    action.textContent = '参加';
+    action.title = '';
+    action.onclick = () => openMonthlyEntry(eventId, name);
+
+    if (row?.pending?.length && completedCount >= row.attempt_count) {
+        action.textContent = '补传成绩';
+        action.disabled = navigator.onLine === false;
+        action.onclick = async () => {
+            action.disabled = true;
+            await flushMonthlyOffline();
+            renderMonthlyRankingEntry();
+        };
+    } else {
+        action.disabled = false;
+        if (row?.status === 'completed') {
+            action.textContent = '已完成';
+            action.disabled = true;
+            action.classList.add('monthly-entry-completed');
+        } else if (row?.status === 'started') {
+            action.textContent = '继续参赛';
+        } else if (previousUnderMonthlyRule) {
+            action.disabled = true;
+            action.title = '每周再参赛暂未开放';
+        } else if (navigator.onLine === false) {
+            action.title = '联网后可开启本周轮次';
+            action.disabled = true;
+        }
+    }
+    renderMonthlyRankingWeeks(eventId, monthKey);
+}
+window.addEventListener('online', renderMonthlyRankingEntry);
+window.addEventListener('offline', renderMonthlyRankingEntry);
+
+function monthlyEntryWeek(row) {
+    if (row.week_key) return row.week_key;
+    const date = new Date(new Date(row.created_at).getTime() + 8 * 3600000);
+    date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+    return date.toISOString().slice(0, 10);
+}
+function storeMonthlyAccountEntry(row) {
+    accountMonthly.set(row.event_id + ':' + monthlyEntryWeek(row), row);
+}
+async function flushMonthlyOffline() {
+    if (monthlyOfflineSync || navigator.onLine === false) return monthlyOfflineSync;
+    const store = readMonthlyOffline(), owner = store.owner;
+    if (!owner || !Object.values(store.entries).some(row => row.user_id === owner && row.pending?.length)) return;
+    monthlyOfflineSync = (async () => {
+        const client = await monthlyCloudRequest(accountClient());
+        const {data, error} = await monthlyCloudRequest(accountSession(client));
+        if (error || data.session?.user?.id !== owner) return;
+        let changed = false;
+        for (const id of Object.keys(store.entries)) {
+            for (;;) {
+                const latest = readMonthlyOffline();
+                const row = latest.entries[id];
+                if (latest.owner !== owner || row?.user_id !== owner || !row.pending?.length) break;
+                const [attempt] = row.pending;
+                const result = await monthlyCloudRequest(client.rpc('account_monthly_append',
+                    {p_entry: id, p_index: row.attempts.length, p_attempt: attempt}));
+                if (result.error?.code === 'P0001') {
+                    console.warn('月赛上传发生跨设备冲突，原记录仍保存在本机', result.error);
+                    break;
+                }
+                if (result.error) throw result.error;
+                const updated = readMonthlyOffline();
+                const current = updated.entries[id];
+                if (!current || current.attempts.length !== row.attempts.length) continue;
+                updated.entries[id] = {...result.data, week_key: monthlyEntryWeek(result.data), pending: current.pending.slice(1)};
+                saveMonthlyOffline(updated);
+                if (readMonthlyOffline().owner === owner) storeMonthlyAccountEntry(result.data);
+                changed = true;
+            }
+        }
+        if (changed) {
+            monthlyLobbyRequest = null;
+            renderMonthlyRankingEntry();
+            if (accountEl('monthly-page').classList.contains('active')) void renderMonthlyList();
+        }
+    })().catch(error => console.warn('月赛待上传成绩已留在本机', error)).finally(() => { monthlyOfflineSync = null; });
+    return monthlyOfflineSync;
+}
+window.addEventListener('online', () => void flushMonthlyOffline());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void flushMonthlyOffline(); });
 markMonthlyParticipated=function(){/* Completion is committed by the database RPC. */};
 syncMonthlyResultToCloud=function(){/* RPC commits the leaderboard with the last attempt. */};
 uploadWeeklyResult=async function(){throw new Error('月赛成绩只能通过已登录账号逐次提交。');};
 const accountOriginalMonthlyList=renderMonthlyList;
 renderMonthlyList=async function(){
     const rendering=accountOriginalMonthlyList();
-    for(const [event,row] of accountMonthly)if(row.status==='started' && row.month_key===getCurrentMonthKey()){
-        const button=document.querySelector(`#monthly-event-list .event-${event}`)?.closest('.monthly-event-row')?.querySelector('button');if(button)button.textContent='继续';
+    for (const row of accountEl('monthly-event-list').querySelectorAll('[data-monthly-event]')) {
+        const event = row.dataset.monthlyEvent;
+        const cached = cachedMonthlyEntry(event);
+        const button = row.querySelector('button');
+        if (!button) continue;
+        if (cached?.pending?.length && cached.attempts.length + cached.pending.length >= cached.attempt_count) {
+            button.textContent = '待上传';
+            button.onclick = click => { click.stopPropagation(); void flushMonthlyOffline(); };
+        } else if (currentMonthlyAccountEntry(event)?.status === 'started' || cached?.status === 'started') {
+            button.textContent = '继续';
+        }
     }
     await rendering;
 };
 
-let monthlyPageLoading=false;
 function setMonthlyEntryLoading(loading, message = '') {
     const card = accountEl('monthly-entry-modal').querySelector('.monthly-entry-card');
     const status = card.querySelector('.monthly-entry-loading');
@@ -158,28 +375,16 @@ function setMonthlyEntryLoading(loading, message = '') {
     dismiss.hidden = !message;
     if (message) dismiss.focus();
 }
-initMonthly=async function(){
-    if(monthlyPageLoading)return;
-    monthlyPageLoading=true;
-    const loader=accountEl('monthly-page-loading');
-    if(!loader.hasChildNodes()){
-        loader.append(...Array.from(accountEl('global-loading').children, child=>child.cloneNode(true)));
-    }
-    loader.hidden=false;
-    const previousEntries=JSON.stringify([...accountMonthly]);
-    const render=()=>renderMonthlyList().catch(error=>console.warn('月赛统计更新失败',error));
-    try{
-        navigateTo('monthly-page');
-        void render();
-        ensureTwistyPlayer().catch(console.warn);
-        void refreshAccount().then(()=>{
-            if(accountEl('monthly-page').classList.contains('active') && previousEntries!==JSON.stringify([...accountMonthly]))void render();
-        }).catch(error=>console.warn('月赛账号状态暂不可用',error));
-        await new Promise(resolve=>setTimeout(resolve,1250));
-    }finally{
-        monthlyPageLoading=false;
-        loader.hidden=true;
-    }
+initMonthly=function(){
+    navigateTo('monthly-page');
+    void renderMonthlyList();
+    if (navigator.onLine === false) return;
+    const previous = JSON.stringify([...accountMonthly]);
+    void refreshAccount().then(()=>{
+        if (previous !== JSON.stringify([...accountMonthly]) && accountEl('monthly-page').classList.contains('active')) void renderMonthlyList();
+        void flushMonthlyOffline();
+    }).catch(error=>console.warn('月赛账号状态暂不可用',error));
+    void flushMonthlyOffline();
 };
 function openMonthlyAccountModal(after=initMonthly,allowGuest=false,mode='login'){
     if(forumModalBusy)return;
@@ -210,14 +415,14 @@ openMonthlyEntry=async function(evId,cnName){
     modal.style.display = 'flex';
     setMonthlyEntryLoading(true);
     try {
-        await monthlyCloudRequest(refreshAccount());
-        if (!accountProfile) {
+        if (!cachedMonthlyEntry(evId)) await monthlyCloudRequest(refreshAccount());
+        if (!accountProfile && !cachedMonthlyEntry(evId)) {
             closeMonthlyEntry();
             openMonthlyAccountModal();
             return;
         }
         if (getMonthlyAttempts(evId)) {
-            setMonthlyEntryLoading(false, '本月该项目已参加，不能再次参加。');
+            setMonthlyEntryLoading(false, '本周该项目已参加，下周可再次参赛。');
             return;
         }
         currentMonthlyEventTarget = evId;
@@ -232,22 +437,26 @@ openMonthlyEntry=async function(evId,cnName){
 confirmMonthlyEntry=async function(){
     if(accountSaveBusy || monthlyEntryChecking)return;accountSaveBusy=true;setMonthlyEntryLoading(true);
     try{
-        const client = await monthlyCloudRequest(accountClient());
-        const existing = accountMonthly.get(currentMonthlyEventTarget);
-        const scrambles = existing?.status === 'started' && existing.month_key === getCurrentMonthKey()
-            ? existing.scrambles
-            : (await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
-        const {data,error}=await monthlyCloudRequest(client.rpc('account_monthly_start',{p_event:currentMonthlyEventTarget,p_scrambles:scrambles}));if(error)throw error;
-        accountMonthly.set(data.event_id,data);
-        if (data.status === 'completed') {
-            setMonthlyEntryLoading(false, '本月该项目已完成，不能再次参加。');
-            renderMonthlyList();
+        const cached = cachedMonthlyEntry(currentMonthlyEventTarget);
+        let data = cached;
+        if (!data) {
+            const client = await monthlyCloudRequest(accountClient());
+            const existing = currentMonthlyAccountEntry(currentMonthlyEventTarget);
+            const scrambles = existing?.status === 'started'
+                ? existing.scrambles
+                : (await ensureMonthlyScrambles(currentMonthlyEventTarget))[currentMonthlyEventTarget];
+            const result=await monthlyCloudRequest(client.rpc('account_monthly_start',{p_event:currentMonthlyEventTarget,p_scrambles:scrambles}));
+            if(result.error)throw result.error;
+            data = {...result.data, week_key: monthlyEntryWeek(result.data), pending: []};
+            storeMonthlyAccountEntry(data);
+            if (data.status === 'started') saveMonthlyOfflineEntry(data);
+        }
+        if (data.attempts.length + (data.pending?.length || 0) >= data.attempt_count) {
+            void flushMonthlyOffline();
+            setMonthlyEntryLoading(false, data.pending?.length ? '本周成绩已保存在本机，等待上传。' : '本周该项目已完成。');
             return;
         }
-        accountActiveEntry=data;monthlyAttempts=[...data.attempts];monthlyHasFinished=false;monthlyTimerState='IDLE';
-        accountEl('monthly-timer-display').textContent='0.00';accountEl('monthly-timer-display').className='timer-display';
-        accountEl('monthly-timer-title').textContent=`巅峰月赛 - ${currentMonthlyEventName}`;accountEl('monthly-event-watermark').className=`cubing-icon event-${currentMonthlyEventTarget}`;
-        renderMonthlyAttemptsList();renderMonthlyScramble(monthlyAttempts.length);navigateTo('monthly-timer-page',true);
+        enterMonthlyRound(data);
         closeMonthlyEntry();
         setMonthlyEntryLoading(false);
     } catch (error) {
@@ -256,6 +465,19 @@ confirmMonthlyEntry=async function(){
         accountSaveBusy = false;
     }
 };
+function enterMonthlyRound(data) {
+    accountActiveEntry=data;
+    monthlyAttempts=[...data.attempts,...(data.pending || [])];
+    monthlyHasFinished=false;
+    monthlyTimerState='IDLE';
+    accountEl('monthly-timer-display').textContent='0.00';
+    accountEl('monthly-timer-display').className='timer-display';
+    accountEl('monthly-timer-title').textContent='巅峰月赛 - ' + currentMonthlyEventName;
+    accountEl('monthly-event-watermark').className='cubing-icon event-' + currentMonthlyEventTarget;
+    renderMonthlyAttemptsList();
+    renderMonthlyScramble(monthlyAttempts.length);
+    navigateTo('monthly-timer-page',true);
+}
 const accountOriginalRenderScramble=renderMonthlyScramble;
 renderMonthlyScramble = function(index) {
     const savedScrambles = accountActiveEntry?.event_id === currentMonthlyEventTarget ? accountActiveEntry.scrambles : null;
@@ -264,9 +486,25 @@ renderMonthlyScramble = function(index) {
 async function accountAppendAttempt(rawMs,penalty,modalId){
     if(accountSaveBusy || !accountActiveEntry)return;accountSaveBusy=true;
     try{
-        const client=await accountClient(),result=await monthlyCloudRequest(client.rpc('account_monthly_append',{p_entry:accountActiveEntry.id,p_index:monthlyAttempts.length,p_attempt:{rawMs:Number.isFinite(rawMs)?rawMs:0,penalty}}));if(result.error)throw result.error;
-        accountActiveEntry=result.data;accountMonthly.set(result.data.event_id,result.data);monthlyAttempts=[...result.data.attempts];accountEl(modalId).style.display='none';renderMonthlyAttemptsList();
-        if(result.data.status==='completed'){monthlyHasFinished=true;renderMonthlyList();showMonthlyFinishAlert();}else renderMonthlyScramble(monthlyAttempts.length);
+        const row = readMonthlyOffline().entries[accountActiveEntry.id];
+        const testing = accountActiveEntry.id.startsWith('test-');
+        if (!row || (!testing && row.user_id !== readMonthlyOffline().owner)) throw new Error('请重新登录原参赛账号。');
+        const attempt = {rawMs:Number.isFinite(rawMs)?Math.round(rawMs):0,penalty};
+        if (testing) {
+            row.attempts.push(attempt);
+            if (row.attempts.length === row.attempt_count) row.status = 'completed';
+        } else row.pending = [...(row.pending || []), attempt];
+        saveMonthlyOfflineEntry(row);
+        monthlyAttempts.push(attempt);
+        accountEl(modalId).style.display='none';
+        renderMonthlyAttemptsList();
+        if (monthlyAttempts.length === row.attempt_count) {
+            monthlyHasFinished = true;
+            renderMonthlyRankingEntry();
+            void renderMonthlyList();
+            showMonthlyFinishAlert();
+        } else renderMonthlyScramble(monthlyAttempts.length);
+        void flushMonthlyOffline();
     }catch(error){alert(`${accountError(error)}\n本次成绩尚未确认，请保留此页面重试。`);}finally{accountSaveBusy=false;}
 }
 confirmMonthlyPenalty=function(){return accountAppendAttempt(currentMonthlyRawMs,currentMonthlyPen,'monthly-penalty-modal');};
@@ -281,12 +519,19 @@ confirmMonthlyExit=async function(){
     const buttons = accountEl('monthly-exit-modal').querySelectorAll('button');
     buttons.forEach(button => button.disabled = true);
     try {
-        const client = await accountClient();
-        const result = await monthlyCloudRequest(client.rpc('account_monthly_abort', {p_entry: accountActiveEntry.id}));
-        if (result.error) throw result.error;
-        accountMonthly.set(result.data.event_id, result.data);
-        monthlyAttempts = result.data.attempts;
+        const store = readMonthlyOffline();
+        const row = store.entries[accountActiveEntry.id];
+        if (!row || (!row.id.startsWith('test-') && row.user_id !== store.owner)) throw new Error('请重新登录原参赛账号。');
+        if (row.id.startsWith('test-')) {
+            row.status='completed';saveMonthlyOfflineEntry(row);finishMonthlyExit();return;
+        }
+        const remaining = row.attempt_count - monthlyAttempts.length;
+        row.pending = [...(row.pending || []), ...Array.from({length:remaining}, () => ({rawMs:0,penalty:'DNS'}))];
+        saveMonthlyOfflineEntry(row);
+        monthlyAttempts = [...row.attempts,...row.pending];
+        renderMonthlyRankingEntry();
         finishMonthlyExit();
+        void flushMonthlyOffline();
     } catch (error) {
         alert(accountError(error));
     } finally {

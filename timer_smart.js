@@ -818,13 +818,19 @@ function stopTimerMoyu(preserveResult=false){
 function cycleTimerCategory(direction){const modes=['wca','smart','other'];setTimerTempMode(modes[(modes.indexOf(timerTempMode)+direction+modes.length)%modes.length]);}
 function setTimerTempMode(mode) {
     timerTempMode=['wca','smart','other'].includes(mode)?mode:'wca';
+    timerTempEvent = currentTimerEvent;
     renderTimerEventGrid();
 }
 
-function renderSmartTimerEventGrid(grid = document.getElementById('timer-event-grid')) {
+function renderSmartTimerEventGrid(grid = document.getElementById('timer-event-grid'), onSelect) {
     grid.replaceChildren();
     for (const [id, name, iconClass] of smartTimerProjects) {
-        const button = document.createElement('div');
+        const selectable = id === '333' && onSelect;
+        const button = document.createElement(selectable ? 'button' : 'div');
+        if (selectable) {
+            button.type = 'button';
+            button.onclick = () => onSelect(id);
+        }
         button.className = 'chal-event-item' + (id === '333' ? ' active' : ' timer-smart-disabled');
         if (id !== '333') button.setAttribute('aria-disabled', 'true');
         button.setAttribute('aria-pressed', String(id === '333'));

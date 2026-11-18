@@ -23,7 +23,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <link rel="dns-prefetch" href="//aizchgrmejdqwpvpxxui.supabase.co">
     <title>宁波 WCA 魔方数据库</title>
     <link rel="stylesheet" href="https://cdn.cubing.net/v0/css/@cubing/icons/css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.70.0">
+    <link rel="stylesheet" href="style.css?v=home-tablet-hero">
     <link rel="stylesheet" href="cube_explorer.css?v=1.60.0">
     <link rel="stylesheet" href="formulas/formula_pages.css?v=1.56.16">
     <link rel="stylesheet" href="analysis.css?v=1.60.0">
@@ -46,7 +46,6 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         </div>
     </div>
 
-    <div id="monthly-page-loading" class="monthly-page-loading" hidden></div>
     <div id="global-loading">
         <div class="startup-mosaic" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="startup-caption" role="status">载入中<span class="startup-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
@@ -487,7 +486,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
             <div class="ios-setting-group custom-ui-group">
                 <span>版本号</span>
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.70.0</span>
+                <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;">1.71.0</span>
             </div>
             <div class="ios-setting-group custom-ui-group" style="margin-bottom:0"><span>作者</span><span style="font-size:14px;color:var(--text-muted);font-weight:600">b站@泡芙老师k3</span></div>
         </div>
@@ -606,10 +605,10 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <div class="monthly-entry-loading" hidden>
                 <div class="spinner" aria-hidden="true"></div>
                 <p class="monthly-entry-status" role="status">载入中...</p>
-                <button type="button" class="btn monthly-entry-dismiss" onclick="closeMonthlyEntry()" hidden>关闭</button>
+                <button type="button" class="monthly-entry-dismiss" aria-label="关闭" onclick="closeMonthlyEntry()" hidden>×</button>
             </div>
             <h3 style="margin-top:0;">参赛确认</h3>
-            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">每月每个项目只能参加一次。成绩逐次保存，刷新或换设备可继续；确认退出则将剩余尝试记为 DNS。是否参加？</p>
+            <p style="margin: 20px 0; font-size: 15px; color: var(--text-main); font-weight: 500;">成绩逐次保存。已同步的进度可换设备继续。确认退出会将剩余尝试记为 DNS。是否参加？</p>
             <div class="monthly-entry-actions">
                 <button class="btn btn-outline" onclick="closeMonthlyEntry()">取消</button>
                 <button class="btn" onclick="confirmMonthlyEntry()">确定</button>
@@ -662,10 +661,12 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <div>
                     <h2 style="margin-bottom: 5px;">巅峰月赛</h2>
                     <div id="monthly-date-range" class="monthly-date-range"></div>
+
                 </div>
             </div>
         </div>
 
+        <p class="monthly-rules">每周可参加一次周赛，每个项目以最好成绩计入排名，榜单每月更新。</p>
         <div class="card" style="padding: 0; overflow: hidden; max-width: 650px; margin: 0 auto;">
             <div id="monthly-event-list" style="display: flex; flex-direction: column;">
                 <!-- JS 动态注入月赛项目 -->
@@ -684,6 +685,18 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 </div>
             </div>
         </div>
+        <section id="monthly-ranking-entry" class="card monthly-ranking-entry" aria-labelledby="monthly-ranking-entry-title" hidden>
+            <div class="monthly-ranking-entry-header" onclick="toggleMonthlyRankingWeeks(event)">
+                <button id="monthly-ranking-entry-title" type="button" aria-expanded="false" aria-controls="monthly-ranking-weeks">
+                    <span class="monthly-week-arrow-slot" aria-hidden="true"><svg class="monthly-week-arrow" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 8 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span>本周参赛</span> <span id="monthly-ranking-entry-dates" class="monthly-date-range"></span>
+                </button>
+                <button id="monthly-ranking-entry-action" type="button" class="btn btn-outline monthly-btn">参加</button>
+            </div>
+            <div id="monthly-ranking-weeks" inert>
+                <div id="monthly-ranking-week-list"></div>
+            </div>
+        </section>
         <div class="card" style="padding: 0; overflow: hidden; max-width: 650px; margin: 0 auto;">
             <div id="monthly-ranking-list" style="display: flex; flex-direction: column;">
                 <!-- JS 动态注入排行榜数据 -->
@@ -797,7 +810,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <div class="timer-clear-choices"><div id="timer-clear-mode" data-multiple="false"><span>多选</span><label class="cs-switch"><input id="timer-clear-multiple" type="checkbox" onchange="toggleTimerClearMultiple(this.checked)" aria-label="多选项目"><span class="cs-slider"></span></label></div><div id="timer-clear-projects"></div></div>
             <div class="edit-popup-actions" style="justify-content: center; width: 100%;">
                 <button class="edit-btn-cancel" onclick="closeTimerClearModal()">取消</button>
-                <button class="edit-btn-del" id="timer-clear-confirm" onclick="confirmTimerClear()">确定清空</button>
+                <button type="button" class="edit-btn-del" id="timer-clear-confirm" onclick="confirmTimerClear()">删除</button>
             </div>
         </div>
     </div>
@@ -855,7 +868,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
     <!-- 4. 成绩分布图弹窗 -->
     <div id="timer-dist-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
-        <div class="card pk-confirm-card" style="width: 480px; max-width: 95%; margin: 0; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;">
+        <div class="card pk-confirm-card timer-chart-card timer-dist-card">
             <div class="timer-daily-heading timer-chart-heading"><h3>成绩分布</h3><button type="button" aria-label="关闭成绩分布" onclick="closeTimerDistModal()">×</button></div>
 
             <div id="timer-dist-chart" class="dist-chart-container">
@@ -869,7 +882,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
     <!-- 5. 成绩走势折线图弹窗 -->
     <div id="timer-trend-modal" class="edit-score-popup" style="z-index: 2800; display: none; position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden;">
-        <div class="card pk-confirm-card timer-trend-card">
+        <div class="card pk-confirm-card timer-chart-card timer-trend-card">
             <div class="timer-daily-heading timer-chart-heading"><h3>成绩折线图</h3><button type="button" aria-label="关闭成绩折线图" onclick="closeTimerTrendModal()">×</button></div>
 
             <div class="timer-trend-plot">
@@ -1012,11 +1025,24 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <!-- 计时器项目选择悬浮卡片 -->
                 <div id="timer-event-popup" class="edit-score-popup" onclick="closeTimerEventPopup(event)">
                     <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择项目</h3>
-                        <div id="timer-event-grid" class="chal-event-grid"></div>
-                        <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
+                        <h3>选择项目</h3>
+                        <div class="timer-project-picker-stage">
+                            <div id="timer-event-grid" class="chal-event-grid"></div>
+                            <div id="timer-practice-panel" hidden>
+                                <div id="timer-practice-project"></div>
+                                <div class="timer-practice-columns">
+                                    <div id="timer-practice-modes" role="group" aria-label="练习类型"></div>
+                                    <div id="timer-practice-orientations" role="group" aria-label="打乱朝向"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="edit-popup-actions timer-event-actions">
                             <div id="timer-category-select" class="timer-category-select" role="group" aria-label="计时项目分类"><button type="button" aria-label="上一个分类" onclick="cycleTimerCategory(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="timer-category-label">WCA</span><button type="button" aria-label="下一个分类" onclick="cycleTimerCategory(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div>
-                            <button class="edit-btn-confirm" onclick="confirmTimerEvent()">确定</button>
+                            <div id="timer-practice-footer-control">
+                                <button type="button" id="timer-practice-back" class="edit-btn-cancel" onclick="closeTimerPracticePanel()" inert>返回</button>
+                                <button type="button" id="timer-practice-trigger" class="edit-btn-cancel" onclick="openTimerPracticePanel()"><span id="timer-practice-value">标准练习</span></button>
+                            </div>
+                            <button type="button" class="edit-btn-confirm" onclick="confirmTimerEvent()">确定</button>
                         </div>
                     </div>
                 </div>
@@ -1092,7 +1118,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
 
                         <!-- 底部三操作按钮 -->
                         <div class="edit-popup-actions">
-                            <button class="edit-btn-del" onclick="deleteEditScore()">删除</button>
+                            <button type="button" class="edit-btn-del" id="timer-edit-delete" onclick="deleteEditScore()">删除</button>
                             <button class="edit-btn-cancel" onclick="closeEditPopup()">取消</button>
                             <button class="edit-btn-cancel" onclick="confirmEditScore()">关闭</button>
                         </div>
@@ -1432,6 +1458,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
                 <div id="timer-smart-result" class="smart-result-overlay" role="dialog" aria-modal="true" aria-label="智能魔方复原成绩" hidden><div class="smart-result-card"><button type="button" class="smart-result-close" onclick="closeTimerSmartResult()" aria-label="关闭成绩卡片">×</button><h3 class="smart-result-project"><span class="cubing-icon event-333" aria-hidden="true"></span><span>魔域智能</span></h3><div id="timer-smart-result-time" class="smart-result-time">0.00</div><div class="smart-result-stats"><div><span>步数</span><strong id="timer-smart-result-steps">0</strong></div><div><span>TPS</span><strong id="timer-smart-result-tps">0.0</strong></div><div><span>停顿率</span><strong id="timer-smart-result-pause">0.0%</strong></div></div><div class="smart-result-actions"><button type="button" class="smart-result-delete edit-btn-del" onclick="requestTimerSmartResultDelete(this)">删除</button><button type="button" class="edit-btn-confirm" onclick="closeTimerSmartResult()">关闭</button><button type="button" class="smart-result-analysis" onclick="openTimerSmartAnalysis()">数据分析</button></div></div></div>
                 <!-- 右下角打乱图展示面板 (毛玻璃组件) -->
                 <div class="timer-scramble-draw-panel" id="timer-scramble-draw-panel">
+                    <div id="timer-practice-caption" hidden></div>
                     <twisty-player id="timer-scramble-display" visualization="2D" control-panel="none" background="none"></twisty-player>
                 </div>
             </div>
@@ -1824,9 +1851,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             <!-- 挑战项目选择卡片 -->
             <div id="chal-event-popup" class="edit-score-popup" onclick="closeChalEventPopup(event)">
                 <div class="edit-score-content chal-event-content" onclick="event.stopPropagation()">
-                    <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px;">选择项目</h3>
+                    <h3>选择项目</h3>
                     <div id="chal-event-grid" class="chal-event-grid"></div>
-                    <div class="edit-popup-actions timer-event-actions" style="margin-top: 15px;">
+                    <div class="edit-popup-actions timer-event-actions">
                         <div id="chal-category-select" class="timer-category-select" role="group" aria-label="计时项目分类"><button type="button" aria-label="上一个分类" onclick="cycleChalCategory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5l-7 7 7 7"/></svg></button><span id="chal-category-label">WCA</span><button type="button" aria-label="下一个分类" onclick="cycleChalCategory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5l7 7-7 7"/></svg></button></div>
                         <button class="edit-btn-confirm" onclick="confirmChalEvent()">确定</button>
                     </div>
@@ -1834,9 +1861,9 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
             </div>
 
             <!-- 设置与修改比分卡片 -->
-            <div id="chal-settings-modal" class="edit-score-popup" style="--chal-settings-title-size: 16px;" onclick="closeChalSettings()">
+            <div id="chal-settings-modal" class="edit-score-popup" onclick="closeChalSettings()">
                 <div class="edit-score-content" onclick="event.stopPropagation()" style="max-width: 320px;">
-                    <h3 id="chal-settings-title" style="margin-top: 0; margin-bottom: 20px; font-size: var(--chal-settings-title-size);"></h3>
+                    <h3 id="chal-settings-title"></h3>
                     <div id="chal-settings-body" style="width: 100%; margin-bottom: 20px;"></div>
                     <div class="edit-popup-actions">
                         <button class="edit-btn-cancel" onclick="closeChalSettings()">取消</button>
@@ -2081,12 +2108,12 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
     <script src="scramble_engine.js?v=fto-back-turns"></script>
     <script src="vendor/lz-string-1.5.0.min.js"></script>
     <script src="dc_timer_import.js?v=1.48.2"></script>
-    <script src="main.js?v=1.70.0"></script>
+    <script src="main.js?v=monthly-score-alignment"></script>
     <script src="forum.js?v=1.48.6"></script>
-    <script src="account.js?v=1.68.0"></script>
+    <script src="account.js?v=monthly-week-status"></script>
     <script src="theme.js?v=1.48.14"></script>
 
-<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
+<div id="timer-daily-overlay" class="timer-daily-overlay" role="dialog" aria-modal="true" aria-labelledby="timer-daily-title" hidden onclick="if(event.target===this)closeTimerDailyStats()"><div class="timer-chart-card timer-daily-card"><div class="timer-daily-heading"><h3 id="timer-daily-title">日常统计</h3><button type="button" aria-label="关闭日常统计" onclick="closeTimerDailyStats()">×</button></div><div class="timer-daily-tabs"><span class="timer-daily-thumb" aria-hidden="true"></span><button type="button" data-period="day" onclick="setTimerDailyPeriod('day')">日</button><button type="button" data-period="month" onclick="setTimerDailyPeriod('month')">月</button><button type="button" data-period="year" onclick="setTimerDailyPeriod('year')">年</button></div><div class="timer-daily-date"><button id="timer-daily-prev" type="button" aria-label="上一时间段" onclick="moveTimerDailyPeriod(-1)"><span aria-hidden="true">&lt;</span></button><span id="timer-daily-range"></span><button id="timer-daily-next" type="button" aria-label="下一时间段" onclick="moveTimerDailyPeriod(1)"><span aria-hidden="true">&gt;</span></button></div><div id="timer-daily-chart" class="timer-daily-chart"></div><div class="timer-daily-metrics"><div><span>还原次数</span><strong id="timer-daily-count">0/0</strong></div><div><span>平均</span><strong id="timer-daily-mean">N/A</strong></div><div><span>最快单次</span><strong id="timer-daily-best">-</strong></div><div><span>最慢单次</span><strong id="timer-daily-worst">-</strong></div></div></div></div>
 <div id="smart-analysis-overlay" class="smart-analysis-overlay" role="dialog" aria-modal="true" aria-label="复原数据分析" hidden><div class="smart-analysis-card"><div class="smart-analysis-heading"><div><h3>数据分析</h3></div><button type="button" class="smart-result-close" onclick="closeTimerSmartAnalysis()" aria-label="关闭数据分析">×</button></div><div class="smart-analysis-tabs"><button type="button" id="smart-analysis-tab-data" class="active" onclick="setTimerSmartAnalysisTab('data')">数据</button><button type="button" id="smart-analysis-tab-solution" onclick="setTimerSmartAnalysisTab('solution')">解法</button></div><div id="smart-analysis-data" class="smart-analysis-content"></div><div id="smart-analysis-solution" class="smart-analysis-content" hidden></div><div id="smart-analysis-scramble" class="smart-analysis-footer"></div></div></div>
 <div id="timer-battery-notice" class="timer-battery-notice" role="status" aria-live="polite" hidden><div class="timer-battery-notice-card"><button type="button" onclick="closeTimerBatteryNotice()" aria-label="关闭电量提示">×</button><span class="timer-battery-notice-symbol" aria-hidden="true">!</span><p id="timer-battery-notice-text"></p></div></div>
 <div id="challenge-bluetooth-dialog" class="cube-appearance-overlay" role="dialog" aria-modal="true" aria-labelledby="challenge-bluetooth-title" hidden>
@@ -2103,7 +2130,7 @@ html[data-theme="dark"] #global-loading .startup-mosaic i:nth-child(9){backgroun
         <p class="challenge-bluetooth-feedback" role="status" hidden></p>
     </div>
 </div>
-    <script src="timer_smart.js?v=1.69.1-bt-timer"></script>
+    <script src="timer_smart.js?v=fto-project-picker"></script>
     <script src="timer_bluetooth.js?v=1.70.0"></script>
     <script src="challenge_smart.js?v=1.69.0-gan-timing"></script>
     <script src="cube_space_player.js?v=1.56.16"></script>
