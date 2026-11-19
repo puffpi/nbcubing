@@ -914,11 +914,20 @@ function applyTimerMode() {
     document.getElementById('timer-event-icon').className = `cubing-icon event-${eventId}`;
     document.getElementById('timer-bottom-event-icon').className = `cubing-icon event-${eventId}`;
     const projectName = (smart ? smartTimerProjects.find(([id]) => id === eventId)?.[1] : item?.name) || '三阶';
-    document.getElementById('timer-event-name').textContent = (smart ? '智能' : '') + projectName;
+    document.getElementById('timer-event-name').textContent = smart ? '智能' + projectName : item?.selectorName || projectName;
     if (!smart) document.getElementById('timer-event-title').textContent = `${currentTimerMode==='other'?'其他':'WCA'} - ${getTimerRelayEvents(eventId)?'连拧 - ':''}${item?.name || '三阶'}`;
     document.getElementById('timer-relay-navigation').hidden=smart||!timerRelayScrambles.length||!getTimerRelayEvents(currentTimerEvent);
     const other=timerOtherEvents.find(e=>e.id===eventId);
-    for(const id of ['timer-event-icon','timer-bottom-event-icon']){const icon=document.getElementById(id);icon.textContent=id==='timer-bottom-event-icon'&&other?.fullName?(eventId==='guildford'?'GC':'Mini GC'):other?other.icon:'';icon.hidden=id==='timer-event-icon'&&!!other?.fullName;if(other)icon.className=other.iconClass?'cubing-icon '+other.iconClass:'timer-other-event-icon';icon.classList.toggle('timer-word-event-icon',!!other&&/[a-z]/i.test(other.icon));}
+    for (const id of ['timer-event-icon', 'timer-bottom-event-icon']) {
+        const icon = document.getElementById(id);
+        const isNavigation = id === 'timer-bottom-event-icon';
+        const guildfordText = isNavigation && eventId === 'guildford';
+        icon.textContent = guildfordText ? 'GC' : other?.icon || '';
+        icon.hidden = !isNavigation && Boolean(other?.fullName);
+        if (other) icon.className = other.iconClass ? 'cubing-icon ' + other.iconClass : 'timer-other-event-icon';
+        if (isNavigation && eventId === 'mini-guildford') icon.className = 'cubing-icon unofficial-miniguild';
+        icon.classList.toggle('timer-guildford-nav-label', guildfordText);
+    }
     if (smart) {
         if(timerSmartEvent!=='333')cancelTimerSmartAttempt();
         renderTimerVirtualCube();
@@ -1362,8 +1371,20 @@ function bindTimerSmartReplayView(model){
     model.addEventListener('touchmove',event=>{consume(event);if(window.PointerEvent||!drag)return;const t=Array.from(event.changedTouches).find(t=>t.identifier===drag.id);if(t)move(t.identifier,t.clientX,t.clientY);},{passive:false});
     const stopTouch=event=>{consume(event);if(!window.PointerEvent&&drag&&Array.from(event.changedTouches).some(t=>t.identifier===drag.id))reset();};model.addEventListener('touchend',stopTouch,{passive:false});model.addEventListener('touchcancel',stopTouch,{passive:false});
 }
+function recordSmart333ScrambleError(errors, move) {
+    const last = errors.at(-1);
+    if (last && move === timerSmartInverse(last)) {
+        errors.pop();
+    } else if (last === move && errors.at(-2) === move && errors.at(-3) === move) {
+        // Four consecutive quarter turns of the same face return it to its starting position.
+        errors.length -= 3;
+    } else {
+        errors.push(move);
+    }
+}
+
 function advanceMoyuScramble(attempt,move){
-    if(attempt.errors.length){if(move===timerSmartInverse(attempt.errors.at(-1)))attempt.errors.pop();else attempt.errors.push(move);}
+    if(attempt.errors.length)recordSmart333ScrambleError(attempt.errors,move);
     else{
         const expected=attempt.tokens[attempt.index];
         if(expected.endsWith('2')&&move[0]===expected[0]){
@@ -1385,7 +1406,7 @@ function handleTimerSmartMove(move,stamp=timerSmartClockNow()){
         if(attempt.lastGesture&&move===timerSmartInverse(attempt.lastGesture)){void beginTimerSmartScramble();return;}
         attempt.lastGesture=move;return;
     }
-    if(attempt.phase==='GENERATING'){(attempt.generatingMoves||=[]).push(move);return;}
+    if(attempt.phase==='GENERATING'){recordSmart333ScrambleError(attempt.generatingMoves||=[],move);return;}
     if(attempt.phase==='SCRAMBLING'){
         advanceMoyuScramble(attempt,move);
         if(refreshTimerSmartScramble()&&attempt.index===attempt.tokens.length&&!attempt.errors.length)beginTimerSmartInspection(stamp);return;

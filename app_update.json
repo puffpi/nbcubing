@@ -1,6 +1,6 @@
 {
-  "versionCode": 54,
-  "versionName": "1.71.0",
+  "versionCode": 55,
+  "versionName": "1.71.1",
   "apkUrl": "https://www.pgyer.com/cubespace-android",
-  "notes": "NB Timer 新增 FTO 顶层及 TCP 练习、独立成绩和黄顶蓝前朝向。巅峰月赛支持每周参赛、跨月周次与断网续赛补传，并优化首页和平板布局。"
+  "notes": "NB Timer 新增枫叶、Redi、二阶 FTO 和移棱，更新连拧及 Mini Guildford 图标。智能三阶打乱可清除转回原位的多余补偿步骤。统一 NB Timer 和 NB Challenge 项目选择卡的排版与字号。"
 }

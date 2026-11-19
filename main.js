@@ -3721,7 +3721,8 @@ function openTimerGroupStats() {
     icon.removeAttribute('id');
     icon.setAttribute('aria-hidden', 'true');
     const project = document.createElement('span');
-    project.textContent = getFtoPracticeProject(key)?.name || document.getElementById('timer-event-name').textContent;
+    project.textContent = getFtoPracticeProject(key)?.name || timerOtherEvents.find(event => event.id === key)?.name ||
+        document.getElementById('timer-event-name').textContent;
     document.getElementById('timer-group-stats-project').replaceChildren(icon, project);
     const overview = [
         ['总次数/有效次数', `${records.length} / ${count}`], ['+2 次数', plusTwo],
@@ -4236,9 +4237,15 @@ function switchTimerTab(tabName) {
 
 // ================= 计时器项目选择悬浮窗逻辑 =================
 const timerOtherEvents=[
- ...[8,9,10,11,12,13].map(n=>({id:String(n).repeat(3),name:['八','九','十','十一','十二','十三'][n-8]+'阶',group:'正阶',icon:n+'×'+n})),
- {id:'mirror',name:'镜面',group:'异形',icon:'',iconClass:'unofficial-333_mirror_blocks'},{id:'gear',name:'齿轮',group:'异形',icon:'',iconClass:'unofficial-gear'},
- ...[4,5,6,7].map(n=>({id:'relay2-'+n,name:'2-'+n+' 阶',group:'连拧',icon:'Relay'})),
+ ...[8,9,10,11,12,13].map(n=>({id:String(n).repeat(3),name:['八','九','十','十一','十二','十三'][n-8]+'阶',group:'超高阶',icon:n+'×'+n})),
+ ...[
+    ['maple','枫叶','ivy'], ['mirror','镜面','333_mirror_blocks'], ['gear','齿轮','gear'],
+    ['redi','Redi','redi'], ['baby_fto','二阶 FTO','baby_fto'], ['fisher','移棱','fisher']
+ ].map(([id,name,icon])=>({id,name,group:'异形',icon:'',iconClass:'unofficial-'+icon})),
+ ...['234','2345','23456','234567'].map(orders=>{
+    const lastOrder=orders.at(-1), name='2-'+lastOrder+' 阶';
+    return {id:'relay2-'+lastOrder,name,selectorName:name+'连拧',group:'连拧',icon:'',iconClass:'unofficial-'+orders+'relay'};
+ }),
  {id:'guildford',name:'Guildford Challenge',group:'连拧',icon:'',fullName:true},{id:'mini-guildford',name:'Mini Guildford Challenge',group:'连拧',icon:'',fullName:true}];
 let timerRelayScrambles=[],timerRelayIndex=0;
 function getTimerRelayEvents(id){
@@ -4246,36 +4253,35 @@ function getTimerRelayEvents(id){
  const speed=['222','333','444','555','666','777','333oh','clock','minx','pyram','skewb','sq1'];
  return id==='guildford'?speed:id==='mini-guildford'?speed.filter(e=>!['666','777'].includes(e)):null;
 }
-function renderOtherTimerEventGrid(){
- const grid=document.getElementById('timer-event-grid');grid.innerHTML='';
- for(const group of ['正阶','异形','连拧']){const title=document.createElement('div');title.className='timer-smart-group-title';title.textContent=group;grid.appendChild(title);
- for(const item of timerOtherEvents.filter(e=>e.group===group)){
-    const button=document.createElement(item.fullName?'button':'div');
-    if(item.fullName)button.type='button';
-    button.className='chal-event-item'+(timerTempEvent===item.id?' active':'');
-    const label=document.createElement('span');
-    label.textContent=item.name;
-    if(item.fullName){
-        button.classList.add('timer-other-fullname');
-        button.append(label);
-    }else{
-        button.classList.add('timer-other-project');
-        const icon=document.createElement('span');
-        icon.className='cubing-icon event-333 timer-other-project-icon';
-        const glyph=document.createElement('span');
-        glyph.className=item.iconClass?'cubing-icon '+item.iconClass:'timer-other-text-icon';
-        glyph.textContent=item.icon;
-        icon.append(glyph);
-        button.append(icon,label);
-        button.tabIndex=0;
-        button.setAttribute('role','button');
-        button.onkeydown=event=>{
-            if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();}
-        };
+function renderOtherTimerEventGrid() {
+    const grid = document.getElementById('timer-event-grid');
+    grid.replaceChildren();
+    for (const group of ['超高阶', '异形', '连拧']) {
+        const title = document.createElement('div');
+        title.className = 'timer-smart-group-title';
+        title.textContent = group;
+        grid.append(title);
+        for (const item of timerOtherEvents.filter(event => event.group === group)) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'chal-event-item';
+            button.classList.toggle('active', timerTempEvent === item.id);
+            button.classList.toggle('timer-other-project', !item.fullName);
+            button.classList.toggle('timer-other-fullname', Boolean(item.fullName));
+            if (!item.fullName) {
+                const icon = document.createElement('span');
+                icon.className = item.iconClass ? 'cubing-icon ' + item.iconClass : 'timer-other-text-icon';
+                icon.setAttribute('aria-hidden', 'true');
+                icon.textContent = item.icon;
+                button.append(icon);
+            }
+            const label = document.createElement('span');
+            label.textContent = item.name;
+            button.append(label);
+            button.onclick = () => selectTimerProject(item.id);
+            grid.append(button);
+        }
     }
-    button.onclick=()=>selectTimerProject(item.id);
-    grid.appendChild(button);
- }}
 }
 function switchTimerRelay(direction,event){event?.stopPropagation();event?.preventDefault();if(timerState!=='IDLE'||!timerScrambleReady||!timerRelayScrambles.length)return;timerRelayIndex=(timerRelayIndex+direction+timerRelayScrambles.length)%timerRelayScrambles.length;const item=timerRelayScrambles[timerRelayIndex];renderTimerScramble(item.scramble,item.event);}
 function getTimerAttemptScramble(){return getTimerRelayEvents(currentTimerEvent)?timerRelayScrambles.map(item=>item.event+': '+item.scramble.replace(/<br>/g,' ')).join('\n'):getVisibleTimerScrambleMoves();}

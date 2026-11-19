@@ -3403,7 +3403,7 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 
 /* NB Timer smart-cube preview and event selector */
 .edit-popup-actions.timer-event-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; flex:0 0 auto; }
-.timer-event-actions > .edit-btn-confirm { min-width:0; height:40px; margin:0; padding:0; }
+.timer-event-actions > .edit-btn-confirm { min-width:0; height:40px; margin:0; padding:0; font-size:var(--timer-picker-control-font-size); }
 .timer-mode-choice { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); align-items: center; gap: 3px; padding: 4px; border-radius: 999px; background: #edf1f5; min-width: 0; flex: 0 1 190px; overflow: hidden; }
 .timer-mode-choice::before { content: ''; position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 11px) / 2); border-radius: 999px; background: var(--primary-color); box-shadow: 0 2px 7px rgba(0,0,0,.12); transform: translateX(0); transition: transform .28s cubic-bezier(.22,.85,.35,1); }
 .timer-mode-choice:has(#timer-mode-smart.active)::before { transform: translateX(calc(100% + 3px)); }
@@ -3418,15 +3418,12 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
 #chal-event-grid, #timer-event-grid { grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-rows:auto; gap:8px; }
 :is(#chal-event-grid,#timer-event-grid) .chal-event-item { justify-content: center; height: 82px; min-height: 82px; padding: 5px 4px; box-sizing: border-box; }
 :is(#chal-event-grid,#timer-event-grid)::-webkit-scrollbar { display: none; }
-.timer-smart-group-title { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; font-weight: 700; margin: 2px 0 -2px; align-self: end; }
+.timer-smart-group-title { grid-column: 1 / -1; color: var(--text-muted); font-size: var(--timer-picker-control-font-size); font-weight: 700; margin: 2px 0 -2px; align-self: end; }
 :is(#timer-event-popup, #chal-event-popup) .chal-event-grid .timer-smart-disabled {
     color: var(--text-muted) !important;
     background: rgba(148, 163, 184, .15) !important;
     cursor: default;
 }
-#chal-event-grid button.chal-event-item { border: 0; font: inherit; }
-#chal-event-grid .chal-event-item > .cubing-icon { font-size: 24px; margin-bottom: 5px; }
-#chal-event-grid .chal-event-item > span:last-child { font-size: 12px; font-weight: 600; }
 .timer-maple-icon { position: relative; min-width: 1em; }
 .timer-maple-icon::before { visibility: hidden; }
 .timer-maple-icon > .cca-project-icon {
@@ -3871,8 +3868,6 @@ html[data-theme="dark"] .news-event-watermark { color: var(--text-main); }
     #timer-bottom-event-icon { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; line-height: 1; }
     #timer-event-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
     #timer-event-grid .chal-event-item { height: 82px; min-height: 82px; }
-    #timer-event-grid .chal-event-item .cubing-icon { font-size: 22px !important; margin-bottom: 3px !important; }
-    #timer-event-grid .chal-event-item span:last-child { font-size: 11px !important; }
     #timer-page.active:not(.smart-cube-page) #timer-event-watermark,
     #monthly-event-watermark { font-size: clamp(150px, 42vw, 210px); }
     #monthly-timer-page.active { padding-bottom: 10px !important; }
@@ -4819,31 +4814,27 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 
 /* Additional practice categories and relay navigation. */
 .timer-category-select { width:155px; height:40px; margin:0; padding:8px 12px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-color); color:var(--text-main); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
-#timer-event-grid button.chal-event-item { border:0; font-family:inherit; color:var(--text-main); cursor:pointer; min-width:0; }
-#timer-event-grid button.chal-event-item.active { color:white; }
+:is(#timer-event-grid,#chal-event-grid) button.chal-event-item { border:0; font-family:inherit; color:var(--text-main); cursor:pointer; min-width:0; }
+:is(#timer-event-grid,#chal-event-grid) button.chal-event-item.active { color:white; }
 .timer-other-icon { font-size:20px; font-weight:600; margin-bottom:5px; line-height:1.2; }
-#timer-event-grid button.chal-event-item span:last-child { font-size:11px; line-height:1.2; overflow-wrap:anywhere; }
-#timer-event-grid .timer-other-project > .timer-other-project-icon {
-    display: block;
-    font-size: 24px;
-    margin-bottom: 5px;
-    position: relative;
-    min-width: 1em;
+:is(#timer-event-popup,#chal-event-popup) {
+    --timer-picker-icon-size: 28px;
+    --timer-picker-control-font-size: 13px;
 }
-.timer-other-project-icon::before { visibility: hidden; }
-#timer-event-grid .timer-other-project-icon > span:last-child {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: inherit !important;
+:is(#timer-event-grid,#chal-event-grid) .chal-event-item:not(.timer-other-fullname) { row-gap: 7px; }
+:is(#timer-event-grid,#chal-event-grid) .chal-event-item > .cubing-icon {
+    block-size: 1em;
+    font-size: var(--timer-picker-icon-size) !important;
+    margin-bottom: 0 !important;
+    line-height: 1;
+}
+:is(#timer-event-grid,#chal-event-grid) .chal-event-item > .timer-other-text-icon {
+    display: inline-flex;
+    align-items: center;
+    block-size: var(--timer-picker-icon-size);
+    font-size: 18px;
+    line-height: 1;
     white-space: nowrap;
-}
-#timer-event-grid .timer-other-project-icon > .timer-other-text-icon:last-child {
-    font: 600 17px/1.2 var(--font-family, system-ui) !important;
-}
-@media ((max-width: 768px) or ((pointer: coarse) and (max-width: 1400px))) {
-    #timer-event-grid .timer-other-project > .cubing-icon { margin-bottom: 3px; }
 }
 #timer-relay-navigation { position:absolute; top:calc(10px + var(--relay-scramble-height,80px)); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:16px; z-index:16; white-space:nowrap; color:var(--text-muted); font-size:13px; }
 #timer-relay-navigation[hidden],#timer-scramble-draw-panel[hidden] { display:none!important; }
@@ -4866,11 +4857,7 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 /* Keep category labels inside the settings-style control. */
 :is(#timer-category-label,#chal-category-label) { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #timer-category-select > span:last-child { flex:0 0 auto; }
-#timer-event-grid .timer-other-fullname { grid-column:span 2; }
-#timer-event-grid .timer-other-fullname span:last-child { font-size:12px!important; line-height:1.35; overflow-wrap:normal; word-break:normal; max-width:100%; }
 #timer-event-grid .timer-other-icon { font-size:17px; white-space:nowrap; }
-#timer-event-grid .cubing-icon.unofficial-333_mirror_blocks,
-#timer-event-grid .cubing-icon.unofficial-gear { font-size:24px; margin-bottom:5px; }
 .timer-setting-overlay:not(#font-select-modal) .chal-event-item { font-family:inherit; font-size:16px; font-weight:700; }
 
 @media(max-width:420px){.timer-setting-overlay:not(#font-select-modal) .chal-event-item { font-size:14px; }}
@@ -4885,12 +4872,10 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 #timer-event-icon.timer-other-event-icon { font-size:13px!important; }
 #timer-event-name { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:20px; }
 #timer-event-selector > span:last-child { flex-shrink:0; }
-#timer-event-grid .timer-other-fullname span:last-child { font-family:inherit; font-size:17px!important; font-weight:600; line-height:1.2; }
 #timer-relay-navigation { align-items:center; color:var(--text-main); }
 #timer-relay-current { display:inline-flex; align-items:center; height:28px; line-height:1; font-weight:600; }
 :is(#timer-relay-navigation, .challenge-scramble-navigation) button { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; flex:0 0 28px; }
 :is(#timer-relay-navigation, .challenge-scramble-navigation) svg { display:block; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
-@media(max-width:420px){#timer-event-grid .timer-other-fullname span:last-child { font-size:14px!important; }}
 
 #timer-event-icon[hidden] { display:none!important; }
 
@@ -4905,6 +4890,7 @@ html[data-theme="dark"] :is(.edit-score-content,.cube-appearance-card,.forum-mod
 .timer-event-actions .timer-category-select button:is(:hover, :active) { background:transparent; box-shadow:none; transform:none; }
 .timer-event-actions .timer-category-select button { -webkit-tap-highlight-color:transparent; }
 #timer-bottom-event-icon.timer-other-event-icon { font-size:16px!important; width:56px; }
+#timer-bottom-event-icon.timer-guildford-nav-label { font-size:23px!important; width:auto; }
 
 .timer-event-actions .timer-category-select button, :is(#timer-category-label,#chal-category-label) { height:100%; min-height:0; }
 
@@ -5378,11 +5364,28 @@ html[data-theme=dark] .timer-more-item:hover{background:#30343b;}
 #timer-event-grid button.chal-event-item{font-weight:700;}
 
 /* Match event labels across all timer picker categories. */
-#timer-event-grid .chal-event-item:not(.timer-other-fullname)>span:last-child{font-size:12px!important;font-weight:600;}
+:is(#timer-event-grid,#chal-event-grid) .chal-event-item > span:last-child {
+    font-size: var(--timer-picker-control-font-size) !important;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+:is(#timer-event-grid,#chal-event-grid) .timer-other-fullname { grid-column: span 2; }
+:is(#timer-event-grid,#chal-event-grid) .timer-other-fullname > span:last-child {
+    max-width: 100%;
+    overflow-wrap: normal;
+    font-size: 17px !important;
+}
+@media (max-width: 420px) {
+    :is(#timer-event-grid,#chal-event-grid) .timer-other-fullname > span:last-child { font-size: 14px !important; }
+}
+:is(#timer-event-grid,#chal-event-grid) .timer-other-project > span:last-child {
+    max-inline-size: calc(100% + 8px);
+    white-space: nowrap;
+}
 #timer-event-icon.timer-other-event-icon{font-size:15px!important;}
 #timer-event-name{display:flex;align-items:center;height:24px;line-height:24px;}
 
-#timer-event-icon.timer-word-event-icon{font-size:inherit!important;font-weight:600;}
 #timer-relay-current{font-weight:500;gap:7px;}
 #timer-relay-current .cubing-icon{display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;}
 
@@ -6164,7 +6167,7 @@ html[data-theme="dark"] #nb-timing-options > button:disabled { background:rgba(2
     color: var(--timer-score-ink) !important;
 }
 html[data-theme="dark"] #timer-event-popup { --timer-score-ink: #e5e5e7; }
-#timer-event-popup .timer-smart-group-title { color: var(--timer-score-ink); }
+:is(#timer-event-popup,#chal-event-popup) .timer-smart-group-title { color: var(--timer-score-ink); }
 #timer-page .timer-bottom-bar .timer-tab-btn { color: var(--timer-score-ink); opacity: .76; }
 #timer-page .timer-bottom-bar .timer-tab-btn.active { opacity: 1; }
 #timer-smart-result .smart-result-stats span { opacity: 1; }
@@ -7074,8 +7077,12 @@ html[data-theme="dark"] .comp-status-tag.status-ended { color: #fda4af !importan
     text-align: center;
 }
 
-/* These Cubing Icons are available as SVGs but absent from the site's CDN font. */
-.cubing-icon:is(.event-gear, .unofficial-gear, .unofficial-ivy)::before {
+/* Use the bundled Cubing Icons SVGs with the local text color and font size. */
+.cubing-icon:is(
+    .event-gear, .unofficial-gear, .unofficial-ivy,
+    .unofficial-miniguild, .unofficial-redi, .unofficial-baby_fto, .unofficial-fisher,
+    .unofficial-234relay, .unofficial-2345relay, .unofficial-23456relay, .unofficial-234567relay
+)::before {
     content: "";
     display: inline-block;
     width: 1em;
@@ -7086,6 +7093,14 @@ html[data-theme="dark"] .comp-status-tag.status-ended { color: #fda4af !importan
 }
 .cubing-icon:is(.event-gear, .unofficial-gear) { --cubing-local-icon: url("image/cubing-icon-gear.svg"); }
 .cubing-icon.unofficial-ivy { --cubing-local-icon: url("image/cubing-icon-ivy.svg"); }
+.cubing-icon.unofficial-miniguild { --cubing-local-icon: url("image/cubing-icon-miniguild.svg"); }
+.cubing-icon.unofficial-redi { --cubing-local-icon: url("image/cubing-icon-redi.svg"); }
+.cubing-icon.unofficial-baby_fto { --cubing-local-icon: url("image/cubing-icon-baby_fto.svg"); }
+.cubing-icon.unofficial-fisher { --cubing-local-icon: url("image/cubing-icon-fisher.svg"); }
+.cubing-icon.unofficial-234relay { --cubing-local-icon: url("image/cubing-icon-234relay.svg"); }
+.cubing-icon.unofficial-2345relay { --cubing-local-icon: url("image/cubing-icon-2345relay.svg"); }
+.cubing-icon.unofficial-23456relay { --cubing-local-icon: url("image/cubing-icon-23456relay.svg"); }
+.cubing-icon.unofficial-234567relay { --cubing-local-icon: url("image/cubing-icon-234567relay.svg"); }
 
 /* Keep the divider centered in the full available viewport. */
 body:has(#challenge-page.active) > .global-nav-header { display: none !important; }
@@ -7446,7 +7461,7 @@ body:has(> #home-page.active) > .global-nav-header {
     min-width: 0;
     height: 40px;
     padding: 0 4px;
-    font-size: 13px;
+    font-size: var(--timer-picker-control-font-size);
     white-space: nowrap;
 }
 #timer-event-popup #timer-practice-footer-control > button {

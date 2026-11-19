@@ -225,6 +225,17 @@ function checkedMoves(kind,moves,length,modifiers) {
     }
     throw new Error('无法生成满足难度要求的打乱');
 }
+function randomThirdTurns(names, length) {
+    const turns = [];
+    let previous;
+    for (let i = 0; i < length; i++) {
+        const choices = names.filter(name => name !== previous);
+        const name = choices[randomInt(choices.length)];
+        turns.push(name + (randomInt(2) ? "'" : ''));
+        previous = name;
+    }
+    return turns.join(' ');
+}
 // Six choices for the up face, then four choices for the front face.
 function randomOrientation(right,up,front) {
     const vertical=['',right,right+'2',right+"'",front,front+"'"][randomInt(6)];
@@ -232,8 +243,14 @@ function randomOrientation(right,up,front) {
     return [vertical,horizontal].filter(Boolean).join(' ');
 }
 function generate(event, legacyFto) {
- if(event==='mirror')return generate('333');
+ // Fisher and Mirror Blocks share the 3x3 layer-turn mechanism.
+ if(event==='mirror'||event==='fisher')return generate('333');
  if(event==='gear')return randomMoves(['R','U','F'],10,['','2','3','4','5','6',"5'","4'","3'","2'","'"]);
+ // Corner notation follows csTimer's Ivy and Redi generators.
+ if(event==='maple')return randomThirdTurns(['R','L','D','B'],9);
+ if(event==='redi')return randomThirdTurns(['F','L','B','R','f','l','b','r'],30);
+ // Baby FTO uses the same eight face names and third turns as FTO.
+ if(event==='baby_fto')return randomThirdTurns(['U','D','F','B','L','R','BL','BR'],16);
  const n={'888':8,'999':9,'101010':10,'111111':11,'121212':12,'131313':13}[event];
  if(n){const moves=['R','L','U','D','F','B'];for(let w=2;w<=Math.floor(n/2);w++)for(const f of(n%2===0&&w===n/2?['R','U','F']:['R','L','U','D','F','B']))moves.push((w===2?'':w)+f+'w');return randomMoves(moves,20*(n-2)+randomInt(9));}
     const faces=['R','L','U','D','F','B'],wide=['Rw','Lw','Uw','Dw','Fw','Bw'];

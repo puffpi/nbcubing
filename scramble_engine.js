@@ -1,6 +1,6 @@
 /* Cube Space training generators run locally in a worker. */
 window.nbScrambleEngine = (() => {
-    const events = Object.fromEntries(['222','333','333oh','333ft','333fm','333bf','333mbf','444','444bf','555','555bf','666','777','pyram','skewb','minx','sq1','clock','fto','888','999','101010','111111','121212','131313','mirror','gear'].map(event=>[event,[event]]));
+    const events = Object.fromEntries(['222','333','333oh','333ft','333fm','333bf','333mbf','444','444bf','555','555bf','666','777','pyram','skewb','minx','sq1','clock','fto','888','999','101010','111111','121212','131313','maple','mirror','gear','redi','baby_fto','fisher'].map(event=>[event,[event]]));
     let worker, sequence = 0;
     const pending = new Map();
     const pools = new Map();
@@ -11,7 +11,7 @@ window.nbScrambleEngine = (() => {
     }
     function getWorker() {
         if (!worker) {
-            worker = new Worker('scramble_worker.js?v=fto-back-turns');
+            worker = new Worker('scramble_worker.js?v=shape-mod-scrambles');
             worker.onmessage = ({data}) => {
                 const request = pending.get(data[0]);
                 if (!request) return;
